@@ -1,0 +1,20 @@
+[
+  {
+    "attnum": 1,
+    "name": "id",
+    "typname": "int4",
+    "typlen": 4,
+    "attlen": 4,
+    "attalign": "i",
+    "attisdropped": false
+  },
+  {
+    "attnum": 2,
+    "name": "label",
+    "typname": "text",
+    "typlen": -1,
+    "attlen": -1,
+    "attalign": "i",
+    "attisdropped": false
+  }
+]

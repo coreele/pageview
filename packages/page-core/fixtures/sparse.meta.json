@@ -1,0 +1,7 @@
+{
+  "source": "synthetic-buildSparsePage",
+  "note": "Replace with PG 16.11 get_raw_page capture when available",
+  "withRedirect": true,
+  "withHot": true,
+  "crossBlockCtid": true
+}
