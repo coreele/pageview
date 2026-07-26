@@ -1,4 +1,7 @@
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
+  cellCapacityChars,
+  chooseCellContent,
   decodeInfomask,
   decodeInfomask2,
   decodeItemIdFlags,
@@ -7,6 +10,7 @@ import {
   splitFieldIntoRowSegments,
   STRUCTURE_BYTES_PER_ROW,
   type ByteRange,
+  type CellMetrics,
   type ParsedPage,
   type StructureField,
 } from "page-core";
@@ -29,6 +33,52 @@ type LayoutSegment = {
   colStart: number;
   colEnd: number;
 };
+
+const DEFAULT_METRICS: CellMetrics = {
+  charWidthPx: 7,
+  byteColWidthPx: 14,
+  cellPaddingXPx: 4,
+  cellBorderXPx: 0,
+};
+
+/** Prefer readable short names over naive truncation (avoids "pd_", "che"). */
+function abbreviateLabel(label: string, spanBytes: number): string {
+  const known: Record<string, string[]> = {
+    checksum: ["cks", "ck"],
+    flags: ["flg", "fl"],
+    pd_lower: ["lower", "lo"],
+    pd_upper: ["upper", "up"],
+    special: ["spec", "sp"],
+    "pagesize/ver": ["psz/v", "pv"],
+    prune_xid: ["prune", "px"],
+    xlogid: ["xlog", "xl"],
+    xrecoff: ["xoff", "xo"],
+    lower: ["lower", "lo"],
+    upper: ["upper", "up"],
+    "psz/ver": ["psz/v", "pv"],
+    infomask2: ["imask2", "im2"],
+    infomask: ["imask", "im"],
+    nullbits: ["nullb", "nb"],
+    hoff: ["hoff", "ho"],
+    cid: ["cid", "ci"],
+    ctid: ["ctid", "ct"],
+    xmin: ["xmin", "xn"],
+    xmax: ["xmax", "xm"],
+  };
+  const item = /^ItemId\[(\d+)\]$/.exec(label);
+  if (item) return spanBytes >= 3 ? `#${item[1]}` : item[1]!;
+  const options = known[label];
+  if (options) {
+    for (const opt of options) {
+      if (opt.length <= spanBytes * 2 + 1) return opt;
+    }
+    return options[options.length - 1]!;
+  }
+  if (spanBytes <= 1) return label.slice(0, 2);
+  if (spanBytes <= 2) return label.length <= 4 ? label : label.slice(0, 3);
+  if (label.length <= spanBytes * 2) return label;
+  return label.slice(0, Math.max(3, spanBytes * 2 - 1));
+}
 
 function buildLayoutSegments(fields: StructureField[]): LayoutSegment[] {
   const segments: LayoutSegment[] = [];
@@ -77,43 +127,19 @@ function isFieldDiff(diffIds: Set<string>, field: StructureField): boolean {
   return false;
 }
 
-/** Prefer readable short names over naive truncation (avoids "pd_", "che"). */
-function abbreviateLabel(label: string, spanBytes: number): string {
-  const known: Record<string, string[]> = {
-    checksum: ["cks", "ck"],
-    flags: ["flg", "fl"],
-    pd_lower: ["lower", "lo"],
-    pd_upper: ["upper", "up"],
-    special: ["spec", "sp"],
-    "pagesize/ver": ["psz/v", "pv"],
-    prune_xid: ["prune", "px"],
-    xlogid: ["xlog", "xl"],
-    xrecoff: ["xoff", "xo"],
-    lower: ["lower", "lo"],
-    upper: ["upper", "up"],
-    "psz/ver": ["psz/v", "pv"],
-    infomask2: ["imask2", "im2"],
-    infomask: ["imask", "im"],
-    nullbits: ["nullb", "nb"],
-    hoff: ["hoff", "ho"],
-    cid: ["cid", "ci"],
-    ctid: ["ctid", "ct"],
-    xmin: ["xmin", "xn"],
-    xmax: ["xmax", "xm"],
-  };
-  const item = /^ItemId\[(\d+)\]$/.exec(label);
-  if (item) return spanBytes >= 3 ? `#${item[1]}` : item[1]!;
-  const options = known[label];
-  if (options) {
-    for (const opt of options) {
-      if (opt.length <= spanBytes * 2 + 1) return opt;
-    }
-    return options[options.length - 1]!;
+/** Widest segment wins; ties go to lowest page offset. */
+function isValueSegment(seg: LayoutSegment, all: LayoutSegment[]): boolean {
+  if (seg.field.valueText == null) return false;
+  const siblings = all.filter((s) => s.field.id === seg.field.id);
+  let best = siblings[0]!;
+  for (const s of siblings) {
+    const span = s.colEnd - s.colStart;
+    const bestSpan = best.colEnd - best.colStart;
+    const off = s.row * STRUCTURE_BYTES_PER_ROW + s.colStart;
+    const bestOff = best.row * STRUCTURE_BYTES_PER_ROW + best.colStart;
+    if (span > bestSpan || (span === bestSpan && off < bestOff)) best = s;
   }
-  if (spanBytes <= 1) return label.slice(0, 2);
-  if (spanBytes <= 2) return label.length <= 4 ? label : label.slice(0, 3);
-  if (label.length <= spanBytes * 2) return label;
-  return label.slice(0, Math.max(3, spanBytes * 2 - 1));
+  return best.row === seg.row && best.colStart === seg.colStart;
 }
 
 function FreeSpaceBand({
@@ -181,6 +207,8 @@ function FieldCell({
   diff,
   onSelect,
   fields,
+  metrics,
+  renderValue,
 }: {
   field: StructureField;
   colStart: number;
@@ -189,6 +217,8 @@ function FieldCell({
   diff: boolean;
   onSelect: (id: string, range: ByteRange) => void;
   fields: StructureField[];
+  metrics: CellMetrics;
+  renderValue: boolean;
 }) {
   const span = colEnd - colStart;
   const isItemId = field.region === "itemid" && !field.parentId;
@@ -202,6 +232,16 @@ function FieldCell({
   };
 
   const shortLabel = abbreviateLabel(field.label, span);
+  const capacity = cellCapacityChars(span, metrics);
+  const choice =
+    renderValue && field.valueText != null
+      ? chooseCellContent({ label: shortLabel, valueText: field.valueText, capacityChars: capacity })
+      : { mode: "label" as const };
+  const title =
+    choice.mode === "value" && field.valueText
+      ? `${field.fullLabel} = ${field.valueText}`
+      : field.fullLabel;
+
   const lpStatus =
     isItemId && field.fullLabel.includes("UNUSED")
       ? "UNUSED"
@@ -213,14 +253,16 @@ function FieldCell({
             ? "DEAD"
             : undefined;
 
+  const thirdCapacity = Math.max(0, Math.floor(cellCapacityChars(4, metrics) / 3));
+
   return (
     <div
-      className={`field-cell region-${field.region}${selected ? " selected" : ""}${diff ? " diff" : ""}${lpStatus ? ` lp-${lpStatus.toLowerCase()}` : ""}`}
+      className={`field-cell region-${field.region}${selected ? " selected" : ""}${diff ? " diff" : ""}${lpStatus ? ` lp-${lpStatus.toLowerCase()}` : ""}${choice.mode === "value" ? " value-mode" : ""}`}
       style={{ gridColumn: `${colStart + 1} / ${colEnd + 1}` }}
       role="button"
       tabIndex={0}
-      title={field.fullLabel}
-      aria-label={field.fullLabel}
+      title={title}
+      aria-label={title}
       data-lp-status={lpStatus}
       onClick={activate}
       onKeyDown={(e) => {
@@ -235,13 +277,37 @@ function FieldCell({
           {(["off", "flag", "len"] as const).map((name) => {
             const t = thirds.find((x) => x.label === name);
             if (!t) return null;
+            const tLabel = abbreviateLabel(t.label, 1);
+            const tChoice = chooseCellContent({
+              label: tLabel,
+              valueText: t.valueText,
+              capacityChars: thirdCapacity,
+            });
             return (
-              <span key={t.id} className="itemid-third" title={t.fullLabel}>
-                {t.label}
+              <span
+                key={t.id}
+                className={`itemid-third${tChoice.mode === "value" ? " value-mode" : ""}`}
+                title={
+                  t.valueText ? `${t.fullLabel} = ${t.valueText}` : t.fullLabel
+                }
+              >
+                {tChoice.mode === "value" ? (
+                  <>
+                    {tChoice.showLabel ? <span className="field-label">{tLabel}</span> : null}
+                    <span className="field-value">{t.valueText}</span>
+                  </>
+                ) : (
+                  t.label
+                )}
               </span>
             );
           })}
         </div>
+      ) : choice.mode === "value" ? (
+        <span className="field-stack">
+          {choice.showLabel ? <span className="field-label">{shortLabel}</span> : null}
+          <span className="field-value">{field.valueText}</span>
+        </span>
       ) : (
         <span className="field-label">{shortLabel}</span>
       )}
@@ -254,11 +320,13 @@ function DiagramRows({
   selectedId,
   diffIds,
   onSelect,
+  metrics,
 }: {
   fields: StructureField[];
   selectedId: string | null;
   diffIds: Set<string>;
   onSelect: (id: string, range: ByteRange) => void;
+  metrics: CellMetrics;
 }) {
   const segments = buildLayoutSegments(fields);
   const grouped = groupByRow(segments);
@@ -288,6 +356,8 @@ function DiagramRows({
                 diff={isFieldDiff(diffIds, seg.field)}
                 onSelect={onSelect}
                 fields={fields}
+                metrics={metrics}
+                renderValue={isValueSegment(seg, segments)}
               />
             ))}
           </div>
@@ -295,6 +365,51 @@ function DiagramRows({
       ))}
     </>
   );
+}
+
+function useStructureCellMetrics(rootRef: RefObject<HTMLElement | null>): CellMetrics {
+  const [metrics, setMetrics] = useState<CellMetrics>(DEFAULT_METRICS);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const measure = () => {
+      const probe = root.querySelector(".structure-char-probe") as HTMLElement | null;
+      const grid = root.querySelector(".structure-row-grid") as HTMLElement | null;
+      const cell = root.querySelector(".field-cell") as HTMLElement | null;
+      if (!probe || !grid) return;
+
+      const charWidthPx = probe.getBoundingClientRect().width / 10;
+      const gap = Number.parseFloat(getComputedStyle(grid).columnGap || "1") || 1;
+      const gridWidth = grid.getBoundingClientRect().width;
+      const byteColWidthPx = (gridWidth - 31 * gap) / 32;
+
+      let cellPaddingXPx = DEFAULT_METRICS.cellPaddingXPx;
+      let cellBorderXPx = DEFAULT_METRICS.cellBorderXPx;
+      if (cell) {
+        const cs = getComputedStyle(cell);
+        cellPaddingXPx =
+          (Number.parseFloat(cs.paddingLeft) || 0) + (Number.parseFloat(cs.paddingRight) || 0);
+        cellBorderXPx =
+          (Number.parseFloat(cs.borderLeftWidth) || 0) +
+          (Number.parseFloat(cs.borderRightWidth) || 0);
+      }
+
+      if (charWidthPx > 0 && byteColWidthPx > 0) {
+        setMetrics({ charWidthPx, byteColWidthPx, cellPaddingXPx, cellBorderXPx });
+      }
+    };
+
+    measure();
+    const ro = new ResizeObserver(() => measure());
+    ro.observe(root);
+    const grid = root.querySelector(".structure-row-grid");
+    if (grid) ro.observe(grid);
+    return () => ro.disconnect();
+  }, [rootRef]);
+
+  return metrics;
 }
 
 export function StructureMap({
@@ -308,11 +423,17 @@ export function StructureMap({
   onSelect,
   onLoadCrossBlock,
 }: Props) {
-  const fields = deriveStructureFields(page);
-  const upperFields = fields.filter(
-    (f) => !f.visualOnly && (f.region === "header" || f.region === "itemid"),
+  const rootRef = useRef<HTMLDivElement>(null);
+  const metrics = useStructureCellMetrics(rootRef);
+  const fields = useMemo(() => deriveStructureFields(page), [page]);
+  const upperFields = useMemo(
+    () => fields.filter((f) => !f.visualOnly && (f.region === "header" || f.region === "itemid")),
+    [fields],
   );
-  const tupleFields = fields.filter((f) => !f.visualOnly && f.region === "tuple");
+  const tupleFields = useMemo(
+    () => fields.filter((f) => !f.visualOnly && f.region === "tuple"),
+    [fields],
+  );
 
   const selectedItem = page.itemIds.find(
     (i) => selectedId === `itemid-${i.index}` || selectedId?.startsWith(`itemid-${i.index}.`),
@@ -323,7 +444,10 @@ export function StructureMap({
   const selectedField = fields.find((f) => f.id === selectedId && !f.visualOnly);
 
   return (
-    <div className="structure structure-diagram">
+    <div className="structure structure-diagram" ref={rootRef}>
+      <span className="structure-char-probe" aria-hidden="true">
+        0000000000
+      </span>
       <div className="diagram-legend" aria-hidden="true">
         <span className="legend-chip region-header">header</span>
         <span className="legend-chip region-itemid">ItemId</span>
@@ -342,6 +466,7 @@ export function StructureMap({
           selectedId={selectedId}
           diffIds={diffIds}
           onSelect={onSelect}
+          metrics={metrics}
         />
       </section>
 
@@ -370,6 +495,7 @@ export function StructureMap({
           selectedId={selectedId}
           diffIds={diffIds}
           onSelect={onSelect}
+          metrics={metrics}
         />
       </section>
 
@@ -378,7 +504,10 @@ export function StructureMap({
           <strong>Selection detail</strong>
           {selectedField && (
             <div className="mono" style={{ marginBottom: "0.35rem" }}>
-              {selectedField.fullLabel}
+              <div>{selectedField.fullLabel}</div>
+              {selectedField.valueText != null && (
+                <div className="selection-value">{selectedField.valueText}</div>
+              )}
             </div>
           )}
           {selectedItem && (

@@ -16,7 +16,7 @@ Local tool: connect to PostgreSQL, fetch heap pages via `pageinspect.get_raw_pag
 
 - Heap user tables only (`relkind = r`); no system catalogs, indexes, FSM/VM
 - Standard 8KB pages only
-- Page view: structure diagram aligned to **32 bytes per row** (header → ItemId → foldable free space → tuples); hex dump matches 32B/row with ≥4-digit hex offsets
+- Page view: structure diagram aligned to **32 bytes per row** (header → ItemId → foldable free space → tuples); wide cells show field values; hex dump matches 32B/row with ≥4-digit hex offsets and auto-scrolls to the selection
 - TOAST pointers shown as TOASTed — external toast pages not fetched
 
 ## Prerequisites

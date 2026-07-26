@@ -18,6 +18,7 @@
   --diagram-bg: #f1f5f8;
   --diagram-grid-line: color-mix(in srgb, #94a3b8 35%, transparent);
   --cell-ink: #0f172a;
+  --hex-locate: #38bdf8;
   --chrome-h: 44px;
   --strip-h: 64px;
   --nav-w: 260px;
@@ -42,6 +43,7 @@
   --diagram-bg: #101820;
   --diagram-grid-line: color-mix(in srgb, #64748b 40%, transparent);
   --cell-ink: #e2e8f0;
+  --hex-locate: #7dd3fc;
 }
 
 *,
@@ -270,6 +272,7 @@ input {
 }
 
 .structure-diagram {
+  position: relative;
   overflow-x: auto;
   background: var(--diagram-bg);
   border: 1px solid var(--border);
@@ -394,7 +397,6 @@ input {
   line-height: 1.2;
   padding: 0.28rem 0.12rem;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
   min-width: 0;
@@ -406,6 +408,67 @@ input {
     background-color 120ms ease,
     box-shadow 120ms ease,
     filter 120ms ease;
+}
+
+.field-cell:not(.value-mode) .field-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-cell.value-mode {
+  white-space: normal;
+  align-items: stretch;
+}
+
+.field-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.05rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.field-label {
+  max-width: 100%;
+  font-size: 0.85em;
+  color: color-mix(in srgb, var(--cell-ink) 72%, var(--text-muted));
+}
+
+.field-value {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  font-weight: 650;
+  max-width: 100%;
+}
+
+.selection-value {
+  font-weight: 650;
+  margin-top: 0.15rem;
+}
+
+.structure-char-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10.5px;
+  white-space: pre;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .field-cell:hover {
@@ -468,12 +531,6 @@ input {
   outline-offset: -2px;
 }
 
-.field-label {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .itemid-thirds {
   display: flex;
   width: 100%;
@@ -485,13 +542,21 @@ input {
 .itemid-third {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   border-right: 1px dashed color-mix(in srgb, var(--cell-ink) 18%, transparent);
   overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 9.5px;
   opacity: 0.85;
+  min-width: 0;
+}
+.itemid-third:not(.value-mode) {
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.itemid-third.value-mode {
+  opacity: 1;
 }
 .itemid-third:last-child {
   border-right: none;
@@ -642,6 +707,17 @@ input {
   background: var(--hex-hl);
   color: var(--cell-ink);
   font-weight: 600;
+}
+
+.hex-row.locate-flash {
+  box-shadow: inset 3px 0 0 var(--hex-locate);
+  background: color-mix(in srgb, var(--hex-locate) 14%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hex-row.locate-flash {
+    transition: none;
+  }
 }
 
 .flag-list {

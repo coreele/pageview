@@ -43,6 +43,7 @@ export function App() {
   const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
   const [hexCollapsed, setHexCollapsed] = useState(false);
   const [freeCollapsed, setFreeCollapsed] = useState(false);
+  const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
 
   const [form, setForm] = useState({
     host: "127.0.0.1",
@@ -177,6 +178,7 @@ export function App() {
       setBlkno(block);
       setSelectedId(null);
       setHighlight(null);
+      setHexLocate(null);
     } catch (err) {
       setError(err as AppError);
       if (!opts?.refresh) setPage(null);
@@ -198,19 +200,31 @@ export function App() {
     setBlkno(0);
   };
 
-  const onSelectStructure = (id: string, range: ByteRange) => {
+  const selectByteRange = (id: string, range: ByteRange, origin: "structure" | "hex") => {
+    const rangeChanged =
+      !highlight || highlight.start !== range.start || highlight.end !== range.end;
     setSelectedId(id);
     setHighlight(range);
+    if (origin === "hex") return;
+    if (!rangeChanged) return;
+    if (hexCollapsed) setHexCollapsed(false);
+    setHexLocate((prev) => ({
+      offset: range.start,
+      nonce: (prev?.nonce ?? 0) + 1,
+    }));
+  };
+
+  const onSelectStructure = (id: string, range: ByteRange) => {
+    selectByteRange(id, range, "structure");
   };
 
   const onHexSelect = (offset: number) => {
     if (!page) return;
     const hit = findStructureAt(page, offset);
     if (hit) {
-      setSelectedId(hit.id);
-      setHighlight(hit.range);
+      selectByteRange(hit.id, hit.range, "hex");
     } else {
-      setHighlight({ start: offset, end: offset + 1 });
+      selectByteRange(`byte-${offset}`, { start: offset, end: offset + 1 }, "hex");
     }
   };
 
@@ -507,12 +521,21 @@ export function App() {
                 }}
               />
               <div>
-                <button type="button" onClick={() => setHexCollapsed((v) => !v)}>
+                <button
+                  type="button"
+                  aria-expanded={!hexCollapsed}
+                  onClick={() => setHexCollapsed((v) => !v)}
+                >
                   {hexCollapsed ? "Show hex" : "Collapse hex"}
                 </button>
               </div>
               {!hexCollapsed && (
-                <HexDump raw={page.raw} highlight={highlight} onSelectOffset={onHexSelect} />
+                <HexDump
+                  raw={page.raw}
+                  highlight={highlight}
+                  locate={hexLocate}
+                  onSelectOffset={onHexSelect}
+                />
               )}
               {schema && (
                 <div className="muted">
