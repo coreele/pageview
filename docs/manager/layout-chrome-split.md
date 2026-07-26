@@ -5,12 +5,12 @@
 路径等级: full
 源分支: layout-chrome-split
 目标分支: main
-文档影响: 将新建 `docs/features/layout-chrome-split/`（spec.md、design.md、ui-design.md、plan.md，及后续 dev-notes/review/qa-report）；可能修订 README 中壳层/布局说明。前序合同见归档 `docs/archive/2026/pg-page-viewer/` 与 `docs/archive/2026/page-diagram-32b/`。
+文档影响: 已归档至 `docs/archive/2026/layout-chrome-split/`（原 `docs/features/layout-chrome-split/`：spec.md、design.md、ui-design.md、plan.md、dev-notes.md、review.md、qa-report.md）；可能已修订 README 中壳层/布局说明。前序合同见归档 `docs/archive/2026/pg-page-viewer/` 与 `docs/archive/2026/page-diagram-32b/`。
 
 > 权威工作流、门禁与状态说明见 manager 规范。
 > 活跃状态见 [STATUS.md](STATUS.md)。
 >
-> 文档路径：未拆分 Spec 为 `docs/features/layout-chrome-split/spec.md`。
+> 文档路径（已归档）：`docs/archive/2026/layout-chrome-split/spec.md` 等。
 
 ## 参考资产（供 Analyst / Planner）
 
@@ -66,7 +66,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| layout-chrome-split | [spec.md](../features/layout-chrome-split/spec.md) | required | approved | required | gui | Approve @ 5b2756a | done | 关闭提交后合入 main → push → 归档 |
+| layout-chrome-split | [spec.md](../archive/2026/layout-chrome-split/spec.md) | required | approved | required | gui | Approve @ 5b2756a | done | 已合入 main（FF `7e99933`）并归档；push 因无 origin 未完成 |
 
 阻塞原因: none
 恢复条件: N/A
