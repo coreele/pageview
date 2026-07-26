@@ -61,8 +61,53 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  const schemaRes = await app.inject({
+    method: "GET",
+    url: `/api/tables/${target.oid}/schema`,
+  });
+  if (schemaRes.statusCode !== 200) {
+    console.error("GET schema failed", schemaRes.body);
+    process.exit(1);
+  }
+
+  // R1 regression: DROP COLUMN must still appear as attisdropped placeholder.
+  const client = await session.pool!.connect();
+  let dropOid: number | null = null;
+  try {
+    await client.query(`
+      CREATE TEMP TABLE pageview_r1_drop (a int, b text, c int);
+      INSERT INTO pageview_r1_drop VALUES (1, 'x', 2);
+      ALTER TABLE pageview_r1_drop DROP COLUMN b;
+    `);
+    const oidRes = await client.query(`SELECT 'pageview_r1_drop'::regclass::oid AS oid`);
+    dropOid = Number(oidRes.rows[0].oid);
+  } finally {
+    client.release();
+  }
+
+  const dropSchema = await app.inject({
+    method: "GET",
+    url: `/api/tables/${dropOid}/schema`,
+  });
+  if (dropSchema.statusCode !== 200) {
+    console.error("GET schema (dropped col) failed", dropSchema.body);
+    process.exit(1);
+  }
+  const cols = dropSchema.json().columns as Array<{ attisdropped: boolean; name: string }>;
+  if (cols.length < 3 || !cols.some((c) => c.attisdropped)) {
+    console.error("R1 failed: schema missing attisdropped placeholder", cols);
+    process.exit(1);
+  }
+
+  // Blocks must reflect on-disk size (not stale relpages alone).
+  if (target.blocks < 1) {
+    console.error("blocks contract failed: expected >= 1 for table with pages");
+    process.exit(1);
+  }
+
   console.log(`L3 smoke OK: ${target.qualifiedName} blk 0 length=${buf.length}`);
   console.log(`serverVersion=${session.serverVersion}`);
+  console.log(`R1 schema placeholders OK (${cols.filter((c) => c.attisdropped).length} dropped)`);
   await app.close();
   if (session.pool) await session.pool.end();
 }

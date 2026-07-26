@@ -2,6 +2,12 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import pg from "pg";
 import {
+  LIST_TABLES_SQL,
+  PAGE_RELATION_SQL,
+  SCHEMA_COLUMNS_SQL,
+  mapSchemaColumnRow,
+} from "./catalog.js";
+import {
   emptySession,
   PAGEINSPECT_NEXT,
   readEnvCredentials,
@@ -101,9 +107,11 @@ export async function connectSession(session: SessionState, creds: Creds): Promi
     user: creds.user,
     password: creds.password,
     max: 4,
+    connectionTimeoutMillis: 10_000,
   });
 
   const client = await pool.connect();
+  let released = false;
   try {
     const ver = await client.query("SELECT version() AS v");
     session.serverVersion = String(ver.rows[0].v);
@@ -112,6 +120,9 @@ export async function connectSession(session: SessionState, creds: Creds): Promi
     session.connected = true;
     session.lastError = null;
   } catch (e) {
+    // Release before pool.end(); ending while a client is checked out deadlocks.
+    client.release();
+    released = true;
     await pool.end().catch(() => undefined);
     session.pool = null;
     session.connected = false;
@@ -126,7 +137,7 @@ export async function connectSession(session: SessionState, creds: Creds): Promi
     err.body = mapped.body;
     throw err;
   } finally {
-    client.release();
+    if (!released) client.release();
   }
 }
 
@@ -203,19 +214,7 @@ export async function buildApp(session: SessionState = emptySession()) {
             .body,
         );
     }
-    const res = await session.pool.query(
-      `SELECT c.oid::bigint AS oid,
-              n.nspname AS schema,
-              c.relname AS name,
-              GREATEST(c.relpages, 0)::int AS blocks
-       FROM pg_class c
-       JOIN pg_namespace n ON n.oid = c.relnamespace
-       WHERE c.relkind = 'r'
-         AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-         AND n.nspname NOT LIKE 'pg_temp_%'
-         AND n.nspname NOT LIKE 'pg_toast_temp_%'
-       ORDER BY n.nspname, c.relname`,
-    );
+    const res = await session.pool.query(LIST_TABLES_SQL);
     return {
       tables: res.rows.map((r) => ({
         oid: Number(r.oid),
@@ -248,29 +247,13 @@ export async function buildApp(session: SessionState = emptySession()) {
             .body,
         );
     }
-    const cols = await session.pool.query(
-      `SELECT a.attnum, a.attname AS name, t.typname, a.attlen, a.attalign, a.attisdropped, t.oid AS typoid
-       FROM pg_attribute a
-       JOIN pg_type t ON t.oid = a.atttypid
-       WHERE a.attrelid = $1 AND a.attnum > 0
-       ORDER BY a.attnum`,
-      [oid],
-    );
+    const cols = await session.pool.query(SCHEMA_COLUMNS_SQL, [oid]);
     return {
       oid,
       schema: cls.rows[0].nspname,
       name: cls.rows[0].relname,
       qualifiedName: `${cls.rows[0].nspname}.${cls.rows[0].relname}`,
-      columns: cols.rows.map((r) => ({
-        attnum: Number(r.attnum),
-        name: r.name,
-        typname: r.typname,
-        typlen: Number(r.attlen),
-        attlen: Number(r.attlen),
-        attalign: r.attalign,
-        attisdropped: Boolean(r.attisdropped),
-        typoid: Number(r.typoid),
-      })),
+      columns: cols.rows.map((r) => mapSchemaColumnRow(r)),
     };
   });
 
@@ -297,12 +280,7 @@ export async function buildApp(session: SessionState = emptySession()) {
           );
       }
 
-      const cls = await session.pool.query(
-        `SELECT c.oid, c.relkind, c.relpages, n.nspname, c.relname
-         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-         WHERE c.oid = $1`,
-        [oid],
-      );
+      const cls = await session.pool.query(PAGE_RELATION_SQL, [oid]);
       if (cls.rowCount === 0 || cls.rows[0].relkind !== "r") {
         return reply
           .code(404)
@@ -311,7 +289,7 @@ export async function buildApp(session: SessionState = emptySession()) {
               .body,
           );
       }
-      const blocks = Number(cls.rows[0].relpages);
+      const blocks = Number(cls.rows[0].blocks);
       if (blkno >= blocks) {
         return reply
           .code(400)

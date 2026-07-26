@@ -45,4 +45,6 @@
 
 | 缺陷 ID | 处理 | 摘要 | 验证 | 建议复测 |
 |---|---|---|---|---|
-| — | — | 尚无 QA 缺陷 | — | — |
+| R1 | 已修 | schema `LEFT JOIN pg_type`，保留 `attisdropped` 占位；`catalog` 单测 + integration DROP COLUMN | `pnpm --filter server test`；`test:integration` | Reviewer 复审；QA 用含 DROP 的表解码 |
+| blocks/relpages | 已修 | 表列表与页越界改用 `pg_relation_size`/8192，避免 ANALYZE 前显示 0 blk | unit + integration | 插入后不 ANALYZE 仍可见块数 |
+| connect 死锁 | 已修 | 失败路径先 `release` 再 `pool.end`；`listen` 先于 env 自动连接 | 启动后 `/api/session` | pageinspect 缺失时进程仍监听 |
