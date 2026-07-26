@@ -10,13 +10,14 @@ Local tool: connect to PostgreSQL, fetch heap pages via `pageinspect.get_raw_pag
 |---|---|
 | `packages/page-core` | Pure TS parser/decoder + structure-field derive (browser + Vitest) |
 | `apps/server` | Fastify thin proxy (default `127.0.0.1:8787`) |
-| `apps/web` | React UI: **32B/row structure diagram**, hex dump (32B/row), theme, context strip |
+| `apps/web` | React UI: top chrome controls/context, **32B/row structure diagram**, hex dump (32B/row), theme |
 
 ## Scope (v1)
 
 - Heap user tables only (`relkind = r`); no system catalogs, indexes, FSM/VM
 - Standard 8KB pages only
-- Page view: structure diagram aligned to **32 bytes per row** (header → ItemId → foldable free space → tuples); wide cells show field values; hex dump matches 32B/row with ≥4-digit hex offsets and auto-scrolls to the selection
+- Page controls and required connection/page metadata live in the top chrome (no sidebar)
+- Page view: structure diagram aligned to **32 bytes per row** (header → ItemId → foldable free space → tuples); hex matches 32B/row with ≥4-digit offsets and auto-scrolls to the selection; at ≥960px they appear side by side (structure left, hex right), and below 960px they stack
 - TOAST pointers shown as TOASTed — external toast pages not fetched
 
 ## Prerequisites

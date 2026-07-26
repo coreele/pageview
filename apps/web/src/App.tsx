@@ -44,6 +44,7 @@ export function App() {
   const [hexCollapsed, setHexCollapsed] = useState(false);
   const [freeCollapsed, setFreeCollapsed] = useState(false);
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
+  const hexLocateNonceRef = useRef(0);
   const hexLocateHandledNonceRef = useRef(0);
 
   const [form, setForm] = useState({
@@ -209,10 +210,11 @@ export function App() {
     if (origin === "hex") return;
     if (!rangeChanged) return;
     if (hexCollapsed) setHexCollapsed(false);
-    setHexLocate((prev) => ({
+    hexLocateNonceRef.current += 1;
+    setHexLocate({
       offset: range.start,
-      nonce: (prev?.nonce ?? 0) + 1,
-    }));
+      nonce: hexLocateNonceRef.current,
+    });
   };
 
   const onSelectStructure = (id: string, range: ByteRange) => {
@@ -230,276 +232,274 @@ export function App() {
   };
 
   const connected = Boolean(session?.connected);
+  const canLoad =
+    selectedOid != null && (selectedTable?.blocks ?? 0) > 0 && loadState !== "loading-page";
+
+  const triggerLoad = () => {
+    if (canLoad && selectedOid != null) void loadBlk(selectedOid, blkno);
+  };
 
   return (
     <div className="app">
-      <header className="chrome">
-        <h1>pg-page-viewer</h1>
-        <span className={`badge${connected ? " ok" : ""}`} aria-live="polite">
-          {loadState === "connecting"
-            ? "connecting…"
-            : connected
-              ? "connected"
-              : "disconnected"}
-        </span>
-        <div className="chrome-spacer" />
-        <button type="button" aria-label="Toggle color theme" onClick={toggleTheme}>
-          Theme: {theme}
-        </button>
-      </header>
-
-      <div className="strip" aria-label="Context strip">
-        {!connected ? (
-          <div className="strip-row">
-            <span className="label">Status:</span>
-            <span className="value">未连接</span>
-          </div>
-        ) : (
-          <>
-            <div className="strip-row">
-              <span>
-                <span className="label">conn</span>
-                <span
-                  className="value"
-                  title={`${session?.host}:${session?.port} / ${session?.database} / ${session?.user}`}
+      <header className="chrome" aria-label="Application chrome">
+        <div className="chrome-bar">
+          <h1>pg-page-viewer</h1>
+          <span className={`badge${connected ? " ok" : ""}`} aria-live="polite">
+            {loadState === "connecting"
+              ? "connecting…"
+              : connected
+                ? "connected"
+                : "disconnected"}
+          </span>
+          {connected && (
+            <div className="chrome-controls">
+              <label className="control">
+                <span className="control-label">table</span>
+                <select
+                  className="table-select"
+                  value={selectedOid ?? ""}
+                  disabled={tables.length === 0 || loadState === "loading-tables"}
+                  title={selectedTable?.qualifiedName ?? undefined}
+                  onChange={(e) => {
+                    if (e.target.value !== "") void onSelectTable(Number(e.target.value));
+                  }}
                 >
-                  {session?.host}:{session?.port} / {session?.database} / {session?.user}
-                </span>
-              </span>
-              <span>
-                <span className="label">PG</span>
-                <span className="value" title={session?.serverVersion ?? ""}>
-                  {(session?.serverVersion ?? "").slice(0, 72)}
-                  {(session?.serverVersion?.length ?? 0) > 72 ? "…" : ""}
-                </span>
-              </span>
-            </div>
-            <div className="strip-row">
-              <span>
-                <span className="label">table</span>
-                <span className="value">
-                  {selectedTable
-                    ? `${selectedTable.qualifiedName} (oid ${selectedTable.oid})`
-                    : "未选表"}
-                </span>
-              </span>
-              <span>
-                <span className="label">blkno</span>
-                <span className="value">{page ? blkno : selectedTable ? "—" : "—"}</span>
-              </span>
-              <span>
-                <span className="label">#blocks</span>
-                <span className="value">{selectedTable ? selectedTable.blocks : "—"}</span>
-              </span>
-            </div>
-            <div className="strip-row">
-              {page ? (
-                <>
-                  <span>
-                    <span className="label">page</span>
-                    <span className="value">{page.stats.pageSize}</span>
-                  </span>
-                  <span>
-                    <span className="label">lower/upper/free</span>
-                    <span className="value">
-                      {page.stats.pd_lower}/{page.stats.pd_upper}/{page.stats.freeBytes}
-                    </span>
-                  </span>
-                  <span>
-                    <span className="label">ItemId</span>
-                    <span
-                      className="value"
-                      title={`UNUSED=${page.stats.lpUnused} NORMAL=${page.stats.lpNormal} REDIRECT=${page.stats.lpRedirect} DEAD=${page.stats.lpDead}`}
-                    >
-                      {page.stats.itemIdTotal} (U{page.stats.lpUnused}/N{page.stats.lpNormal}/R
-                      {page.stats.lpRedirect}/D{page.stats.lpDead})
-                    </span>
-                  </span>
-                  <span>
-                    <span className="label">#tup</span>
-                    <span className="value">{page.stats.tupleCount}</span>
-                  </span>
-                </>
-              ) : (
-                <span className="muted">页元信息：加载页后显示</span>
-              )}
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="body">
-        <nav className="nav" aria-label="Navigator">
-          {!connected ? (
-            <div className="muted">Use the connect form in the main area. Theme toggle stays in chrome.</div>
-          ) : (
-            <>
-              <div>
-                <strong>Tables</strong>
-                {loadState === "loading-tables" && (
-                  <span className="muted">
-                    {" "}
-                    <span className="spinner" /> loading
-                  </span>
-                )}
-              </div>
-              {tables.length === 0 ? (
-                <div className="muted">
-                  No user heap tables. Create a table or reconnect to another database.
-                </div>
-              ) : (
-                <ul className="table-list" role="listbox" aria-label="Heap tables">
+                  <option value="" disabled={tables.length > 0}>
+                    {tables.length === 0 ? "no user heap tables" : "select a table…"}
+                  </option>
                   {tables.map((t) => (
-                    <li key={t.oid}>
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={selectedOid === t.oid}
-                        onClick={() => onSelectTable(t.oid)}
-                      >
-                        {t.qualifiedName}{" "}
-                        <span className="muted">({t.blocks} blk)</span>
-                      </button>
-                    </li>
+                    <option key={t.oid} value={t.oid}>
+                      {t.qualifiedName} ({t.blocks} blk)
+                    </option>
                   ))}
-                </ul>
+                </select>
+              </label>
+              {loadState === "loading-tables" && (
+                <span className="muted">
+                  <span className="spinner" />
+                  tables
+                </span>
               )}
-              <label>
-                blkno
+              <label className="control">
+                <span className="control-label">blkno</span>
                 <input
+                  className="blkno-input"
                   type="number"
                   min={0}
                   value={blkno}
                   onChange={(e) => setBlkno(Number(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      triggerLoad();
+                    }
+                  }}
                   disabled={!selectedTable || selectedTable.blocks === 0}
                 />
               </label>
-              <div style={{ display: "flex", gap: "0.35rem" }}>
-                <button
-                  className="primary"
-                  type="button"
-                  disabled={
-                    !selectedTable ||
-                    selectedTable.blocks === 0 ||
-                    loadState === "loading-page"
-                  }
-                  onClick={() => selectedOid != null && loadBlk(selectedOid, blkno)}
-                >
-                  {loadState === "loading-page" ? (
-                    <>
-                      <span className="spinner" /> Load
-                    </>
-                  ) : (
-                    "Load"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={!page || loadState === "loading-page" || selectedOid == null}
-                  onClick={() => selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })}
-                >
-                  Refresh
-                </button>
+              <button className="primary" type="button" disabled={!canLoad} onClick={triggerLoad}>
+                {loadState === "loading-page" ? (
+                  <>
+                    <span className="spinner" /> Load
+                  </>
+                ) : (
+                  "Load"
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={!page || loadState === "loading-page" || selectedOid == null}
+                onClick={() =>
+                  selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })
+                }
+              >
+                Refresh
+              </button>
+            </div>
+          )}
+          <div className="chrome-spacer" />
+          <button type="button" aria-label="Toggle color theme" onClick={toggleTheme}>
+            Theme: {theme}
+          </button>
+        </div>
+
+        <div className="chrome-meta" aria-label="Context strip">
+          {!connected ? (
+            <div className="meta-row">
+              <span className="label">Status</span>
+              <span className="value">未连接</span>
+            </div>
+          ) : (
+            <>
+              <div className="meta-row">
+                <span className="meta-item">
+                  <span className="label">conn</span>
+                  <span
+                    className="value"
+                    title={`${session?.host}:${session?.port} / ${session?.database} / ${session?.user}`}
+                  >
+                    {session?.host}:{session?.port} / {session?.database} / {session?.user}
+                  </span>
+                </span>
+                <span className="meta-item">
+                  <span className="label">PG</span>
+                  <span className="value" title={session?.serverVersion ?? ""}>
+                    {(session?.serverVersion ?? "").slice(0, 72)}
+                    {(session?.serverVersion?.length ?? 0) > 72 ? "…" : ""}
+                  </span>
+                </span>
+                <span className="meta-item">
+                  <span className="label">table</span>
+                  <span
+                    className="value"
+                    title={selectedTable ? selectedTable.qualifiedName : undefined}
+                  >
+                    {selectedTable
+                      ? `${selectedTable.qualifiedName} (oid ${selectedTable.oid})`
+                      : "未选表"}
+                  </span>
+                </span>
+                <span className="meta-item">
+                  <span className="label">#blocks</span>
+                  <span className="value">{selectedTable ? selectedTable.blocks : "—"}</span>
+                </span>
               </div>
-              {selectedTable?.blocks === 0 && (
-                <div className="muted">This relation has 0 blocks — nothing to load.</div>
-              )}
+              <div className="meta-row">
+                {page ? (
+                  <>
+                    <span className="meta-item">
+                      <span className="label">blkno</span>
+                      <span className="value">{blkno}</span>
+                    </span>
+                    <span className="meta-item">
+                      <span className="label">page</span>
+                      <span className="value">{page.stats.pageSize}</span>
+                    </span>
+                    <span className="meta-item">
+                      <span className="label">lower/upper/free</span>
+                      <span className="value">
+                        {page.stats.pd_lower}/{page.stats.pd_upper}/{page.stats.freeBytes}
+                      </span>
+                    </span>
+                    <span className="meta-item">
+                      <span className="label">ItemId</span>
+                      <span
+                        className="value"
+                        title={`UNUSED=${page.stats.lpUnused} NORMAL=${page.stats.lpNormal} REDIRECT=${page.stats.lpRedirect} DEAD=${page.stats.lpDead}`}
+                      >
+                        {page.stats.itemIdTotal} (U{page.stats.lpUnused}/N{page.stats.lpNormal}/R
+                        {page.stats.lpRedirect}/D{page.stats.lpDead})
+                      </span>
+                    </span>
+                    <span className="meta-item">
+                      <span className="label">#tup</span>
+                      <span className="value">{page.stats.tupleCount}</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="muted">页元信息：加载页后显示</span>
+                )}
+              </div>
             </>
           )}
-        </nav>
+        </div>
+      </header>
 
-        <main className="main">
-          {error && (
-            <div className="panel error-panel" role="alert">
-              <div>
-                <strong>{error.code}</strong>: {error.message}
-              </div>
-              <div className="next">Next: {error.nextStep}</div>
+      <main className={`main${page ? " main-paged" : ""}`}>
+        {error && (
+          <div className="panel error-panel" role="alert">
+            <div>
+              <strong>{error.code}</strong>: {error.message}
             </div>
-          )}
+            <div className="next">Next: {error.nextStep}</div>
+          </div>
+        )}
 
-          {!connected && (
-            <div className="center-form panel">
-              <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Connect</h2>
-              <form className="form-grid" onSubmit={onConnect}>
-                <label>
-                  Host
-                  <input
-                    value={form.host}
-                    onChange={(e) => setForm({ ...form, host: e.target.value })}
-                    disabled={loadState === "connecting"}
-                    required
-                  />
-                </label>
-                <label>
-                  Port
-                  <input
-                    value={form.port}
-                    onChange={(e) => setForm({ ...form, port: e.target.value })}
-                    disabled={loadState === "connecting"}
-                    required
-                  />
-                </label>
-                <label>
-                  Database
-                  <input
-                    value={form.database}
-                    onChange={(e) => setForm({ ...form, database: e.target.value })}
-                    disabled={loadState === "connecting"}
-                    required
-                  />
-                </label>
-                <label>
-                  User
-                  <input
-                    value={form.user}
-                    onChange={(e) => setForm({ ...form, user: e.target.value })}
-                    disabled={loadState === "connecting"}
-                    required
-                  />
-                </label>
-                <label>
-                  Password
-                  <input
-                    type="password"
-                    autoComplete="off"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    disabled={loadState === "connecting"}
-                  />
-                </label>
-                <button className="primary" type="submit" disabled={loadState === "connecting"}>
-                  {loadState === "connecting" ? (
-                    <>
-                      <span className="spinner" /> Connecting…
-                    </>
-                  ) : (
-                    "Connect"
-                  )}
-                </button>
-              </form>
-              <p className="muted">
-                Or set env credentials so the server auto-connects on start (P0-12). Password is never
-                stored in the browser. Enable <code>pageinspect</code> yourself — this app never runs{" "}
-                <code>CREATE EXTENSION</code>.
-              </p>
-            </div>
-          )}
+        {!connected && (
+          <div className="center-form panel">
+            <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Connect</h2>
+            <form className="form-grid" onSubmit={onConnect}>
+              <label>
+                Host
+                <input
+                  value={form.host}
+                  onChange={(e) => setForm({ ...form, host: e.target.value })}
+                  disabled={loadState === "connecting"}
+                  required
+                />
+              </label>
+              <label>
+                Port
+                <input
+                  value={form.port}
+                  onChange={(e) => setForm({ ...form, port: e.target.value })}
+                  disabled={loadState === "connecting"}
+                  required
+                />
+              </label>
+              <label>
+                Database
+                <input
+                  value={form.database}
+                  onChange={(e) => setForm({ ...form, database: e.target.value })}
+                  disabled={loadState === "connecting"}
+                  required
+                />
+              </label>
+              <label>
+                User
+                <input
+                  value={form.user}
+                  onChange={(e) => setForm({ ...form, user: e.target.value })}
+                  disabled={loadState === "connecting"}
+                  required
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  autoComplete="off"
+                  value={form.password}
+                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  disabled={loadState === "connecting"}
+                />
+              </label>
+              <button className="primary" type="submit" disabled={loadState === "connecting"}>
+                {loadState === "connecting" ? (
+                  <>
+                    <span className="spinner" /> Connecting…
+                  </>
+                ) : (
+                  "Connect"
+                )}
+              </button>
+            </form>
+            <p className="muted">
+              Or set env credentials so the server auto-connects on start (P0-12). Password is never
+              stored in the browser. Enable <code>pageinspect</code> yourself — this app never runs{" "}
+              <code>CREATE EXTENSION</code>.
+            </p>
+          </div>
+        )}
 
-          {connected && !page && selectedTable?.blocks === 0 && (
-            <div className="panel muted">Empty relation (0 blocks). Insert rows or pick another table.</div>
-          )}
+        {connected && !page && selectedTable?.blocks === 0 && (
+          <div className="panel muted">
+            Empty relation (0 blocks). Insert rows or pick another table.
+          </div>
+        )}
 
-          {connected && !page && !error && selectedTable && selectedTable.blocks > 0 && (
-            <div className="panel muted">Select blkno and press Load to fetch a raw page.</div>
-          )}
+        {connected && !page && !error && selectedTable && selectedTable.blocks > 0 && (
+          <div className="panel muted">Select blkno and press Load to fetch a raw page.</div>
+        )}
 
-          {connected && !selectedTable && !error && (
-            <div className="panel muted">Select a heap table to begin.</div>
-          )}
+        {connected && !selectedTable && !error && (
+          <div className="panel muted">Select a heap table to begin.</div>
+        )}
 
-          {page && (
-            <>
+        {page && (
+          <div className="main-split" data-hex={hexCollapsed ? "collapsed" : "expanded"}>
+            <section className="pane pane-structure" aria-label="Page structure">
               {loadState === "loading-page" && (
                 <div className="muted">
                   <span className="spinner" /> Loading page…
@@ -521,7 +521,16 @@ export function App() {
                   }
                 }}
               />
-              <div>
+              {schema && (
+                <div className="muted">
+                  Schema loaded for {schema.qualifiedName} ({schema.columns.length} columns)
+                </div>
+              )}
+            </section>
+
+            <section className="pane pane-hex" aria-label="Hex dump panel">
+              <div className="pane-head">
+                <strong className="pane-title">Hex</strong>
                 <button
                   type="button"
                   aria-expanded={!hexCollapsed}
@@ -530,7 +539,9 @@ export function App() {
                   {hexCollapsed ? "Show hex" : "Collapse hex"}
                 </button>
               </div>
-              {!hexCollapsed && (
+              {hexCollapsed ? (
+                <div className="muted pane-collapsed-note">Hex collapsed</div>
+              ) : (
                 <HexDump
                   raw={page.raw}
                   highlight={highlight}
@@ -539,15 +550,10 @@ export function App() {
                   onSelectOffset={onHexSelect}
                 />
               )}
-              {schema && (
-                <div className="muted">
-                  Schema loaded for {schema.qualifiedName} ({schema.columns.length} columns)
-                </div>
-              )}
-            </>
-          )}
-        </main>
-      </div>
+            </section>
+          </div>
+        )}
+      </main>
     </div>
   );
 }

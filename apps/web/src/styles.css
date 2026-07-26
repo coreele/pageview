@@ -19,9 +19,8 @@
   --diagram-grid-line: color-mix(in srgb, #94a3b8 35%, transparent);
   --cell-ink: #0f172a;
   --hex-locate: #38bdf8;
-  --chrome-h: 44px;
-  --strip-h: 64px;
-  --nav-w: 260px;
+  --chrome-bar-h: 46px;
+  --chrome-meta-h: 50px;
 }
 
 [data-theme="dark"] {
@@ -120,18 +119,25 @@ input {
 
 .app {
   display: grid;
-  grid-template-rows: var(--chrome-h) var(--strip-h) 1fr;
+  grid-template-rows: auto 1fr;
   height: 100%;
   min-height: 0;
 }
 
 .chrome {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0 0.75rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  /* Grid item must be allowed to shrink so the meta strip scrolls instead of the page. */
+  min-width: 0;
+}
+
+.chrome-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.85rem;
+  min-height: var(--chrome-bar-h);
+  padding: 0.3rem 0.75rem;
 }
 
 .chrome h1 {
@@ -139,6 +145,39 @@ input {
   font-weight: 650;
   margin: 0;
   letter-spacing: -0.02em;
+}
+
+.chrome-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+}
+
+.control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.control-label {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+}
+
+.table-select {
+  max-width: 20rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+}
+
+.blkno-input {
+  width: 6rem;
+  padding: 0.3rem 0.4rem;
 }
 
 .badge {
@@ -158,51 +197,47 @@ input {
   flex: 1;
 }
 
-.strip {
+.chrome-meta {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.15rem;
-  padding: 0.35rem 0.75rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  min-height: var(--strip-h);
-  overflow: hidden;
+  gap: 0.1rem;
+  padding: 0.3rem 0.75rem 0.4rem;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  background: color-mix(in srgb, var(--surface) 82%, var(--bg));
+  min-height: var(--chrome-meta-h);
+  font-size: 0.82rem;
+  /* Very narrow viewports scroll the strip instead of widening the document (P1-2). */
+  overflow-x: auto;
 }
 
-.strip-row {
+.meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem 1.1rem;
+  gap: 0.2rem 1.1rem;
+  min-width: 0;
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.chrome-meta .label {
+  color: var(--text-muted);
+}
+
+/* min-width:0 lets long values ellipsize instead of widening the whole document. */
+.chrome-meta .value {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.strip .label {
-  color: var(--text-muted);
-  margin-right: 0.25rem;
-}
-
-.strip .value {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-}
-
-.body {
-  display: grid;
-  grid-template-columns: var(--nav-w) 1fr;
-  min-height: 0;
-  height: 100%;
-}
-
-.nav {
-  border-right: 1px solid var(--border);
-  padding: 0.75rem;
-  overflow: auto;
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  min-width: 0;
 }
 
 .main {
@@ -214,28 +249,31 @@ input {
   gap: 0.75rem;
 }
 
-.table-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  max-height: 50vh;
-  overflow: auto;
-  border: 1px solid var(--border);
-  border-radius: 4px;
+/* Narrow default: single column, structure above hex, page scrolls in .main. */
+.main-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
 }
 
-.table-list button {
-  width: 100%;
-  text-align: left;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  padding: 0.4rem 0.5rem;
+.pane {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
-.table-list button[aria-selected="true"] {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pane-title {
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .form-grid {
@@ -763,14 +801,44 @@ input {
   width: min(400px, 100%);
 }
 
-@media (max-width: 959px) {
-  .body {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+.pane-collapsed-note {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+}
+
+/* Wide viewport (Spec breakpoint 960px): structure left ‖ hex right. */
+@media (min-width: 960px) {
+  .main-paged {
+    overflow: hidden;
   }
-  .nav {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    max-height: 40vh;
+
+  .main-paged .main-split {
+    grid-template-columns: minmax(280px, 0.55fr) minmax(280px, 0.45fr);
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .main-paged .pane {
+    min-height: 0;
+  }
+
+  .main-paged .pane-structure {
+    overflow: auto;
+  }
+
+  .main-paged .pane-hex {
+    overflow: hidden;
+  }
+
+  /* Keep the scroll container on .hex so hex auto-locate never moves the structure pane. */
+  .main-paged .pane-hex .hex {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .main-split[data-hex="collapsed"] {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 }
