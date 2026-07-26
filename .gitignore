@@ -10,3 +10,4 @@ coverage/
 apps/web/dist/
 apps/server/dist/
 packages/page-core/dist/
+.tmp-uicheck

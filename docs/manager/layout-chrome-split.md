@@ -118,6 +118,7 @@
 ## 合并授权（2026-07-26）
 
 结论: **授权** 源 `layout-chrome-split` → 目标 `main`，并授权合入后 **push** 至 origin（用户原话：「ok, 没有问题直接提交，合并，push」）。条件：Review Approve + QA Pass 均已满足。
+- 2026-07-26: Merge Executor（[qa](1f917b94-0be1-4211-9a5a-c198c8255df0)）本地 **fast-forward** 合入成功：`main` = `layout-chrome-split` = `7e99933`；**push 失败**（仓库无配置任何 remote / origin）。未提交 `.env`。父项归档：`docs/features/layout-chrome-split/` → `docs/archive/2026/layout-chrome-split/`；STATUS 活跃列表清空并记入归档区。
 
 ## Spec 用户确认（2026-07-26，第三轮增量 + 微调）
 
