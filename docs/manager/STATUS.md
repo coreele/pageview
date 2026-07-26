@@ -6,7 +6,7 @@
 
 | feature-id | sub-feature-id | 路径 | 状态 | Spec | Design | UI 表面 | Review | 源分支 | 目标分支 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| （无） | — | — | — | — | — | — | — | — | — | — |
+| layout-chrome-split | layout-chrome-split | full | done | required | required | gui | Approve @ 5b2756a | layout-chrome-split | main | 关闭提交后合入 main → push → 归档 |
 
 ## 归档
 
