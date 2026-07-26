@@ -1,0 +1,525 @@
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  annotateCtidBlocks,
+  decodePageTuples,
+  PageParseError,
+  parsePage,
+  type ByteRange,
+  type ParsedPage,
+} from "page-core";
+import {
+  connect,
+  fetchPage,
+  fetchSchema,
+  getSession,
+  listTables,
+  type AppError,
+  type PublicSession,
+  type SchemaResponse,
+  type TableRow,
+} from "./api";
+import { HexDump } from "./HexDump";
+import { StructureMap } from "./StructureMap";
+import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
+import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
+
+type LoadState = "idle" | "connecting" | "loading-tables" | "loading-page";
+
+export function App() {
+  const [theme, setTheme] = useState<Theme>(
+    () => (document.documentElement.dataset.theme as Theme) || readSystemTheme(),
+  );
+  const [session, setSession] = useState<PublicSession | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [error, setError] = useState<AppError | null>(null);
+  const [tables, setTables] = useState<TableRow[]>([]);
+  const [selectedOid, setSelectedOid] = useState<number | null>(null);
+  const [blkno, setBlkno] = useState(0);
+  const [schema, setSchema] = useState<SchemaResponse | null>(null);
+  const [page, setPage] = useState<ParsedPage | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [highlight, setHighlight] = useState<ByteRange | null>(null);
+  const [prevRaw, setPrevRaw] = useState<Uint8Array | null>(null);
+  const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
+  const [hexCollapsed, setHexCollapsed] = useState(false);
+
+  const [form, setForm] = useState({
+    host: "127.0.0.1",
+    port: "5432",
+    database: "postgres",
+    user: "postgres",
+    password: "",
+  });
+
+  const selectedTable = useMemo(
+    () => tables.find((t) => t.oid === selectedOid) ?? null,
+    [tables, selectedOid],
+  );
+
+  const toggleTheme = () => {
+    const next: Theme = theme === "light" ? "dark" : "light";
+    setTheme(next);
+    applyTheme(next);
+    storeTheme(next);
+  };
+
+  const refreshTables = useCallback(async () => {
+    setLoadState("loading-tables");
+    setError(null);
+    try {
+      const rows = await listTables();
+      setTables(rows);
+    } catch (e) {
+      setError(e as AppError);
+    } finally {
+      setLoadState("idle");
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const s = await getSession();
+        setSession(s);
+        if (s.connected) {
+          await refreshTables();
+        } else if (s.error) {
+          setError(s.error);
+        }
+      } catch (e) {
+        setError(e as AppError);
+      }
+    })();
+  }, [refreshTables]);
+
+  const onConnect = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoadState("connecting");
+    setError(null);
+    try {
+      const s = await connect({
+        host: form.host,
+        port: Number(form.port),
+        database: form.database,
+        user: form.user,
+        password: form.password,
+      });
+      // Clear password from React state after submit (P0-10) — never persist
+      setForm((f) => ({ ...f, password: "" }));
+      setSession(s);
+      setPage(null);
+      setSchema(null);
+      setSelectedOid(null);
+      await refreshTables();
+    } catch (err) {
+      setError(err as AppError);
+      setSession((prev) =>
+        prev
+          ? { ...prev, connected: false }
+          : {
+              connected: false,
+              host: null,
+              port: null,
+              database: null,
+              user: null,
+              serverVersion: null,
+            },
+      );
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const loadBlk = async (oid: number, block: number, opts?: { refresh?: boolean }) => {
+    setLoadState("loading-page");
+    setError(null);
+    try {
+      const [sch, rawPage] = await Promise.all([fetchSchema(oid), fetchPage(oid, block)]);
+      setSchema(sch);
+      const bytes = Uint8Array.from(atob(rawPage.pageBase64), (c) => c.charCodeAt(0));
+      let parsed: ParsedPage;
+      try {
+        parsed = decodePageTuples(
+          annotateCtidBlocks(parsePage(bytes), block),
+          sch.columns.map((c) => ({
+            attnum: c.attnum,
+            name: c.name,
+            typname: c.typname,
+            typlen: c.typlen,
+            attlen: c.attlen,
+            attalign: c.attalign,
+            attisdropped: c.attisdropped,
+          })),
+        );
+      } catch (pe) {
+        const parseErr = pe instanceof PageParseError ? pe : null;
+        if (parseErr) {
+          setPage(null);
+          setError({
+            code: "UNSUPPORTED_PAGE",
+            message: parseErr.message,
+            nextStep: "Use a standard 8KB BLCKSZ PostgreSQL instance, or pick another relation.",
+          });
+          return;
+        }
+        throw pe;
+      }
+
+      if (opts?.refresh && prevRaw && prevRaw.length === bytes.length) {
+        const diffs = diffByteRanges(prevRaw, bytes);
+        setDiffIds(structureAffectedByDiff(parsed, diffs));
+      } else {
+        setDiffIds(new Set());
+      }
+      setPrevRaw(bytes);
+      setPage(parsed);
+      setBlkno(block);
+      setSelectedId(null);
+      setHighlight(null);
+    } catch (err) {
+      setError(err as AppError);
+      if (!opts?.refresh) setPage(null);
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  const onSelectTable = async (oid: number) => {
+    setSelectedOid(oid);
+    setPage(null);
+    setDiffIds(new Set());
+    const t = tables.find((x) => x.oid === oid);
+    if (t && t.blocks === 0) {
+      setError(null);
+      setSchema(null);
+      return;
+    }
+    setBlkno(0);
+  };
+
+  const onSelectStructure = (id: string, range: ByteRange) => {
+    setSelectedId(id);
+    setHighlight(range);
+  };
+
+  const onHexSelect = (offset: number) => {
+    if (!page) return;
+    const hit = findStructureAt(page, offset);
+    if (hit) {
+      setSelectedId(hit.id);
+      setHighlight(hit.range);
+    } else {
+      setHighlight({ start: offset, end: offset + 1 });
+    }
+  };
+
+  const connected = Boolean(session?.connected);
+
+  return (
+    <div className="app">
+      <header className="chrome">
+        <h1>pg-page-viewer</h1>
+        <span className={`badge${connected ? " ok" : ""}`} aria-live="polite">
+          {loadState === "connecting"
+            ? "connecting…"
+            : connected
+              ? "connected"
+              : "disconnected"}
+        </span>
+        <div className="chrome-spacer" />
+        <button type="button" aria-label="Toggle color theme" onClick={toggleTheme}>
+          Theme: {theme}
+        </button>
+      </header>
+
+      <div className="strip" aria-label="Context strip">
+        {!connected ? (
+          <div className="strip-row">
+            <span className="label">Status:</span>
+            <span className="value">未连接</span>
+          </div>
+        ) : (
+          <>
+            <div className="strip-row">
+              <span>
+                <span className="label">conn</span>
+                <span
+                  className="value"
+                  title={`${session?.host}:${session?.port} / ${session?.database} / ${session?.user}`}
+                >
+                  {session?.host}:{session?.port} / {session?.database} / {session?.user}
+                </span>
+              </span>
+              <span>
+                <span className="label">PG</span>
+                <span className="value" title={session?.serverVersion ?? ""}>
+                  {(session?.serverVersion ?? "").slice(0, 72)}
+                  {(session?.serverVersion?.length ?? 0) > 72 ? "…" : ""}
+                </span>
+              </span>
+            </div>
+            <div className="strip-row">
+              <span>
+                <span className="label">table</span>
+                <span className="value">
+                  {selectedTable
+                    ? `${selectedTable.qualifiedName} (oid ${selectedTable.oid})`
+                    : "未选表"}
+                </span>
+              </span>
+              <span>
+                <span className="label">blkno</span>
+                <span className="value">{page ? blkno : selectedTable ? "—" : "—"}</span>
+              </span>
+              <span>
+                <span className="label">#blocks</span>
+                <span className="value">{selectedTable ? selectedTable.blocks : "—"}</span>
+              </span>
+            </div>
+            <div className="strip-row">
+              {page ? (
+                <>
+                  <span>
+                    <span className="label">page</span>
+                    <span className="value">{page.stats.pageSize}</span>
+                  </span>
+                  <span>
+                    <span className="label">lower/upper/free</span>
+                    <span className="value">
+                      {page.stats.pd_lower}/{page.stats.pd_upper}/{page.stats.freeBytes}
+                    </span>
+                  </span>
+                  <span>
+                    <span className="label">ItemId</span>
+                    <span
+                      className="value"
+                      title={`UNUSED=${page.stats.lpUnused} NORMAL=${page.stats.lpNormal} REDIRECT=${page.stats.lpRedirect} DEAD=${page.stats.lpDead}`}
+                    >
+                      {page.stats.itemIdTotal} (U{page.stats.lpUnused}/N{page.stats.lpNormal}/R
+                      {page.stats.lpRedirect}/D{page.stats.lpDead})
+                    </span>
+                  </span>
+                  <span>
+                    <span className="label">#tup</span>
+                    <span className="value">{page.stats.tupleCount}</span>
+                  </span>
+                </>
+              ) : (
+                <span className="muted">页元信息：加载页后显示</span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="body">
+        <nav className="nav" aria-label="Navigator">
+          {!connected ? (
+            <div className="muted">Use the connect form in the main area. Theme toggle stays in chrome.</div>
+          ) : (
+            <>
+              <div>
+                <strong>Tables</strong>
+                {loadState === "loading-tables" && (
+                  <span className="muted">
+                    {" "}
+                    <span className="spinner" /> loading
+                  </span>
+                )}
+              </div>
+              {tables.length === 0 ? (
+                <div className="muted">
+                  No user heap tables. Create a table or reconnect to another database.
+                </div>
+              ) : (
+                <ul className="table-list" role="listbox" aria-label="Heap tables">
+                  {tables.map((t) => (
+                    <li key={t.oid}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={selectedOid === t.oid}
+                        onClick={() => onSelectTable(t.oid)}
+                      >
+                        {t.qualifiedName}{" "}
+                        <span className="muted">({t.blocks} blk)</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <label>
+                blkno
+                <input
+                  type="number"
+                  min={0}
+                  value={blkno}
+                  onChange={(e) => setBlkno(Number(e.target.value))}
+                  disabled={!selectedTable || selectedTable.blocks === 0}
+                />
+              </label>
+              <div style={{ display: "flex", gap: "0.35rem" }}>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={
+                    !selectedTable ||
+                    selectedTable.blocks === 0 ||
+                    loadState === "loading-page"
+                  }
+                  onClick={() => selectedOid != null && loadBlk(selectedOid, blkno)}
+                >
+                  {loadState === "loading-page" ? (
+                    <>
+                      <span className="spinner" /> Load
+                    </>
+                  ) : (
+                    "Load"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={!page || loadState === "loading-page" || selectedOid == null}
+                  onClick={() => selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })}
+                >
+                  Refresh
+                </button>
+              </div>
+              {selectedTable?.blocks === 0 && (
+                <div className="muted">This relation has 0 blocks — nothing to load.</div>
+              )}
+            </>
+          )}
+        </nav>
+
+        <main className="main">
+          {error && (
+            <div className="panel error-panel" role="alert">
+              <div>
+                <strong>{error.code}</strong>: {error.message}
+              </div>
+              <div className="next">Next: {error.nextStep}</div>
+            </div>
+          )}
+
+          {!connected && (
+            <div className="center-form panel">
+              <h2 style={{ marginTop: 0, fontSize: "1rem" }}>Connect</h2>
+              <form className="form-grid" onSubmit={onConnect}>
+                <label>
+                  Host
+                  <input
+                    value={form.host}
+                    onChange={(e) => setForm({ ...form, host: e.target.value })}
+                    disabled={loadState === "connecting"}
+                    required
+                  />
+                </label>
+                <label>
+                  Port
+                  <input
+                    value={form.port}
+                    onChange={(e) => setForm({ ...form, port: e.target.value })}
+                    disabled={loadState === "connecting"}
+                    required
+                  />
+                </label>
+                <label>
+                  Database
+                  <input
+                    value={form.database}
+                    onChange={(e) => setForm({ ...form, database: e.target.value })}
+                    disabled={loadState === "connecting"}
+                    required
+                  />
+                </label>
+                <label>
+                  User
+                  <input
+                    value={form.user}
+                    onChange={(e) => setForm({ ...form, user: e.target.value })}
+                    disabled={loadState === "connecting"}
+                    required
+                  />
+                </label>
+                <label>
+                  Password
+                  <input
+                    type="password"
+                    autoComplete="off"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    disabled={loadState === "connecting"}
+                  />
+                </label>
+                <button className="primary" type="submit" disabled={loadState === "connecting"}>
+                  {loadState === "connecting" ? (
+                    <>
+                      <span className="spinner" /> Connecting…
+                    </>
+                  ) : (
+                    "Connect"
+                  )}
+                </button>
+              </form>
+              <p className="muted">
+                Or set env credentials so the server auto-connects on start (P0-12). Password is never
+                stored in the browser. Enable <code>pageinspect</code> yourself — this app never runs{" "}
+                <code>CREATE EXTENSION</code>.
+              </p>
+            </div>
+          )}
+
+          {connected && !page && selectedTable?.blocks === 0 && (
+            <div className="panel muted">Empty relation (0 blocks). Insert rows or pick another table.</div>
+          )}
+
+          {connected && !page && !error && selectedTable && selectedTable.blocks > 0 && (
+            <div className="panel muted">Select blkno and press Load to fetch a raw page.</div>
+          )}
+
+          {connected && !selectedTable && !error && (
+            <div className="panel muted">Select a heap table to begin.</div>
+          )}
+
+          {page && (
+            <>
+              {loadState === "loading-page" && (
+                <div className="muted">
+                  <span className="spinner" /> Loading page…
+                </div>
+              )}
+              <StructureMap
+                page={page}
+                currentBlkno={blkno}
+                selectedId={selectedId}
+                highlight={highlight}
+                diffIds={diffIds}
+                onSelect={onSelectStructure}
+                onLoadCrossBlock={(target) => {
+                  if (selectedOid != null) {
+                    setBlkno(target);
+                    void loadBlk(selectedOid, target);
+                  }
+                }}
+              />
+              <div>
+                <button type="button" onClick={() => setHexCollapsed((v) => !v)}>
+                  {hexCollapsed ? "Show hex" : "Collapse hex"}
+                </button>
+              </div>
+              {!hexCollapsed && (
+                <HexDump raw={page.raw} highlight={highlight} onSelectOffset={onHexSelect} />
+              )}
+              {schema && (
+                <div className="muted">
+                  Schema loaded for {schema.qualifiedName} ({schema.columns.length} columns)
+                </div>
+              )}
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
