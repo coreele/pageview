@@ -43,7 +43,7 @@
 ### L1 定向检查
 
 - IDE lints：`App.tsx`、`styles.css` 无诊断。
-- `git diff --check`：通过。
+- `git diff --check main...HEAD -- apps/web README.md docs/features/layout-chrome-split/dev-notes.md`：通过。全量检查仅报告 Planner 原始 Spec/Plan/UI Design 中用于 Markdown 换行的尾随空格；Developer 未修改这些权威输入。
 - Chrome 实测（Vite + 本地 PostgreSQL 16）：
   - 无 `.nav` / `.table-list` / `.body` 节点；`main` 从视口左缘开始。
   - 顶栏可选 `public.qa_hot (4 blk)`，Load/Refresh 可用；Enter 将 blkno 加载到 3。
