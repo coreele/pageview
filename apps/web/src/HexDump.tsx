@@ -45,8 +45,28 @@ export function HexDump({
     const el = containerRef.current;
     if (!el) return;
 
-    const firstRowEl = el.querySelector(".hex-row") as HTMLElement | null;
+    const rowEls = el.querySelectorAll(".hex-row");
+    const firstRowEl = rowEls[0] as HTMLElement | undefined;
+    const secondRowEl = rowEls[1] as HTMLElement | undefined;
     const rowHeightPx = firstRowEl?.getBoundingClientRect().height || 20;
+    const styles = getComputedStyle(el);
+    // Content Y of first row (= padding-top when rows are the first in-flow flex items).
+    const paddingTopPx = firstRowEl
+      ? firstRowEl.getBoundingClientRect().top -
+        el.getBoundingClientRect().top +
+        el.scrollTop -
+        el.clientTop
+      : parseFloat(styles.paddingTop) || 0;
+    // Sibling delta cancels shared offsetParent; fallback to computed flex gap.
+    const measuredGap =
+      firstRowEl && secondRowEl
+        ? secondRowEl.getBoundingClientRect().top -
+          firstRowEl.getBoundingClientRect().top -
+          rowHeightPx
+        : NaN;
+    const rowGapPx = Number.isFinite(measuredGap)
+      ? Math.max(0, measuredGap)
+      : parseFloat(styles.rowGap) || parseFloat(styles.gap) || 0;
     const firstRow = Math.floor(locate.offset / bytesPerRow);
     const lastRow = highlight
       ? Math.floor((Math.max(highlight.end, locate.offset + 1) - 1) / bytesPerRow)
@@ -56,6 +76,8 @@ export function HexDump({
       firstRow,
       lastRow,
       rowHeightPx,
+      rowGapPx,
+      paddingTopPx,
       containerHeightPx: el.clientHeight,
       contentHeightPx: el.scrollHeight,
       currentScrollTop: el.scrollTop,

@@ -430,6 +430,9 @@ export function chooseCellContent(args: {
 /**
  * Hex scroll geometry: target scrollTop for placing first highlighted row near
  * `anchorRatio` from the top, or null when that row is already fully visible.
+ *
+ * `rowGapPx` / `paddingTopPx` must match the scroll container's CSS flex gap and
+ * padding-top so row Y matches layout (DEF-001: naive `row * height` under-scrolls).
  */
 export function computeHexScrollTarget(args: {
   firstRow: number;
@@ -439,6 +442,10 @@ export function computeHexScrollTarget(args: {
   contentHeightPx: number;
   currentScrollTop: number;
   anchorRatio?: number;
+  /** Vertical gap between hex rows (e.g. `.hex { gap: 1px }`). Default 0. */
+  rowGapPx?: number;
+  /** Content inset above the first row (e.g. `.hex` padding-top). Default 0. */
+  paddingTopPx?: number;
 }): number | null {
   const {
     firstRow,
@@ -448,12 +455,16 @@ export function computeHexScrollTarget(args: {
     contentHeightPx,
     currentScrollTop,
     anchorRatio = 1 / 3,
+    rowGapPx = 0,
+    paddingTopPx = 0,
   } = args;
 
   if (rowHeightPx <= 0 || containerHeightPx <= 0) return null;
 
-  const rangeTop = firstRow * rowHeightPx;
-  const rangeBottom = (lastRow + 1) * rowHeightPx;
+  const stride = rowHeightPx + Math.max(0, rowGapPx);
+  const inset = Math.max(0, paddingTopPx);
+  const rangeTop = inset + firstRow * stride;
+  const rangeBottom = inset + lastRow * stride + rowHeightPx;
   const firstRowBottom = rangeTop + rowHeightPx;
   const viewBottom = currentScrollTop + containerHeightPx;
 

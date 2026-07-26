@@ -313,4 +313,87 @@ describe("computeHexScrollTarget", () => {
     });
     expect(target).toBeCloseTo(200 - 200 / 3, 5);
   });
+
+  it("DEF-001: includes rowGap and paddingTop so high-offset rows land in view", () => {
+    // Mirrors .hex CSS: padding-top ~7px, gap 1px between flex rows.
+    const rowHeightPx = 20;
+    const rowGapPx = 1;
+    const paddingTopPx = 7;
+    const paddingBottomPx = 7;
+    const rowCount = 256;
+    const containerHeightPx = 200;
+    const contentHeightPx =
+      paddingTopPx +
+      rowCount * rowHeightPx +
+      (rowCount - 1) * rowGapPx +
+      paddingBottomPx;
+    const firstRow = 255;
+    const stride = rowHeightPx + rowGapPx;
+    const rangeTop = paddingTopPx + firstRow * stride;
+    const naiveRangeTop = firstRow * rowHeightPx;
+    const maxScroll = contentHeightPx - containerHeightPx;
+
+    const target = computeHexScrollTarget({
+      firstRow,
+      lastRow: firstRow,
+      rowHeightPx,
+      rowGapPx,
+      paddingTopPx,
+      containerHeightPx,
+      contentHeightPx,
+      currentScrollTop: 0,
+      anchorRatio: 1 / 3,
+    });
+
+    expect(target).toBe(Math.min(Math.max(rangeTop - containerHeightPx / 3, 0), maxScroll));
+    // Gap+padding error at page end exceeds one viewport — naive Y under-scrolls.
+    expect(rangeTop - naiveRangeTop).toBeGreaterThan(containerHeightPx);
+    const naiveTarget = Math.min(
+      Math.max(naiveRangeTop - containerHeightPx / 3, 0),
+      maxScroll,
+    );
+    expect(target).toBeGreaterThan(naiveTarget);
+  });
+
+  it("DEF-001: visibility check uses gap-aware row band", () => {
+    const rowHeightPx = 20;
+    const rowGapPx = 1;
+    const paddingTopPx = 7;
+    // Gap-aware row 100: [2107, 2127]. Viewport [2100, 2300] covers it → null.
+    expect(
+      computeHexScrollTarget({
+        firstRow: 100,
+        lastRow: 100,
+        rowHeightPx,
+        rowGapPx,
+        paddingTopPx,
+        containerHeightPx: 200,
+        contentHeightPx: 6000,
+        currentScrollTop: 2100,
+      }),
+    ).toBeNull();
+    // Viewport [2000, 2100] covers naive Y (2000..2020) but not gap-aware band → must scroll.
+    expect(
+      computeHexScrollTarget({
+        firstRow: 100,
+        lastRow: 100,
+        rowHeightPx,
+        rowGapPx,
+        paddingTopPx,
+        containerHeightPx: 100,
+        contentHeightPx: 6000,
+        currentScrollTop: 2000,
+      }),
+    ).not.toBeNull();
+    expect(
+      computeHexScrollTarget({
+        firstRow: 100,
+        lastRow: 100,
+        rowHeightPx,
+        containerHeightPx: 100,
+        contentHeightPx: 6000,
+        currentScrollTop: 2000,
+      }),
+    ).toBeNull();
+  });
 });
