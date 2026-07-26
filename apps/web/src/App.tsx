@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   annotateCtidBlocks,
   decodePageTuples,
@@ -44,6 +44,7 @@ export function App() {
   const [hexCollapsed, setHexCollapsed] = useState(false);
   const [freeCollapsed, setFreeCollapsed] = useState(false);
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
+  const hexLocateHandledNonceRef = useRef(0);
 
   const [form, setForm] = useState({
     host: "127.0.0.1",
@@ -534,6 +535,7 @@ export function App() {
                   raw={page.raw}
                   highlight={highlight}
                   locate={hexLocate}
+                  locateHandledNonceRef={hexLocateHandledNonceRef}
                   onSelectOffset={onHexSelect}
                 />
               )}

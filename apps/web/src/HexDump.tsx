@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import {
   computeHexScrollTarget,
   STRUCTURE_BYTES_PER_ROW,
@@ -11,6 +11,8 @@ type Props = {
   raw: Uint8Array;
   highlight: ByteRange | null;
   locate: HexLocate | null;
+  /** Survives HexDump unmount so manual re-expand does not re-scroll. */
+  locateHandledNonceRef: MutableRefObject<number>;
   onSelectOffset: (offset: number) => void;
 };
 
@@ -22,7 +24,13 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 }
 
-export function HexDump({ raw, highlight, locate, onSelectOffset }: Props) {
+export function HexDump({
+  raw,
+  highlight,
+  locate,
+  locateHandledNonceRef,
+  onSelectOffset,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [locateRow, setLocateRow] = useState<number | null>(null);
   const [announce, setAnnounce] = useState("");
@@ -31,6 +39,9 @@ export function HexDump({ raw, highlight, locate, onSelectOffset }: Props) {
 
   useEffect(() => {
     if (!locate) return;
+    if (locateHandledNonceRef.current === locate.nonce) return;
+    locateHandledNonceRef.current = locate.nonce;
+
     const el = containerRef.current;
     if (!el) return;
 
@@ -66,8 +77,8 @@ export function HexDump({ raw, highlight, locate, onSelectOffset }: Props) {
       setAnnounce("");
     }, prefersReducedMotion() ? 400 : 700);
     return () => window.clearTimeout(clear);
-    // Intentionally only nonce: same highlight must not re-scroll on re-render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- P0-12 contract
+    // Scroll only when nonce advances (ref survives unmount). highlight read from render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- P0-12 nonce contract
   }, [locate?.nonce]);
 
   for (let i = 0; i < raw.length; i += bytesPerRow) {
