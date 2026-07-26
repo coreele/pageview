@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.env
+.DS_Store
+coverage/
+*.log
+.vite/
+apps/web/dist/
+apps/server/dist/
+packages/page-core/dist/
