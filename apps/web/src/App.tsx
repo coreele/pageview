@@ -239,170 +239,176 @@ export function App() {
     if (canLoad && selectedOid != null) void loadBlk(selectedOid, blkno);
   };
 
+  const connSummary =
+    connected && session
+      ? `${session.host}:${session.port} / ${session.database} / ${session.user}`
+      : "";
+  const connTitle =
+    connected && session
+      ? `${connSummary}\n${session.serverVersion ?? ""}`.trim()
+      : undefined;
+
+  const statusLabel =
+    loadState === "connecting" ? "connecting…" : connected ? "connected" : "disconnected";
+
   return (
     <div className="app">
       <header className="chrome" aria-label="Application chrome">
-        <div className="chrome-bar">
-          <h1>pg-page-viewer</h1>
-          <span className={`badge${connected ? " ok" : ""}`} aria-live="polite">
-            {loadState === "connecting"
-              ? "connecting…"
-              : connected
-                ? "connected"
-                : "disconnected"}
-          </span>
-          {connected && (
-            <div className="chrome-controls">
-              <label className="control">
-                <span className="control-label">table</span>
-                <select
-                  className="table-select"
-                  value={selectedOid ?? ""}
-                  disabled={tables.length === 0 || loadState === "loading-tables"}
-                  title={selectedTable?.qualifiedName ?? undefined}
-                  onChange={(e) => {
-                    if (e.target.value !== "") void onSelectTable(Number(e.target.value));
-                  }}
-                >
-                  <option value="" disabled={tables.length > 0}>
-                    {tables.length === 0 ? "no user heap tables" : "select a table…"}
-                  </option>
-                  {tables.map((t) => (
-                    <option key={t.oid} value={t.oid}>
-                      {t.qualifiedName} ({t.blocks} blk)
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {loadState === "loading-tables" && (
-                <span className="muted">
-                  <span className="spinner" />
-                  tables
-                </span>
-              )}
-              <label className="control">
-                <span className="control-label">blkno</span>
-                <input
-                  className="blkno-input"
-                  type="number"
-                  min={0}
-                  value={blkno}
-                  onChange={(e) => setBlkno(Number(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      triggerLoad();
-                    }
-                  }}
-                  disabled={!selectedTable || selectedTable.blocks === 0}
-                />
-              </label>
-              <button className="primary" type="button" disabled={!canLoad} onClick={triggerLoad}>
-                {loadState === "loading-page" ? (
-                  <>
-                    <span className="spinner" /> Load
-                  </>
-                ) : (
-                  "Load"
-                )}
-              </button>
-              <button
-                type="button"
-                disabled={!page || loadState === "loading-page" || selectedOid == null}
-                onClick={() =>
-                  selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })
-                }
-              >
-                Refresh
-              </button>
-            </div>
+        <h1 className="chrome-title">pg-page-viewer</h1>
+        <span
+          className={`badge chrome-badge${connected ? " ok badge-conn" : ""}`}
+          aria-live="polite"
+          tabIndex={connected ? 0 : undefined}
+          title={connTitle}
+        >
+          {statusLabel}
+          {connected && session && (
+            <span className="conn-popover" role="tooltip" aria-hidden="true">
+              <span className="conn-popover-line mono">{connSummary}</span>
+              {session.serverVersion ? (
+                <span className="conn-popover-line mono">{session.serverVersion}</span>
+              ) : null}
+            </span>
           )}
-          <div className="chrome-spacer" />
-          <button type="button" aria-label="Toggle color theme" onClick={toggleTheme}>
-            Theme: {theme}
-          </button>
-        </div>
+        </span>
 
         <div className="chrome-meta" aria-label="Context strip">
           {!connected ? (
             <div className="meta-row">
-              <span className="label">Status</span>
-              <span className="value">未连接</span>
+              <span className="muted">未连接</span>
             </div>
           ) : (
-            <>
-              <div className="meta-row">
-                <span className="meta-item">
-                  <span className="label">conn</span>
-                  <span
-                    className="value"
-                    title={`${session?.host}:${session?.port} / ${session?.database} / ${session?.user}`}
+            <div className="meta-row meta-controls-row">
+              <div className="chrome-controls">
+                <label className="control">
+                  <span className="control-label">table</span>
+                  <select
+                    className="table-select"
+                    value={selectedOid ?? ""}
+                    disabled={tables.length === 0 || loadState === "loading-tables"}
+                    title={selectedTable?.qualifiedName ?? undefined}
+                    onChange={(e) => {
+                      if (e.target.value !== "") void onSelectTable(Number(e.target.value));
+                    }}
                   >
-                    {session?.host}:{session?.port} / {session?.database} / {session?.user}
+                    <option value="" disabled={tables.length > 0}>
+                      {tables.length === 0 ? "no user heap tables" : "select a table…"}
+                    </option>
+                    {tables.map((t) => (
+                      <option key={t.oid} value={t.oid}>
+                        {t.qualifiedName} ({t.blocks} blk)
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {loadState === "loading-tables" && (
+                  <span className="muted">
+                    <span className="spinner" />
+                    tables
                   </span>
-                </span>
-                <span className="meta-item">
-                  <span className="label">PG</span>
-                  <span className="value" title={session?.serverVersion ?? ""}>
-                    {(session?.serverVersion ?? "").slice(0, 72)}
-                    {(session?.serverVersion?.length ?? 0) > 72 ? "…" : ""}
-                  </span>
-                </span>
-                <span className="meta-item">
-                  <span className="label">table</span>
-                  <span
-                    className="value"
-                    title={selectedTable ? selectedTable.qualifiedName : undefined}
-                  >
-                    {selectedTable
-                      ? `${selectedTable.qualifiedName} (oid ${selectedTable.oid})`
-                      : "未选表"}
-                  </span>
-                </span>
-                <span className="meta-item">
-                  <span className="label">#blocks</span>
-                  <span className="value">{selectedTable ? selectedTable.blocks : "—"}</span>
-                </span>
-              </div>
-              <div className="meta-row">
-                {page ? (
-                  <>
-                    <span className="meta-item">
-                      <span className="label">blkno</span>
-                      <span className="value">{blkno}</span>
-                    </span>
-                    <span className="meta-item">
-                      <span className="label">page</span>
-                      <span className="value">{page.stats.pageSize}</span>
-                    </span>
-                    <span className="meta-item">
-                      <span className="label">lower/upper/free</span>
-                      <span className="value">
-                        {page.stats.pd_lower}/{page.stats.pd_upper}/{page.stats.freeBytes}
-                      </span>
-                    </span>
-                    <span className="meta-item">
-                      <span className="label">ItemId</span>
-                      <span
-                        className="value"
-                        title={`UNUSED=${page.stats.lpUnused} NORMAL=${page.stats.lpNormal} REDIRECT=${page.stats.lpRedirect} DEAD=${page.stats.lpDead}`}
-                      >
-                        {page.stats.itemIdTotal} (U{page.stats.lpUnused}/N{page.stats.lpNormal}/R
-                        {page.stats.lpRedirect}/D{page.stats.lpDead})
-                      </span>
-                    </span>
-                    <span className="meta-item">
-                      <span className="label">#tup</span>
-                      <span className="value">{page.stats.tupleCount}</span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="muted">页元信息：加载页后显示</span>
                 )}
+                <label className="control">
+                  <span className="control-label">blkno</span>
+                  <input
+                    className="blkno-input"
+                    type="number"
+                    min={0}
+                    value={blkno}
+                    onChange={(e) => setBlkno(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        triggerLoad();
+                      }
+                    }}
+                    disabled={!selectedTable || selectedTable.blocks === 0}
+                  />
+                </label>
+                <button className="primary" type="button" disabled={!canLoad} onClick={triggerLoad}>
+                  {loadState === "loading-page" ? (
+                    <>
+                      <span className="spinner" /> Load
+                    </>
+                  ) : (
+                    "Load"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={!page || loadState === "loading-page" || selectedOid == null}
+                  onClick={() =>
+                    selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })
+                  }
+                >
+                  Refresh
+                </button>
               </div>
-            </>
+
+              {page && selectedTable && (
+                <div className="meta-stats" aria-label="Page statistics">
+                  <span className="meta-item">
+                    <span className="label">table</span>
+                    <span className="value" title={selectedTable.qualifiedName}>
+                      {selectedTable.qualifiedName} (oid {selectedTable.oid})
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">#blocks</span>
+                    <span className="value">{selectedTable.blocks}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">blkno</span>
+                    <span className="value">{blkno}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">page</span>
+                    <span className="value">{page.stats.pageSize}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">lower/upper/free</span>
+                    <span className="value">
+                      {page.stats.pd_lower}/{page.stats.pd_upper}/{page.stats.freeBytes}
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">ItemId</span>
+                    <span
+                      className="value"
+                      title={`UNUSED=${page.stats.lpUnused} NORMAL=${page.stats.lpNormal} REDIRECT=${page.stats.lpRedirect} DEAD=${page.stats.lpDead}`}
+                    >
+                      {page.stats.itemIdTotal} (U{page.stats.lpUnused}/N{page.stats.lpNormal}/R
+                      {page.stats.lpRedirect}/D{page.stats.lpDead})
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">#tup</span>
+                    <span className="value">{page.stats.tupleCount}</span>
+                  </span>
+                </div>
+              )}
+            </div>
           )}
         </div>
+
+        {page && (
+          <button
+            className="chrome-collapse"
+            type="button"
+            aria-expanded={!hexCollapsed}
+            aria-controls="hex-panel"
+            onClick={() => setHexCollapsed((v) => !v)}
+          >
+            {hexCollapsed ? "Show hex" : "Collapse hex"}
+          </button>
+        )}
+        <button
+          className="chrome-theme"
+          type="button"
+          aria-label="Toggle color theme"
+          onClick={toggleTheme}
+        >
+          Theme: {theme}
+        </button>
       </header>
 
       <main className={`main${page ? " main-paged" : ""}`}>
@@ -528,16 +534,9 @@ export function App() {
               )}
             </section>
 
-            <section className="pane pane-hex" aria-label="Hex dump panel">
+            <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
               <div className="pane-head">
                 <strong className="pane-title">Hex</strong>
-                <button
-                  type="button"
-                  aria-expanded={!hexCollapsed}
-                  onClick={() => setHexCollapsed((v) => !v)}
-                >
-                  {hexCollapsed ? "Show hex" : "Collapse hex"}
-                </button>
               </div>
               {hexCollapsed ? (
                 <div className="muted pane-collapsed-note">Hex collapsed</div>

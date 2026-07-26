@@ -125,26 +125,45 @@ input {
 }
 
 .chrome {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-areas:
+    "title badge spacer collapse theme"
+    "meta meta meta meta meta";
+  align-items: center;
+  column-gap: 0.65rem;
+  row-gap: 0;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   /* Grid item must be allowed to shrink so the meta strip scrolls instead of the page. */
   min-width: 0;
+  padding: 0.3rem 0.75rem 0;
 }
 
-.chrome-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.85rem;
-  min-height: var(--chrome-bar-h);
-  padding: 0.3rem 0.75rem;
-}
-
-.chrome h1 {
+.chrome-title {
+  grid-area: title;
   font-size: 1rem;
   font-weight: 650;
   margin: 0;
   letter-spacing: -0.02em;
+  min-height: var(--chrome-bar-h);
+  display: inline-flex;
+  align-items: center;
+}
+
+.chrome-badge {
+  grid-area: badge;
+  align-self: center;
+}
+
+.chrome-collapse {
+  grid-area: collapse;
+  justify-self: end;
+}
+
+.chrome-theme {
+  grid-area: theme;
+  justify-self: end;
 }
 
 .chrome-controls {
@@ -152,6 +171,7 @@ input {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem 0.6rem;
+  flex: 0 1 auto;
 }
 
 .control {
@@ -181,6 +201,7 @@ input {
 }
 
 .badge {
+  position: relative;
   font-size: 0.75rem;
   color: var(--text-muted);
   border: 1px solid var(--border);
@@ -193,29 +214,88 @@ input {
   border-color: var(--accent);
 }
 
-.chrome-spacer {
-  flex: 1;
+.badge-conn {
+  cursor: default;
+}
+
+.badge-conn:focus {
+  outline: none;
+}
+
+.badge-conn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.conn-popover {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  min-width: 12rem;
+  max-width: min(28rem, 80vw);
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 24px color-mix(in srgb, #000 18%, transparent);
+  white-space: normal;
+}
+
+.conn-popover-line {
+  display: block;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.conn-popover-line + .conn-popover-line {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+}
+
+.badge-conn:hover .conn-popover,
+.badge-conn:focus-visible .conn-popover {
+  display: block;
 }
 
 .chrome-meta {
+  grid-area: meta;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 0.1rem;
-  padding: 0.3rem 0.75rem 0.4rem;
+  gap: 0.25rem;
+  margin: 0 -0.75rem;
+  padding: 0.35rem 0.75rem 0.4rem;
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 82%, var(--bg));
   min-height: var(--chrome-meta-h);
   font-size: 0.82rem;
   /* Very narrow viewports scroll the strip instead of widening the document (P1-2). */
   overflow-x: auto;
+  min-width: 0;
 }
 
 .meta-row {
   display: flex;
   flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  min-width: 0;
+  align-items: center;
+}
+
+.meta-controls-row {
+  gap: 0.45rem 1.1rem;
+}
+
+.meta-stats {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.2rem 1.1rem;
   min-width: 0;
+  align-items: baseline;
 }
 
 .meta-item {
