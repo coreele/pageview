@@ -343,19 +343,6 @@ input {
   min-width: 0;
 }
 
-.pane-head {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.pane-title {
-  font-size: 0.78rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 .form-grid {
   display: grid;
   gap: 0.5rem;
@@ -881,12 +868,6 @@ input {
   width: min(400px, 100%);
 }
 
-.pane-collapsed-note {
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 0.4rem 0.55rem;
-}
-
 /* Wide viewport (Spec breakpoint 960px): structure left ‖ hex right. */
 @media (min-width: 960px) {
   .main-paged {
@@ -897,6 +878,11 @@ input {
     grid-template-columns: minmax(280px, 0.55fr) minmax(280px, 0.45fr);
     flex: 1 1 auto;
     min-height: 0;
+  }
+
+  /* Collapsed: hex pane unmounted — single column, structure fills main. */
+  .main-paged .main-split[data-hex="collapsed"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .main-paged .pane {
@@ -916,9 +902,5 @@ input {
     flex: 1 1 auto;
     min-height: 0;
     max-height: none;
-  }
-
-  .main-split[data-hex="collapsed"] {
-    grid-template-columns: minmax(0, 1fr) auto;
   }
 }

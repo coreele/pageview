@@ -534,13 +534,8 @@ export function App() {
               )}
             </section>
 
-            <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
-              <div className="pane-head">
-                <strong className="pane-title">Hex</strong>
-              </div>
-              {hexCollapsed ? (
-                <div className="muted pane-collapsed-note">Hex collapsed</div>
-              ) : (
+            {!hexCollapsed && (
+              <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
                 <HexDump
                   raw={page.raw}
                   highlight={highlight}
@@ -548,8 +543,8 @@ export function App() {
                   locateHandledNonceRef={hexLocateHandledNonceRef}
                   onSelectOffset={onHexSelect}
                 />
-              )}
-            </section>
+              </section>
+            )}
           </div>
         )}
       </main>
