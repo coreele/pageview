@@ -113,6 +113,11 @@
 - 2026-07-26: Developer（[developer](ab3d4dae-8996-42a4-9aee-0d15d0e64e85)）完成 T15–T16。Manager 核验：HEAD `5b2756a`，领先 main 10 commits（本轮 `dc5b455`/`caee028`/`5b2756a`）；hex pane 条件渲染 `{!hexCollapsed && …}`，无「Hex collapsed」/pane-title；page-core/server 零 diff。验证：L2 Pass；手测 23/23；L3 本轮未重跑。状态 `developing` → `reviewing`。**不**自动 Reviewer；禁止 merge/push。
 - 2026-07-26: **用户授权 Reviewer + 条件预授权 QA/合并/push**（原话：「ok, 没有问题直接提交，合并，push」）。解读：① 立即调度 Reviewer；② 仅当 Approve → 调度 QA；③ 仅当 QA Pass → 关闭提交 + 合入 main + push origin + 归档。Request changes / QA 非 Pass 则停。Review 门禁不跳过。状态保持 `reviewing`，调度 Reviewer。
 - 2026-07-26: Reviewer（[reviewer](b734a3e8-7715-49ca-94f0-4e133cdb2810)）结论 **Approve** @ `5b2756a`；阻塞项 none；报告 `review.md` 未提交。Review 门禁 required **已满足**。状态 `reviewing` → `qa`。按条件预授权立即调度 QA。
+- 2026-07-26: QA（[qa](5d15fe0f-65f8-48e8-950d-77443fd83ddb)）结论 **Pass** @ `5b2756a`。L2/L3/手测 P0-1..15 与第四轮三态通过；缺陷 none；`qa-report.md` 未提交。按用户条件预授权（「ok, 没有问题直接提交，合并，push」）：状态 `qa` → `done`。门禁核验：Plan 已确认；Review Approve；QA Pass；分支已记录；合并+push 已授权。关闭窗口一次提交 STATUS/工作项/`review.md`/`qa-report.md`（禁 `.env`/`.tmp-uicheck`），再调度 QA 兼任 Merge Executor 合入 `main` 并 push。
+
+## 合并授权（2026-07-26）
+
+结论: **授权** 源 `layout-chrome-split` → 目标 `main`，并授权合入后 **push** 至 origin（用户原话：「ok, 没有问题直接提交，合并，push」）。条件：Review Approve + QA Pass 均已满足。
 
 ## Spec 用户确认（2026-07-26，第三轮增量 + 微调）
 
