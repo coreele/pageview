@@ -3,61 +3,51 @@
 ## 结论
 
 - 工作分支：`layout-chrome-split`（基于 `main` `6bed602`）。
-- **T1–T8**（首轮）与 **T9–T14**（第三轮增量）均已完成。
-- 最低验证层 L2 通过；定向手测（Chrome headless + 实库）通过；L3 集成冒烟通过。
+- **T1–T8**、**T9–T14**、**T15–T16**（第四轮）均已完成。
+- 最低验证层 L2 通过；第四轮定向手测（Chrome headless + 实库）通过。
 - Review 门禁 `required`；本记录不是 QA 结论。
 
 ## 完成度与变更
 
-### 首轮 T1–T8（既有）
+### 首轮 T1–T8 / 第三轮 T9–T14（既有）
 
-| 任务 | 结果 |
-|---|---|
-| T1–T8 | 完成：侧栏移除、顶栏主控初版、次带元信息、960 分栏、联动/键盘、README |
+见历史提交与下文「第三轮验证摘要」。壳层主带/次带、Collapse 唯一入口、连接徽标 hover、960 分栏已落地。
 
-### 第三轮 T9–T14
+### 第四轮 T15–T16
 
 | 任务 | 结果 | 变更或证据 |
 |---|---|---|
-| T9 主带顺序 + Collapse 迁入 | 完成 | 主带 DOM/视觉：标题 → connected → Collapse hex（仅 `page_loaded`）→ Theme；表控不在主带 |
-| T10 hex 面板去 Collapse | 完成 | `.pane-hex .pane-head` 仅保留 `Hex` 标签；折叠/展开仅主带 |
-| T11 次带表控 + 统计空态 | 完成 | 次带：select / blkno / Load / Refresh；统计仅 `page_loaded` 渲染；禁 —/N/A 占位 |
-| T12 连接详情进徽标 | 完成 | 次带无常驻连接串/PG；徽标 hover + `:focus-visible` 浮层 + `title`；无密码 |
-| T13 分栏/联动不回退 | 完成 | ≥960 左右 55/45；&lt;960 上下；双向高亮 + locate 仍可用 |
-| T14 验证与文档 | 完成 | L2 + 手测写入本文件；README 对齐第三轮 IA；page-core/server 零 diff |
+| T15 去 Hex 标签 + 折叠 pane 退出 | 完成 | 展开无 `.pane-head`/`HEX`；`hexCollapsed` 时不渲染 `.pane-hex`；Grid 单栏结构图占满；主带 Collapse/Show 唯一入口 |
+| T16 回归验证与交接 | 完成 | L2 + 手测三态证据；page-core/server 零 diff |
 
 变更路径（本轮）：
 
 - `apps/web/src/App.tsx`
 - `apps/web/src/styles.css`
-- `README.md`
-- `docs/features/layout-chrome-split/{spec,design,ui-design,plan,dev-notes}.md`（Planner/Analyst 修订可随分支入库）
+- `docs/features/layout-chrome-split/{design,ui-design,plan,dev-notes}.md`（Planner 第四轮修订随分支入库）
 
 未改 `packages/page-core/**`、`apps/server/**`、API；未新增依赖；未提交 `.env` / `docs/manager/**`。
 
 ## TDD / 替代验证
 
-仓库仍无 web DOM 自动化测试依赖，壳层 IA 无法仓内单测先行。风险：布局回归依赖手测。本轮替代：Chrome headless（puppeteer-core @ `/tmp`，未改仓库依赖）对 Vite + PostgreSQL 16 跑定向清单 → 最小实现 → L2。
+仓库无 web DOM 自动化测试依赖，壳层条件渲染无法仓内单测先行。风险：布局回归依赖手测。本轮替代：Chrome headless（puppeteer-core @ `/tmp`，未改仓库依赖）对 Vite + PostgreSQL 16 跑第四轮清单 → 最小实现 → L2。
 
-自动化恢复条件：引入 Vitest + DOM/浏览器驱动后，固化主带顺序、Collapse 唯一、统计空态、徽标浮层、960 断点。
+自动化恢复条件：引入 Vitest + DOM/浏览器驱动后，固化「展开无 Hex 标签 / 折叠无 pane / Show hex 恢复分栏」。
 
 ## 验证证据
 
-### L1 定向手测（第三轮清单）
+### L1 定向手测（第四轮清单）
 
-Chrome headless @ `localhost:5173`，实库已连接 `pageviewer`：
+Chrome headless @ `localhost:5173`，实库 `public.qa_cross` blk 0；截图 `/tmp/layout-t15-evidence/{01-expanded,02-collapsed,03-restored,04-narrow-restored}.png`。
 
 | # | 检查 | 结果 |
 |---|---|---|
-| 1 | 主带顺序 标题→connected→Collapse→Theme | Pass（加载后 x：12 / 135 / 1219 / 1329） |
-| 2 | Collapse 唯一；Hex 标签保留；主带可折叠/展开 | Pass（hex `.pane-head` 无 Collapse/Show；`data-hex` 切换） |
-| 3 | 次带主控；主带无表控 | Pass（`.chrome-meta .chrome-controls`） |
-| 4 | 未选表/未加载统计空白；加载后齐全 | Pass（加载前无 `.meta-stats`；后含 oid/#blocks/lower/ItemId/#tup） |
-| 5 | 次带无长连接串；hover/focus 浮层 + title；无密码 | Pass |
-| 6 | ≥960 左右；&lt;960 上下 | Pass（1440：`772px 632px`；900：上下堆叠） |
-| 7 | 结构→hex 高亮 + locate；Theme 可切换 | Pass（hl=4、locate-flash；Theme light↔dark） |
+| 1 | 展开无 `HEX`/`Hex` 标签；≥960 左右分栏 | Pass（无 `.pane-head`；列 `772px 632px`） |
+| 2 | 折叠无 `Hex collapsed`、无 hex pane/右列；结构图占满 | Pass（无 `.pane-hex`；单列 `1416px`；ratio≈0.98） |
+| 3 | Show hex 恢复；≥960 左右；&lt;960 上下；主带唯一入口 | Pass（仅 `.chrome-collapse`） |
+| 4 | 结构→hex 高亮/locate；Theme 可切换 | Pass（hl=4、locate-flash；Theme dark↔light） |
 
-汇总：**24/24** 脚本断言通过。
+汇总：**23/23** 主清单断言 + 高亮抽检 Pass。
 
 ### L2
 
@@ -71,18 +61,21 @@ Chrome headless @ `localhost:5173`，实库已连接 `pageviewer`：
 
 | 验证 | 结果 |
 |---|---|
-| `pnpm test:integration` | Pass：`public.qa_cross` blk 0 length=8192；PG 16.0；dropped-column placeholders OK |
-| 实库浏览器手测 | 见上表 24/24 |
+| 本轮 `test:integration` | 未重跑（第四轮仅 UI 条件渲染；实库手测已覆盖 Load） |
+| 实库浏览器手测 | 见上表 |
+
+### 第三轮验证摘要（未回归重跑全量）
+
+此前 T9–T14：L1 24/24、L2 Pass、`pnpm test:integration` Pass。本轮抽检主带 Collapse/Theme、分栏与联动未回退。
 
 ## 文档与安全
 
-- `README.md`：主带/次带 IA、徽标连接详情、Collapse 位置已改写。
+- 用户文档 N/A（仅去装饰标签/折叠占位；主带操作流程不变）。
 - 运维文档 N/A。
-- 安全：无新依赖；密码仍不进 chrome/浮层/文档/提交；浮层 `aria-hidden` + `title` 可达全文。
+- 安全：无新依赖；密码仍不进 chrome/浮层/文档/提交。
 
 ## 已知缺口与建议复测
 
-- 0-block 用户表路径未本轮重测（实库无该表）；统计空态与 Load disabled 代码仍在。风险：低。恢复：准备 0-block 表后复测。
-- 自动连接环境下未重测 disconnected/连接错误面板。风险：低。
-- P1-1 拖拽分隔 N/A；P1-3 原生 select。
-- Reviewer 重点：主带 DOM/Grid 顺序与 Tab（徽标→次带主控→Collapse→Theme）、hex 无折叠按钮、统计空态、徽标浮层、960 分栏未回退。
+- 0-block / disconnected 路径未本轮重测。风险：低。恢复：准备对应表/断连后复测。
+- P1-1 拖拽分隔 N/A。
+- Reviewer 重点：展开无 Hex 标签；折叠 DOM 无 `.pane-hex` 且宽屏单栏全宽；Show hex 恢复 55/45；主带唯一切换入口。
