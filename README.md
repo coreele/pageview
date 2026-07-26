@@ -8,9 +8,16 @@ Local tool: connect to PostgreSQL, fetch heap pages via `pageinspect.get_raw_pag
 
 | Package | Role |
 |---|---|
-| `packages/page-core` | Pure TS parser/decoder (browser + Vitest) |
+| `packages/page-core` | Pure TS parser/decoder + structure-field derive (browser + Vitest) |
 | `apps/server` | Fastify thin proxy (default `127.0.0.1:8787`) |
-| `apps/web` | React UI: structure map, hex, theme, context strip |
+| `apps/web` | React UI: **32B/row structure diagram**, hex dump (32B/row), theme, context strip |
+
+## Scope (v1)
+
+- Heap user tables only (`relkind = r`); no system catalogs, indexes, FSM/VM
+- Standard 8KB pages only
+- Page view: structure diagram aligned to **32 bytes per row** (header → ItemId → foldable free space → tuples); hex dump matches 32B/row with ≥4-digit hex offsets
+- TOAST pointers shown as TOASTed — external toast pages not fetched
 
 ## Prerequisites
 
@@ -51,12 +58,6 @@ Passwords stay in server process memory — not in repo config, not in frontend 
 ## Theme
 
 Light / dark. Default follows `prefers-color-scheme` (fallback light). Chrome toggle switches themes; optional cross-session memory via the theme key above.
-
-## Scope (v1)
-
-- Heap user tables only (`relkind = r`); no system catalogs, indexes, FSM/VM
-- Standard 8KB pages only
-- TOAST pointers shown as TOASTed — external toast pages not fetched
 
 ## Fixture capture (optional L3 assets)
 
