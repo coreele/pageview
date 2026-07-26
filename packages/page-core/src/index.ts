@@ -13,3 +13,11 @@ export {
   buildEmptyishPage,
   SPARSE_SCHEMA,
 } from "./fixture-builder.js";
+export type { StructureField, StructureFieldRegion, RowSegment } from "./structure-fields.js";
+export {
+  STRUCTURE_BYTES_PER_ROW,
+  deriveStructureFields,
+  resolveFieldAt,
+  splitFieldIntoRowSegments,
+  selectionTargetForField,
+} from "./structure-fields.js";
