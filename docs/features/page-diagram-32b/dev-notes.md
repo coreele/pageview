@@ -13,7 +13,7 @@
 | T11 `valueText` | 完成 | `StructureField.valueText?`；Vitest 锁格式与「无 valueText」集合 |
 | T12 格内值模式 | 完成 | `cellCapacityChars`/`chooseCellContent` + 探针/`ResizeObserver`；跨行仅最宽片段渲染值 |
 | T13 详情同源 | 完成 | Selection detail 显示同一 `valueText`；web 无第二处主值格式化 |
-| T14 hex 定位 + Q7 | 完成 | `computeHexScrollTarget`；`selectByteRange(..., origin)`；`hexLocate.nonce`；折叠先展开再挂载定位 |
+| T14 hex 定位 + Q7 | 完成 | `computeHexScrollTarget`；`selectByteRange(..., origin)`；`hexLocate.nonce`；折叠先展开再挂载定位；`locateHandledNonceRef` 防手动再展开重滚 |
 | T15 验证与文档 | 完成 | 命令结果见下；增量手测见缺口 |
 
 ## T10 收编结论
