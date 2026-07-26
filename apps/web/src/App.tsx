@@ -42,6 +42,7 @@ export function App() {
   const [prevRaw, setPrevRaw] = useState<Uint8Array | null>(null);
   const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
   const [hexCollapsed, setHexCollapsed] = useState(false);
+  const [freeCollapsed, setFreeCollapsed] = useState(false);
 
   const [form, setForm] = useState({
     host: "127.0.0.1",
@@ -495,6 +496,8 @@ export function App() {
                 selectedId={selectedId}
                 highlight={highlight}
                 diffIds={diffIds}
+                freeCollapsed={freeCollapsed}
+                onToggleFreeCollapsed={() => setFreeCollapsed((v) => !v)}
                 onSelect={onSelectStructure}
                 onLoadCrossBlock={(target) => {
                   if (selectedOid != null) {

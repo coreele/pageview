@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ByteRange } from "page-core";
+import { STRUCTURE_BYTES_PER_ROW } from "page-core";
 
 type Props = {
   raw: Uint8Array;
@@ -13,7 +14,7 @@ function toHexByte(b: number): string {
 
 export function HexDump({ raw, highlight, onSelectOffset }: Props) {
   const rows: ReactNode[] = [];
-  const bytesPerRow = 16;
+  const bytesPerRow = STRUCTURE_BYTES_PER_ROW;
   for (let i = 0; i < raw.length; i += bytesPerRow) {
     const offsetLabel = i.toString(16).padStart(4, "0");
     const cells: ReactNode[] = [];

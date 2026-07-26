@@ -142,7 +142,6 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         visualOnly: true,
       }),
     );
-    void ITEM_ID_SIZE;
   }
 
   if (page.freeSpace.bytes > 0 || page.freeSpace.range.end > page.freeSpace.range.start) {
