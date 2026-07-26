@@ -5,18 +5,18 @@
 路径等级: full
 源分支: pg-page-viewer
 目标分支: main
-文档影响: 新建 `docs/features/pg-page-viewer/`（spec.md、design.md、ui-design.md、plan.md、dev-notes.md、review.md、qa-report.md）；项目 README 与部署/使用说明随实现产出
+文档影响: 已归档至 `docs/archive/2026/pg-page-viewer/`（原 `docs/features/pg-page-viewer/`：spec.md、design.md、ui-design.md、plan.md、dev-notes.md、review.md、qa-report.md）；项目 README 与部署/使用说明随实现产出
 
 > 权威工作流、门禁与状态说明见 manager 规范。
 > 活跃状态见 [STATUS.md](STATUS.md)。
 >
-> 文档路径：未拆分时 Spec 为 `docs/features/pg-page-viewer/spec.md`（无子目录）。
+> 文档路径（已归档）：`docs/archive/2026/pg-page-viewer/spec.md` 等。
 
 ## 切片（未拆分，sub-feature-id = feature-id）
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| pg-page-viewer | [spec.md](../features/pg-page-viewer/spec.md) | required | approved | required | gui | required | done | 已获合并授权；源分支关闭提交后由 Merge Executor 合入 main，再归档 |
+| pg-page-viewer | [spec.md](../archive/2026/pg-page-viewer/spec.md) | required | approved | required | gui | required | done | 已合入 main 并归档；无后续 |
 
 阻塞原因: none
 恢复条件: N/A

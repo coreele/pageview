@@ -4,10 +4,10 @@
 
 ## 活跃工作项
 
-| feature-id | sub-feature-id | 路径等级 | 状态 | 待用户确认 | 工作项记录 |
-|---|---|---|---|---|---|
-| pg-page-viewer | pg-page-viewer | full | done | none | [pg-page-viewer.md](pg-page-viewer.md) |
+（空）
 
 ## 归档
 
-（空；合入后归档）
+| feature-id | 最终状态 | 归档目录 | 备注 |
+|---|---|---|---|
+| pg-page-viewer | done | [docs/archive/2026/pg-page-viewer/](../archive/2026/pg-page-viewer/) | 2026-07-26 合入 `main`（FF `a58e30d`）后归档 |
