@@ -71,13 +71,15 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
     }),
     field({
       id: "header.pd_lower",
-      label: "pd_lower",
+      label: "lower",
+      fullLabel: "pd_lower",
       range: { start: 12, end: 14 },
       region: "header",
     }),
     field({
       id: "header.pd_upper",
-      label: "pd_upper",
+      label: "upper",
+      fullLabel: "pd_upper",
       range: { start: 14, end: 16 },
       region: "header",
     }),
@@ -90,7 +92,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
     }),
     field({
       id: "header.pd_pagesize_version",
-      label: "pagesize/ver",
+      label: "psz/ver",
       fullLabel: "pd_pagesize_version",
       range: { start: 18, end: 20 },
       region: "header",

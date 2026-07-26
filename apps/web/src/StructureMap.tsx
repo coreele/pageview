@@ -77,6 +77,45 @@ function isFieldDiff(diffIds: Set<string>, field: StructureField): boolean {
   return false;
 }
 
+/** Prefer readable short names over naive truncation (avoids "pd_", "che"). */
+function abbreviateLabel(label: string, spanBytes: number): string {
+  const known: Record<string, string[]> = {
+    checksum: ["cks", "ck"],
+    flags: ["flg", "fl"],
+    pd_lower: ["lower", "lo"],
+    pd_upper: ["upper", "up"],
+    special: ["spec", "sp"],
+    "pagesize/ver": ["psz/v", "pv"],
+    prune_xid: ["prune", "px"],
+    xlogid: ["xlog", "xl"],
+    xrecoff: ["xoff", "xo"],
+    lower: ["lower", "lo"],
+    upper: ["upper", "up"],
+    "psz/ver": ["psz/v", "pv"],
+    infomask2: ["imask2", "im2"],
+    infomask: ["imask", "im"],
+    nullbits: ["nullb", "nb"],
+    hoff: ["hoff", "ho"],
+    cid: ["cid", "ci"],
+    ctid: ["ctid", "ct"],
+    xmin: ["xmin", "xn"],
+    xmax: ["xmax", "xm"],
+  };
+  const item = /^ItemId\[(\d+)\]$/.exec(label);
+  if (item) return spanBytes >= 3 ? `#${item[1]}` : item[1]!;
+  const options = known[label];
+  if (options) {
+    for (const opt of options) {
+      if (opt.length <= spanBytes * 2 + 1) return opt;
+    }
+    return options[options.length - 1]!;
+  }
+  if (spanBytes <= 1) return label.slice(0, 2);
+  if (spanBytes <= 2) return label.length <= 4 ? label : label.slice(0, 3);
+  if (label.length <= spanBytes * 2) return label;
+  return label.slice(0, Math.max(3, spanBytes * 2 - 1));
+}
+
 function FreeSpaceBand({
   page,
   selectedId,
@@ -115,7 +154,7 @@ function FreeSpaceBand({
         }}
       >
         <div className="free-break">
-          <span>
+          <span className="free-break-label mono">
             free space [{range.start}..{range.end}) · {bytes} bytes
             {freeCollapsed ? "" : " (compressed)"}
           </span>
@@ -162,7 +201,7 @@ function FieldCell({
     onSelect(target.id, target.range);
   };
 
-  const shortLabel = span <= 2 ? field.label.slice(0, Math.max(1, span + 1)) : field.label;
+  const shortLabel = abbreviateLabel(field.label, span);
   const lpStatus =
     isItemId && field.fullLabel.includes("UNUSED")
       ? "UNUSED"
@@ -285,38 +324,57 @@ export function StructureMap({
 
   return (
     <div className="structure structure-diagram">
-      <div className="growth">
-        32B/row · low offset on top · header → ItemId → free → tuple · hex shares ByteRange
+      <div className="diagram-legend" aria-hidden="true">
+        <span className="legend-chip region-header">header</span>
+        <span className="legend-chip region-itemid">ItemId</span>
+        <span className="legend-chip region-free">free</span>
+        <span className="legend-chip region-tuple">tuple</span>
+        <span className="legend-meta muted">32 B / row · low offset ↑ · linked with hex</span>
       </div>
 
-      <div className="structure-section-label">PageHeader / ItemId</div>
-      <DiagramRows
-        fields={upperFields}
-        selectedId={selectedId}
-        diffIds={diffIds}
-        onSelect={onSelect}
-      />
+      <section className="diagram-section" aria-label="PageHeader and ItemId">
+        <div className="structure-section-label">
+          <span className="section-dot region-header" />
+          PageHeader / ItemId
+        </div>
+        <DiagramRows
+          fields={upperFields}
+          selectedId={selectedId}
+          diffIds={diffIds}
+          onSelect={onSelect}
+        />
+      </section>
 
-      <div className="structure-section-label">Free space</div>
-      <FreeSpaceBand
-        page={page}
-        selectedId={selectedId}
-        diffIds={diffIds}
-        freeCollapsed={freeCollapsed}
-        onToggleFreeCollapsed={onToggleFreeCollapsed}
-        onSelect={onSelect}
-      />
+      <section className="diagram-section" aria-label="Free space">
+        <div className="structure-section-label">
+          <span className="section-dot region-free" />
+          Free space
+        </div>
+        <FreeSpaceBand
+          page={page}
+          selectedId={selectedId}
+          diffIds={diffIds}
+          freeCollapsed={freeCollapsed}
+          onToggleFreeCollapsed={onToggleFreeCollapsed}
+          onSelect={onSelect}
+        />
+      </section>
 
-      <div className="structure-section-label">HeapTuple</div>
-      <DiagramRows
-        fields={tupleFields}
-        selectedId={selectedId}
-        diffIds={diffIds}
-        onSelect={onSelect}
-      />
+      <section className="diagram-section" aria-label="HeapTuple">
+        <div className="structure-section-label">
+          <span className="section-dot region-tuple" />
+          HeapTuple
+        </div>
+        <DiagramRows
+          fields={tupleFields}
+          selectedId={selectedId}
+          diffIds={diffIds}
+          onSelect={onSelect}
+        />
+      </section>
 
       {(selectedItem || selectedTuple || selectedField) && (
-        <div className="panel">
+        <div className="panel selection-detail">
           <strong>Selection detail</strong>
           {selectedField && (
             <div className="mono" style={{ marginBottom: "0.35rem" }}>

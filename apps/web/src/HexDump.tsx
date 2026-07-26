@@ -23,28 +23,20 @@ export function HexDump({ raw, highlight, onSelectOffset }: Props) {
       const hl =
         highlight && off >= highlight.start && off < highlight.end ? "hl" : undefined;
       cells.push(
-        <span
+        <button
           key={off}
-          className={hl}
-          role="button"
-          tabIndex={0}
+          type="button"
+          className={`hex-cell${hl ? ` ${hl}` : ""}`}
           onClick={() => onSelectOffset(off)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              onSelectOffset(off);
-            }
-          }}
         >
           {toHexByte(raw[off]!)}
-          {j < bytesPerRow - 1 ? " " : ""}
-        </span>,
+        </button>,
       );
     }
     rows.push(
-      <div key={i}>
-        <span className="muted">{offsetLabel}: </span>
-        {cells}
+      <div key={i} className="hex-row" role="row">
+        <span className="hex-offset mono muted">{offsetLabel}</span>
+        <div className="hex-row-grid">{cells}</div>
       </div>,
     );
   }
