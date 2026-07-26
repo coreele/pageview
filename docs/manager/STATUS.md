@@ -4,7 +4,9 @@
 
 ## 活跃工作项
 
-（空）
+| feature-id | sub-feature-id | 路径 | 状态 | Spec | Design | UI 表面 | Review | 源分支 | 目标分支 | 后续步骤 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| page-diagram-32b | page-diagram-32b | full | done | approved | required | gui | Approve（复审） | page-diagram-32b | main | 已授权合入；等待 Merge Executor 合入 main 后归档 |
 
 ## 归档
 
