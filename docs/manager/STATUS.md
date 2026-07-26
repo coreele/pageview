@@ -6,8 +6,8 @@
 
 | feature-id | sub-feature-id | 路径等级 | 状态 | 待用户确认 | 工作项记录 |
 |---|---|---|---|---|---|
-| pg-page-viewer | pg-page-viewer | full | planned | none | [pg-page-viewer.md](pg-page-viewer.md) |
+| pg-page-viewer | pg-page-viewer | full | done | none | [pg-page-viewer.md](pg-page-viewer.md) |
 
 ## 归档
 
-（空）
+（空；合入后归档）
