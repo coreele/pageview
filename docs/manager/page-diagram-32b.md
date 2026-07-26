@@ -5,12 +5,12 @@
 路径等级: full
 源分支: page-diagram-32b
 目标分支: main
-文档影响: 新建 `docs/features/page-diagram-32b/`（预期 spec.md；Design 门禁 required 时另有 design.md、ui-design.md、plan.md；后续 dev-notes / review / qa-report）。可能修订 README 中页视图说明。前序能力见归档 `docs/archive/2026/pg-page-viewer/`。
+文档影响: 已归档至 `docs/archive/2026/page-diagram-32b/`（原 `docs/features/page-diagram-32b/`：spec.md、design.md、ui-design.md、plan.md、dev-notes.md、review.md、qa-report.md）；可能修订 README 中页视图说明。前序能力见归档 `docs/archive/2026/pg-page-viewer/`。
 
 > 权威工作流、门禁与状态说明见 manager 规范。
 > 活跃状态见 [STATUS.md](STATUS.md)。
 >
-> 文档路径：未拆分 Spec 为 `docs/features/page-diagram-32b/spec.md`。
+> 文档路径（已归档）：`docs/archive/2026/page-diagram-32b/spec.md` 等。
 
 ## 参考资产（供 Analyst / Planner）
 
@@ -45,7 +45,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| page-diagram-32b | [spec.md](../features/page-diagram-32b/spec.md) | required | approved（含增量 P0-10..P0-12） | required | gui | Approve（复审 @ 9d828e7） | done | 已授权合入；等待 Merge Executor 合入 main 后归档 |
+| page-diagram-32b | [spec.md](../archive/2026/page-diagram-32b/spec.md) | required | approved（含增量 P0-10..P0-12） | required | gui | Approve（复审 @ 9d828e7） | done | 已合入 main 并归档；无后续 |
 
 阻塞原因: none
 恢复条件: N/A
@@ -53,7 +53,7 @@
 
 ## QA 首轮（2026-07-26）— Fail
 
-结论: **Fail**。报告：[qa-report.md](../features/page-diagram-32b/qa-report.md)（未提交）。验收版本：`page-diagram-32b` @ `7baece2`。
+结论: **Fail**。报告：[qa-report.md](../archive/2026/page-diagram-32b/qa-report.md)。验收版本：`page-diagram-32b` @ `7baece2`。
 
 缺陷:
 
@@ -67,7 +67,7 @@
 
 ## Plan 用户确认（2026-07-26）
 
-结论: **批准 Plan**（用户回复「ok」；同时授权调度 Developer）。Plan 路径：[plan.md](../features/page-diagram-32b/plan.md)（T1–T9，依据 design.md / ui-design.md）。状态 `awaiting-plan-approval` → `planned` → `developing`。
+结论: **批准 Plan**（用户回复「ok」；同时授权调度 Developer）。Plan 路径：[plan.md](../archive/2026/page-diagram-32b/plan.md)（T1–T9，依据 design.md / ui-design.md）。状态 `awaiting-plan-approval` → `planned` → `developing`。
 
 已知设计裁决（实施须遵循）:
 - 结构图 DOM+CSS Grid；App 单一权威 ByteRange 双向联动。
@@ -78,7 +78,7 @@
 
 ## Plan 增量用户确认（2026-07-26 第二轮）
 
-结论: **批准增量 Plan**（用户回复「ok」；同时授权调度 Developer）。Plan 路径：[plan.md](../features/page-diagram-32b/plan.md)（T10–T15，覆盖 P0-10..P0-12 与 Q7；T1–T9 语义保留）。状态 `awaiting-plan-approval` → `planned` → `developing`。
+结论: **批准增量 Plan**（用户回复「ok」；同时授权调度 Developer）。Plan 路径：[plan.md](../archive/2026/page-diagram-32b/plan.md)（T10–T15，覆盖 P0-10..P0-12 与 Q7；T1–T9 语义保留）。状态 `awaiting-plan-approval` → `planned` → `developing`。
 
 增量实施须遵循:
 - T10 收编工作区未提交视觉改动（StructureMap/HexDump/styles/structure-fields），dev-notes 记来源与影响。
@@ -87,7 +87,7 @@
 
 ## Spec 用户确认（2026-07-26）
 
-Spec 路径: [docs/features/page-diagram-32b/spec.md](../features/page-diagram-32b/spec.md)
+Spec 路径: [docs/archive/2026/page-diagram-32b/spec.md](../archive/2026/page-diagram-32b/spec.md)
 
 结论: **批准 Spec**（用户回复「ok」）。范围 P0-1..P0-9、P1-1..P1-3 及既有 `pg-page-viewer` 基线合同语义保留。`Spec 用户确认` → `approved`。
 
@@ -149,3 +149,4 @@ Spec 路径: [docs/features/page-diagram-32b/spec.md](../features/page-diagram-3
 - 2026-07-26: **用户授权调度 QA 回归**（回复「ok」）。入口门禁核验：Plan（含增量）已确认；Review 复审 Approve @ `9d828e7`；分支已记录。状态 `reviewing` → `qa`，立即调度 QA 在同一 `qa-report.md` 追加回归轮次：关闭 DEF-001（P0-12 / Q7 / 手测 4–5）并抽查受影响范围，确认无新缺陷。报告只写不提交。单步模式：完成后按结论更新；`Pass` → 请求合并授权，**不**自动合并；`Fail` → developing。
 - 2026-07-26: QA 回归（[qa](e1d0789c-ad86-4260-8bc6-6cf7886d0357)）轮次 2 结论：**Pass**。验收版本 `page-diagram-32b` @ `9d828e7`（领先 `main` 10 commits，无未提交源码）。**DEF-001 → closed**：P0-12 手测 4 Pass（首字节行入可视区；页尾夹取 `fromTopRatio≈0.90`；`deltaExpected=0`，naive 偏差 ≈109px）；Q7 Pass；手测 5 不抢滚 Pass；抽查 P0-4/5/7/8/10/11 无回归。L2：page-core test 31 Pass、typecheck/build Pass；L3：`test:integration` Pass（`public.qa_cross` 8192）。无新缺陷（未开 DEF-002+）。报告：`qa-report.md`（**未提交**，与 `review.md` 一并留至关闭窗口一次提交）。合并前置 1–4 已满足，缺第 5 项（用户合并授权）。状态保持 `qa`。单步模式：**不**合并、**不**置 `done`；等待当前用户会话的明确合并授权（源 `page-diagram-32b` → 目标 `main`）。
 - 2026-07-26: **用户明确授权合入**（回复「ok」：源 `page-diagram-32b` → 目标 `main`）。合并前置核验：Plan（含增量）已确认；Review 复审 Approve @ `9d828e7`；QA 回归 Pass，DEF-001 closed；分支已记录。状态 `qa` → `done`。在源分支一次提交未入库的 `review.md` / `qa-report.md` 与 STATUS/工作项记录（不提交 `.env`；**不** push）。随后调度 Merge Executor 本地合入 `main`；合入成功后归档本工作项。本消息未授权 push 远程。
+- 2026-07-26: 源分支关闭提交 `32c38bd`（STATUS/`done` + 工作项卡 + `review.md` + `qa-report.md`）。Merge Executor（[qa](f1c3f575-3a39-4bcb-8571-fd8379de68b3)）本地 FF 合入成功：`main` `b8bc07f` → `32c38bd`（含实现 `9d828e7`）；当前检出 `main`；工作树干净；**未** push。随后归档：`docs/features/page-diagram-32b/` → `docs/archive/2026/page-diagram-32b/`；STATUS 活跃列表清空，归档区新增本项。工作项关闭完成。
