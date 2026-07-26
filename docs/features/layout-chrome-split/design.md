@@ -6,6 +6,8 @@
 
 **第三轮增量（已批准）**：主带固定顺序标题 → connected → Collapse hex → Theme；表控下移次带；连接详情收入徽标 hover/聚焦；Collapse **仅**主带入口；表/页统计空态空白。左右分栏与 960 断点**不回退**。
 
+**第四轮 UI 细化**：hex 展开时移除 pane-head 标签；折叠时条件渲染移除整个 hex pane，Grid 切为结构图单栏。状态仍由 `App.hexCollapsed` 管理，不新增模块或依赖。
+
 **约束摘要（不可偏离）**
 
 - 纯前端；**禁止**改 `page-core` 解析语义、字段边界、字节映射；**禁止**改后端 API。
@@ -56,7 +58,7 @@
 ```text
 .main-split
   ├── .pane-structure  (StructureMap：图 + Selection detail；overflow:auto)
-  └── .pane-hex        (HEX 标签 + HexDump；无 Collapse 控件；overflow:auto / HexDump 内滚)
+  └── .pane-hex        (仅展开时渲染；HexDump；无 pane-head/Collapse；overflow:auto / HexDump 内滚)
 ```
 
 | 视口 | 布局 |
@@ -65,7 +67,7 @@
 | &lt;960px 或未加载页 | 单列：结构上、hex 下（未加载时主区仍为连接/空态，无分栏） |
 
 - **滚动边界**：结构图 pane 与 hex 滚动容器分离；`hexLocate` **只**滚 hex 容器；宽屏**禁止**因定位滚动整页 `.main`。
-- **Collapse**：`hexCollapsed` 仍在 `App`；入口**仅**主带；hex pane **禁止**折叠控件（见 UI）。
+- **Collapse**：`hexCollapsed` 仍在 `App`；入口**仅**主带。折叠时不渲染 `.pane-hex`，`.main-split` 使用单列让结构图占满；禁止保留标签、占位文案或空右列。Show hex 后恢复原 pane，≥960px 恢复左右分栏（见 UI）。
 - **P1-1** 可调分隔：P0 **不做**。
 
 ### 4. 断点判定权威
@@ -95,7 +97,9 @@
     │
     ▼
  .main（无 .nav）
-    └── .main-split（page_loaded 时）→ StructureMap ‖ HexDump（无 pane 内 Collapse）
+    └── .main-split（page_loaded 时）
+          ├── hex 展开 → StructureMap ‖ HexDump（无 pane-head/Collapse）
+          └── hex 折叠 → StructureMap（单栏占满）
 ```
 
 ### 6. Hex 自动滚动与左右布局
@@ -135,8 +139,8 @@
 
 | 路径 | 预期 |
 |---|---|
-| `apps/web/src/App.tsx` | 主/次带 DOM 按第三轮重排；Collapse 迁主带；删 hex pane Collapse；徽标连接浮层 |
-| `apps/web/src/styles.css` | chrome 顺序/次带控件；conn popover；hex pane-head 无折叠按钮样式 |
+| `apps/web/src/App.tsx` | 第四轮仅删 hex pane-head 标签；按 `hexCollapsed` 条件渲染整个 hex pane |
+| `apps/web/src/styles.css` | 折叠态 Grid 单栏/结构图占满；清理 pane-head 与折叠占位样式 |
 | `apps/web/src/StructureMap.tsx` / `HexDump.tsx` | 尽量少改；pane 内滚与 a11y |
 | `apps/web/src/theme.ts` / `api.ts` / `diff.ts` | **预期不改** |
 | `packages/page-core/**` / `apps/server/**` | **禁止改** |
@@ -146,7 +150,8 @@
 | 风险 | 影响 | 缓解 |
 |---|---|---|
 | Hex 滚动容器被 pane 嵌套破坏自动定位 | P0-9 失败 | 手测宽/窄；确认 ref；禁止 `scrollIntoView` 牵动结构图 |
-| 折叠后仅主带可展开，用户找不到 | P0-13 UX | 主带按钮文案在折叠态为 Show hex；折叠后右 pane 简短占位 |
+| 折叠后仅主带可展开，用户找不到 | P0-13 UX | 主带按钮文案在折叠态为 Show hex；保持其为唯一入口 |
+| 折叠后 Grid 仍保留第二轨 | 结构图未占满、出现空右列 | 条件渲染 pane，并显式应用单栏 Grid；手测边框/间距/可用宽度 |
 | 连接浮层不可键盘达 | P0-14/P0-11 失败 | 徽标可聚焦 + title；手测 Tab→徽标 |
 | 空态仍堆砌 —/N/A | P0-15 失败 | 未 `page_loaded` 整块不渲染统计 |
 | 误改 core/API | P0-10 失败 | Diff 白名单；仅 `apps/web` |
@@ -160,8 +165,8 @@
 
 ### Plan
 
-- 基线 T1–T8 已落地；第三轮以 **T9+ 增量** 修订壳层 IA（主带顺序、Collapse 唯一、次带表控、连接 hover、空态）。
-- 验证：L2 + 定向手测（主带顺序、Collapse 唯一、空态、连接 hover、分栏不回退）。
+- 基线 T1–T14 已落地；第四轮以 **T15–T16** 删除 Hex 标签与折叠占位列。
+- 验证：L2 + 定向手测（展开无标签；折叠无文案/右列；Show hex 恢复宽屏左右）。
 - Review 门禁 `required`：进入 QA 前须 Approve。
 
 ### Developer

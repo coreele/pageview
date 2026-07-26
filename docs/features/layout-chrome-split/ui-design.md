@@ -4,6 +4,7 @@
 > 依据 Spec：`docs/features/layout-chrome-split/spec.md` · 依据 Design：`design.md` · 依据标准：`docs/standards/ui.md`  
 > **主题**：light / dark（沿用前序 Spec；本项不新增主题模式或皮肤包）  
 > **第三轮（已批准）**：主带固定顺序；Collapse 唯一入口；连接详情徽标 hover；次带表控 + 空态空白。
+> **第四轮（ui-design 细化）**：hex pane 不显示 `HEX` / `Hex` 标签；折叠时不渲染 pane 或占位列，结构图占满主内容区。
 
 ## 目标与任务
 
@@ -24,13 +25,14 @@
 ├─ 次带 ContextMeta ────────────────────────────────────────────────┤
 │ [表 combobox] · [blkno] · Load · Refresh · | · 表/页统计（见空态） │
 ├─ Main（无左侧栏）─────────────────────────────────────────────────┤
-│  ≥960 + page_loaded:  [ StructureMap+detail ] ‖ [ Hex 标签 + dump ]│
-│  <960  + page_loaded:  StructureMap+detail 上 / Hex 下              │
+│  hex 展开 + ≥960:      [ StructureMap+detail ] ‖ [ HexDump ]        │
+│  hex 展开 + <960:       StructureMap+detail 上 / HexDump 下          │
+│  hex 折叠:              [ StructureMap+detail（占满主内容区） ]       │
 │  未加载: 连接表单或空态提示（居中/主区）                             │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-- **禁止**：左侧专用栏/空壳；密码；次带常驻长连接串/PG 版本；hex 面板内 Collapse；宽屏回退为上下唯一布局。
+- **禁止**：左侧专用栏/空壳；密码；次带常驻长连接串/PG 版本；hex 面板内 Collapse 或 `HEX` / `Hex` 标签；折叠后 `Hex collapsed` 文案或残留右列；展开时宽屏回退为上下唯一布局。
 - **主带 vs 次带**：主带 = 身份/状态/折叠/主题；次带 = 主控 +（`page_loaded` 时）页统计。分隔线区分，勿大卡片墙。
 
 ### 主带控件顺序（锁定）
@@ -47,8 +49,8 @@
 | 控件 | 决策 |
 |---|---|
 | Collapse / Show hex | **移除**自 hex 面板；**仅**主带入口（P0-13） |
-| `HEX` / `Hex` 标签 | **保留**于 `.pane-head`（非折叠装饰，便于识别右栏） |
-| 折叠占位文案 | 折叠后右 pane 内简短「Hex collapsed」即可；展开靠主带 Show hex |
+| `HEX` / `Hex` 标签 | **移除**；展开态直接呈现 HexDump 内容 |
+| 折叠态 pane / 占位 | **不渲染** hex pane，不显示 `Hex collapsed`，不保留空右列；结构图占满主内容区 |
 
 ### 连接详情交互（P0-14）
 
@@ -95,7 +97,7 @@
 3. 连接 → 次带选表 → blkno → Load → 主区按断点分栏；主带出现 Collapse hex。
 4. `page_loaded` 后次带统计可扫读；结构图 ↔ hex 联动不变。
 5. Hover/Tab 至 connected 徽标 → 读连接详情与 PG 版本。
-6. 主带 Collapse → 折叠 hex（面板内无重复按钮）；Show hex 展开。
+6. 主带 Collapse → hex pane 完全退出布局、结构图占满主区；Show hex → 恢复 hex pane，宽屏恢复图左 ‖ hex 右。
 7. Refresh / Theme / 窄屏堆叠行为沿用前序，不削弱。
 
 ## 状态
@@ -109,7 +111,7 @@
 | 空（无用户表） | select 空 + 主区说明 | 重连；主题 |
 | 空（块数 0） | 表已选；Load 禁用；主区空说明；统计空白 | 换表 |
 | 成功 `connected`（未加载页） | 次带可表控；**统计空白**；徽标可查连接 | 选表 / Load；hover 连接 |
-| 成功 `page_loaded` | 分栏/堆叠 + 次带统计 + 主带 Collapse | 联动；Refresh；Collapse；主题 |
+| 成功 `page_loaded` | 展开时分栏/堆叠；折叠时仅结构图占满主区；次带统计 + 主带 Collapse/Show | 联动；Refresh；Collapse/Show；主题 |
 | `diff_active` | 沿用 diff 高亮 | 再刷新 |
 | 错误 | 主区错误面板：原因 + 下一步 | 修正重试 |
 | 部分失败（未知列/TOAST） | 沿用基线降级 | 继续浏览 |
@@ -124,15 +126,17 @@
 - **次带高度**：约 40–72px；主控单行优先，统计可折行；**禁止**不可滚裁切死角（P1-2）。
 - **分栏初始比例（宽屏）**：结构 **55%** / hex **45%**；任一侧 `min-width` ≥ 240px。**禁止**因顶栏微调改回宽屏上下唯一布局。
 - **Selection detail**：留在结构图 pane 内。
-- **Hex 折叠**：由主带控制；折叠后右 pane 保留 Hex 标签 + 短占位；展开入口仅在主带。
+- **Hex 展开**：不显示 pane-head `HEX` / `Hex` 标签；≥960px 保持结构图左 ‖ HexDump 右。
+- **Hex 折叠**：由主带控制；条件渲染移除整个 hex pane，主区切为单栏且结构图占满；无文案、边框、间距或空右列。展开入口仅在主带。
 - 元信息**不得**用大卡片墙盖住主视图。
 
 #### 密度与响应式
 
 | 视口 | 行为 |
 |---|---|
-| ≥960px + 已加载页 | 左右并排；图左 hex 右；两 pane 同时可见 |
-| &lt;960px + 已加载页 | 上下堆叠；结构上、hex 下 |
+| ≥960px + 已加载页 + hex 展开 | 左右并排；图左 hex 右；两 pane 同时可见 |
+| &lt;960px + 已加载页 + hex 展开 | 上下堆叠；结构上、hex 下 |
+| 已加载页 + hex 折叠 | 单栏；仅结构图占满主内容区 |
 | 极窄顶栏 | 主带/次带允许折行；P1-2 |
 
 - 断点权威：CSS `min-width: 960px`。
@@ -189,7 +193,7 @@ N/A（`UI 表面=gui`）
 | P0-10 | 不改 core/API |
 | P0-11 | 键盘路径表（含徽标连接详情） |
 | P0-12 | 局部加载指示；壳层稳定 |
-| P0-13 | Collapse 仅主带、Theme 左；hex pane 无折叠按钮；保留 Hex 标签 |
+| P0-13 | Collapse/Show 仅主带、Theme 左；hex pane 无折叠按钮；展开无 Hex 标签；折叠不渲染 pane/占位列 |
 | P0-14 | 徽标 hover/focus 浮层 + title |
 | P0-15 | 未选表/未 `page_loaded` 统计整块空白 |
 | P1-1 | N/A（P0 不做拖拽） |
@@ -198,9 +202,9 @@ N/A（`UI 表面=gui`）
 
 ## 对 Plan / Developer 的要点
 
-- **增量**相对已落地 T1–T8：重排主/次带；Collapse 迁主带并删 hex 内按钮；连接详情进徽标；统计空态去占位。
-- **禁止**改动宽屏 `.main-split` 左右规则（回归 P0-6）。
-- 手测证据优先：主带 DOM 顺序；hex pane 无 Collapse；未加载时统计空白；徽标 hover+Tab；≥960 仍左右。
+- **第四轮增量**相对已落地 T1–T14：删除 pane-head Hex 标签；折叠时不渲染 hex pane，并将主区切为结构图单栏。
+- **禁止**改动展开态宽屏 `.main-split` 左右规则（回归 P0-6）。
+- 手测证据优先：展开无 Hex 标签；折叠无 `Hex collapsed` 且无残留右列；Show hex 恢复 ≥960 图左 ‖ hex 右。
 - 遵守 `docs/standards/ui.md`。
 
 ## 开放阻塞
