@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   buildEmptyishPage,
   buildSparsePage,
+  cellCapacityChars,
+  chooseCellContent,
+  computeHexScrollTarget,
   decodePageTuples,
   deriveStructureFields,
   parsePage,
@@ -138,5 +141,176 @@ describe("splitFieldIntoRowSegments", () => {
       { fieldId: "free", row: 1, colStart: 0, colEnd: 32, range: { start: 32, end: 64 } },
       { fieldId: "free", row: 2, colStart: 0, colEnd: 6, range: { start: 64, end: 70 } },
     ]);
+  });
+});
+
+describe("StructureField.valueText", () => {
+  it("formats header, ItemId, and tuple primary values", () => {
+    const raw = buildSparsePage({ withHot: true });
+    const page = decodePageTuples(parsePage(raw), SPARSE_SCHEMA);
+    const byId = Object.fromEntries(deriveStructureFields(page).map((f) => [f.id, f]));
+    const [lsnHi, lsnLo] = page.header.pd_lsn.split("/");
+    const item = page.itemIds.find((i) => i.status === "NORMAL") ?? page.itemIds[0]!;
+    const t = page.tuples[0]!;
+
+    expect(byId["header.pd_lsn.xlogid"]?.valueText).toBe(lsnHi);
+    expect(byId["header.pd_lsn.xrecoff"]?.valueText).toBe(lsnLo);
+    expect(byId["header.pd_checksum"]?.valueText).toBe(`0x${page.header.pd_checksum.toString(16)}`);
+    expect(byId["header.pd_flags"]?.valueText).toBe(`0x${page.header.pd_flags.toString(16)}`);
+    expect(byId["header.pd_lower"]?.valueText).toBe(String(page.header.pd_lower));
+    expect(byId["header.pd_upper"]?.valueText).toBe(String(page.header.pd_upper));
+    expect(byId["header.pd_special"]?.valueText).toBe(String(page.header.pd_special));
+    expect(byId["header.pd_pagesize_version"]?.valueText).toBe(
+      `${page.header.pageSize}/${page.header.pageVersion}`,
+    );
+    expect(byId["header.pd_prune_xid"]?.valueText).toBe(String(page.header.pd_prune_xid));
+
+    expect(byId[`itemid-${item.index}`]?.valueText).toBe(
+      `off=${item.offset} len=${item.length}`,
+    );
+    expect(byId[`itemid-${item.index}.off`]?.valueText).toBe(String(item.offset));
+    expect(byId[`itemid-${item.index}.flag`]?.valueText).toBe(`0x${item.flags.toString(16)}`);
+    expect(byId[`itemid-${item.index}.len`]?.valueText).toBe(String(item.length));
+
+    expect(byId[`tuple-${t.itemIndex}.t_xmin`]?.valueText).toBe(String(t.header.t_xmin));
+    expect(byId[`tuple-${t.itemIndex}.t_xmax`]?.valueText).toBe(String(t.header.t_xmax));
+    expect(byId[`tuple-${t.itemIndex}.t_cid`]?.valueText).toBe(String(t.header.t_cid));
+    expect(byId[`tuple-${t.itemIndex}.t_ctid`]?.valueText).toBe(
+      `(${t.header.t_ctid.blockNumber},${t.header.t_ctid.offsetNumber})`,
+    );
+    expect(byId[`tuple-${t.itemIndex}.t_infomask`]?.valueText).toBe(
+      `0x${t.header.t_infomask.toString(16)}`,
+    );
+    expect(byId[`tuple-${t.itemIndex}.t_infomask2`]?.valueText).toBe(
+      `0x${t.header.t_infomask2.toString(16)}`,
+    );
+    expect(byId[`tuple-${t.itemIndex}.t_hoff`]?.valueText).toBe(String(t.header.t_hoff));
+
+    const col = t.columns?.find((c) => !c.dropped && c.range);
+    if (col) {
+      const expected = col.null
+        ? "NULL"
+        : `${col.display}${col.toasted ? " [TOASTed]" : ""}`;
+      expect(byId[`tuple-${t.itemIndex}.col-${col.attnum}`]?.valueText).toBe(expected);
+    }
+  });
+
+  it("omits valueText for free / nullbits / data fields", () => {
+    const page = decodePageTuples(parsePage(buildSparsePage()), SPARSE_SCHEMA);
+    const fields = deriveStructureFields(page);
+    const free = fields.find((f) => f.id === "free");
+    expect(free?.valueText).toBeUndefined();
+    for (const f of fields) {
+      if (
+        f.label === "nullbits" ||
+        f.label === "data" ||
+        f.id.endsWith(".nullbitmap") ||
+        f.id.includes(".data")
+      ) {
+        expect(f.valueText).toBeUndefined();
+      }
+    }
+  });
+});
+
+describe("cellCapacityChars / chooseCellContent", () => {
+  const metrics = {
+    charWidthPx: 7,
+    byteColWidthPx: 14,
+    cellPaddingXPx: 2,
+    cellBorderXPx: 0,
+  };
+
+  it("subtracts padding, border, and 1-char safety margin", () => {
+    // usable = 2 * 14 - 2 - 0 = 26px → floor(26/7)=3 → minus 1 safety → 2
+    expect(cellCapacityChars(2, metrics)).toBe(2);
+    expect(cellCapacityChars(1, metrics)).toBe(0);
+  });
+
+  it("chooses value+label, value-only, or label mode", () => {
+    expect(
+      chooseCellContent({ label: "xmin", valueText: "42", capacityChars: 5 }),
+    ).toEqual({ mode: "value", showLabel: true });
+    expect(
+      chooseCellContent({ label: "infomask2", valueText: "0xabc", capacityChars: 5 }),
+    ).toEqual({ mode: "value", showLabel: false });
+    expect(
+      chooseCellContent({ label: "xmin", valueText: "123456", capacityChars: 5 }),
+    ).toEqual({ mode: "label" });
+    expect(chooseCellContent({ label: "free", capacityChars: 20 })).toEqual({
+      mode: "label",
+    });
+  });
+});
+
+describe("computeHexScrollTarget", () => {
+  const base = {
+    rowHeightPx: 20,
+    containerHeightPx: 200,
+    contentHeightPx: 5120,
+    anchorRatio: 1 / 3,
+  };
+
+  it("scrolls down toward top-third anchor", () => {
+    const target = computeHexScrollTarget({
+      ...base,
+      firstRow: 100,
+      lastRow: 100,
+      currentScrollTop: 0,
+    });
+    expect(target).toBeCloseTo(2000 - 200 / 3, 5);
+  });
+
+  it("scrolls upward when range is above viewport", () => {
+    const target = computeHexScrollTarget({
+      ...base,
+      firstRow: 2,
+      lastRow: 2,
+      currentScrollTop: 800,
+    });
+    expect(target).toBe(0);
+  });
+
+  it("returns null when first row is already fully visible", () => {
+    expect(
+      computeHexScrollTarget({
+        ...base,
+        firstRow: 2,
+        lastRow: 2,
+        currentScrollTop: 0,
+      }),
+    ).toBeNull();
+  });
+
+  it("clamps to content end near page bottom", () => {
+    const maxScroll = 5120 - 200;
+    const target = computeHexScrollTarget({
+      ...base,
+      firstRow: 250,
+      lastRow: 255,
+      currentScrollTop: 0,
+    });
+    expect(target).toBe(maxScroll);
+  });
+
+  it("keeps multi-row range visible when it fits", () => {
+    const target = computeHexScrollTarget({
+      ...base,
+      firstRow: 10,
+      lastRow: 14,
+      currentScrollTop: 0,
+    });
+    // ideal places first row at 1/3; whole 5-row range still fits
+    expect(target).toBeCloseTo(200 - 200 / 3, 5);
+  });
+
+  it("anchors first row when range taller than container", () => {
+    const target = computeHexScrollTarget({
+      ...base,
+      firstRow: 10,
+      lastRow: 30,
+      currentScrollTop: 0,
+    });
+    expect(target).toBeCloseTo(200 - 200 / 3, 5);
   });
 });

@@ -14,6 +14,8 @@ export type StructureField = {
   parentId?: string;
   /** Visual-only (e.g. ItemId off|flag|len); selection uses parent 4B range */
   visualOnly?: boolean;
+  /** Optional single-line primary display; absent → always label mode */
+  valueText?: string;
 };
 
 export type RowSegment = {
@@ -24,6 +26,17 @@ export type RowSegment = {
   range: ByteRange;
 };
 
+export type CellMetrics = {
+  charWidthPx: number;
+  byteColWidthPx: number;
+  cellPaddingXPx: number;
+  cellBorderXPx: number;
+};
+
+export type CellContentChoice =
+  | { mode: "value"; showLabel: boolean }
+  | { mode: "label" };
+
 function field(
   partial: Omit<StructureField, "fullLabel"> & { fullLabel?: string },
 ): StructureField {
@@ -33,12 +46,26 @@ function field(
   };
 }
 
+function hex0x(n: number): string {
+  return `0x${n.toString(16)}`;
+}
+
+function columnValueText(col: {
+  null: boolean;
+  display: string;
+  toasted?: boolean;
+}): string {
+  if (col.null) return "NULL";
+  return `${col.display}${col.toasted ? " [TOASTed]" : ""}`;
+}
+
 /**
  * Derive clickable structure-diagram fields from a parsed page.
  * Does not mutate `page` or change parse/decode semantics.
  */
 export function deriveStructureFields(page: ParsedPage): StructureField[] {
   const out: StructureField[] = [];
+  const [lsnHi, lsnLo] = page.header.pd_lsn.split("/");
 
   out.push(
     field({
@@ -47,6 +74,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_lsn.xlogid",
       range: { start: 0, end: 4 },
       region: "header",
+      valueText: lsnHi,
     }),
     field({
       id: "header.pd_lsn.xrecoff",
@@ -54,6 +82,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_lsn.xrecoff",
       range: { start: 4, end: 8 },
       region: "header",
+      valueText: lsnLo,
     }),
     field({
       id: "header.pd_checksum",
@@ -61,6 +90,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_checksum",
       range: { start: 8, end: 10 },
       region: "header",
+      valueText: hex0x(page.header.pd_checksum),
     }),
     field({
       id: "header.pd_flags",
@@ -68,6 +98,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_flags",
       range: { start: 10, end: 12 },
       region: "header",
+      valueText: hex0x(page.header.pd_flags),
     }),
     field({
       id: "header.pd_lower",
@@ -75,6 +106,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_lower",
       range: { start: 12, end: 14 },
       region: "header",
+      valueText: String(page.header.pd_lower),
     }),
     field({
       id: "header.pd_upper",
@@ -82,6 +114,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_upper",
       range: { start: 14, end: 16 },
       region: "header",
+      valueText: String(page.header.pd_upper),
     }),
     field({
       id: "header.pd_special",
@@ -89,6 +122,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_special",
       range: { start: 16, end: 18 },
       region: "header",
+      valueText: String(page.header.pd_special),
     }),
     field({
       id: "header.pd_pagesize_version",
@@ -96,6 +130,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_pagesize_version",
       range: { start: 18, end: 20 },
       region: "header",
+      valueText: `${page.header.pageSize}/${page.header.pageVersion}`,
     }),
     field({
       id: "header.pd_prune_xid",
@@ -103,6 +138,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       fullLabel: "pd_prune_xid",
       range: { start: 20, end: PAGE_HEADER_SIZE },
       region: "header",
+      valueText: String(page.header.pd_prune_xid),
     }),
   );
 
@@ -115,6 +151,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `ItemId[${item.index}] ${item.status} off=${item.offset} len=${item.length}`,
         range: item.range,
         region: "itemid",
+        valueText: `off=${item.offset} len=${item.length}`,
       }),
       field({
         id: `${parentId}.off`,
@@ -124,6 +161,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         region: "itemid",
         parentId,
         visualOnly: true,
+        valueText: String(item.offset),
       }),
       field({
         id: `${parentId}.flag`,
@@ -133,6 +171,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         region: "itemid",
         parentId,
         visualOnly: true,
+        valueText: hex0x(item.flags),
       }),
       field({
         id: `${parentId}.len`,
@@ -142,6 +181,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         region: "itemid",
         parentId,
         visualOnly: true,
+        valueText: String(item.length),
       }),
     );
   }
@@ -168,6 +208,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_xmin`,
         range: { start: base, end: base + 4 },
         region: "tuple",
+        valueText: String(t.header.t_xmin),
       }),
       field({
         id: `${prefix}.t_xmax`,
@@ -175,6 +216,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_xmax`,
         range: { start: base + 4, end: base + 8 },
         region: "tuple",
+        valueText: String(t.header.t_xmax),
       }),
       field({
         id: `${prefix}.t_cid`,
@@ -182,6 +224,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_cid`,
         range: { start: base + 8, end: base + 12 },
         region: "tuple",
+        valueText: String(t.header.t_cid),
       }),
       field({
         id: `${prefix}.t_ctid`,
@@ -189,6 +232,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_ctid`,
         range: { start: base + 12, end: base + 18 },
         region: "tuple",
+        valueText: `(${t.header.t_ctid.blockNumber},${t.header.t_ctid.offsetNumber})`,
       }),
       field({
         id: `${prefix}.t_infomask2`,
@@ -196,6 +240,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_infomask2`,
         range: { start: base + 18, end: base + 20 },
         region: "tuple",
+        valueText: hex0x(t.header.t_infomask2),
       }),
       field({
         id: `${prefix}.t_infomask`,
@@ -203,6 +248,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_infomask`,
         range: { start: base + 20, end: base + 22 },
         region: "tuple",
+        valueText: hex0x(t.header.t_infomask),
       }),
       field({
         id: `${prefix}.t_hoff`,
@@ -210,6 +256,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
         fullLabel: `tuple lp[${t.itemIndex}].t_hoff`,
         range: { start: base + 22, end: base + 23 },
         region: "tuple",
+        valueText: String(t.header.t_hoff),
       }),
     );
 
@@ -238,6 +285,7 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
             fullLabel: `tuple lp[${t.itemIndex}].${col.name} (#${col.attnum} ${col.typeName})`,
             range: col.range,
             region: "tuple",
+            valueText: columnValueText(col),
           }),
         );
       }
@@ -349,4 +397,81 @@ export function selectionTargetForField(
     return fields.find((x) => x.id === f.parentId) ?? f;
   }
   return f;
+}
+
+/**
+ * Characters that fit in a field cell of `spanBytes` columns (DOM-agnostic).
+ * Deducts padding/border and a 1-character safety margin.
+ */
+export function cellCapacityChars(spanBytes: number, metrics: CellMetrics): number {
+  if (spanBytes <= 0 || metrics.charWidthPx <= 0) return 0;
+  const contentPx =
+    spanBytes * metrics.byteColWidthPx - metrics.cellPaddingXPx - metrics.cellBorderXPx;
+  const raw = Math.floor(contentPx / metrics.charWidthPx);
+  return Math.max(0, raw - 1);
+}
+
+/**
+ * Choose value vs label mode from character budget.
+ * `label` should already be the abbreviated form used in the cell.
+ */
+export function chooseCellContent(args: {
+  label: string;
+  valueText?: string;
+  capacityChars: number;
+}): CellContentChoice {
+  const { label, valueText, capacityChars } = args;
+  if (valueText == null || valueText.length > capacityChars) {
+    return { mode: "label" };
+  }
+  return { mode: "value", showLabel: label.length <= capacityChars };
+}
+
+/**
+ * Hex scroll geometry: target scrollTop for placing first highlighted row near
+ * `anchorRatio` from the top, or null when that row is already fully visible.
+ */
+export function computeHexScrollTarget(args: {
+  firstRow: number;
+  lastRow: number;
+  rowHeightPx: number;
+  containerHeightPx: number;
+  contentHeightPx: number;
+  currentScrollTop: number;
+  anchorRatio?: number;
+}): number | null {
+  const {
+    firstRow,
+    lastRow,
+    rowHeightPx,
+    containerHeightPx,
+    contentHeightPx,
+    currentScrollTop,
+    anchorRatio = 1 / 3,
+  } = args;
+
+  if (rowHeightPx <= 0 || containerHeightPx <= 0) return null;
+
+  const rangeTop = firstRow * rowHeightPx;
+  const rangeBottom = (lastRow + 1) * rowHeightPx;
+  const firstRowBottom = rangeTop + rowHeightPx;
+  const viewBottom = currentScrollTop + containerHeightPx;
+
+  if (rangeTop >= currentScrollTop && firstRowBottom <= viewBottom) {
+    return null;
+  }
+
+  const maxScroll = Math.max(0, contentHeightPx - containerHeightPx);
+  let target = rangeTop - anchorRatio * containerHeightPx;
+  target = Math.min(Math.max(target, 0), maxScroll);
+
+  const rangeHeight = rangeBottom - rangeTop;
+  if (rangeHeight <= containerHeightPx) {
+    const minToShowBottom = rangeBottom - containerHeightPx;
+    const maxToKeepTop = rangeTop;
+    target = Math.min(Math.max(target, minToShowBottom), maxToKeepTop);
+    target = Math.min(Math.max(target, 0), maxScroll);
+  }
+
+  return target;
 }
