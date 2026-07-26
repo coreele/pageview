@@ -4,26 +4,27 @@
 >
 > **feature-id**：`layout-chrome-split` · **sub-feature-id**：`layout-chrome-split`（未拆分）
 >
-> **确认门禁**：**已确认 / approved**。路径 `full`；用户已于当前会话批准 Spec 全文（布局增量合同、P0/P1）及 Q1–Q6 全部裁决（采纳 Analyst 推荐默认）。开放问题已关闭；可进入 Planner（须 `design.md` + `ui-design.md`，再 `plan.md`）。
+> **确认门禁**：**已确认 / approved**（2026-07-26）。路径 `full`。第三轮增量（含微调：主带固定顺序、Collapse hex 唯一入口、表/页统计空态）经当前用户会话批准。前序已批准且本轮未削弱的条款（Q1–Q3、Q5–Q6；960px；窄屏上下；左右分栏；左侧栏移除；page-core/API 禁改；双向高亮与 hex 自动滚；主题；P0-14 连接 hover）继续生效。
 >
 > **前序基线（不得无故回退）**：
-> - `docs/archive/2026/pg-page-viewer/spec.md`：连接与状态、light/dark、元信息必显、UI/UX 底线、API/错误等。
+> - `docs/archive/2026/pg-page-viewer/spec.md`：连接与状态、light/dark、元信息可达、UI/UX 底线、API/错误等。
 > - `docs/archive/2026/page-diagram-32b/spec.md`：32B 结构图、双向高亮、hex 自动滚动、格内值与详情一致等。
 >
-> 本项为**前端布局/壳层增量**。仅本文件显式修订时可改前序布局编排；**禁止**削弱前序能力语义与验收义务。
+> 本项为**前端布局/壳层增量**。仅本文件显式修订时可改前序布局编排；**禁止**削弱前序能力语义与验收义务（连接详情可见性、表/页统计空态见本轮显式修订）。
 
 ## 背景与目标
 
-现状（参考截图，**非像素稿**）：左侧栏承载 table 列表、`blkno`、Load/Refresh；顶栏 Context strip 展示连接与页元信息；结构图与 hex **上下**堆叠。
+现状（参考截图，**非像素稿**）：主控已在顶栏；宽屏结构图左 / hex 右；次带仍常驻长连接串与 PG 版本；`Collapse hex` 仍在 hex 面板顶栏。
 
 目标：
 
-1. **主控上移 + 顶栏美化**：table 选择、`blkno`、Load/Refresh 移入上方连接/页状态区，与元信息同区协调呈现；左侧专用控制栏**完全移除**。
-2. **Page / Hex 左右布局**：桌面宽屏（视口 ≥ **960px**）主路径左右并排（结构图左、hex 右）；窄屏上下堆叠回退。
+1. **主控上移 + 顶栏美化（含第三轮）**：左侧专用控制栏**完全移除**；顶栏分主带/次带。**第三轮（已批准）**：主带固定顺序为标题 → connected 徽标 → **Collapse hex** → **Theme**（Collapse hex 在 Theme **左侧**）；表选择、`blkno`、Load/Refresh 与表/页统计在次带；连接详情与 PG 版本收入 connected 徽标（hover/聚焦可达）；Collapse hex **仅**主带入口，hex 面板内不再提供。
+2. **Page / Hex 左右布局**：**不得回退**。桌面宽屏（视口 ≥ **960px**）结构图左、hex 右；窄屏上下堆叠回退。
 
-成功标准：顶栏完成选表→blkno→加载/刷新；宽屏主区左右对照结构图与 hex；连库状态、主题、元信息必显、双向高亮与 hex 自动滚动不被削弱；`page-core` 解析语义不变。
+成功标准：次带完成选表→blkno→加载/刷新；宽屏左右对照；连库状态、主题、对应状态下表/页必显元信息扫读、双向高亮与 hex 自动滚动不被削弱；连接详情经徽标可达；未选表/未加载页时表页统计空白；`page-core` 解析语义不变。
 
-参考截图：`/Users/zhougangjie/.cursor/projects/Users-zhougangjie-Space-pageview/assets/image-80725bc1-83bf-440a-864c-46b20b0f6e64.png`
+参考截图（第三轮增量标注，非像素稿）：`/Users/zhougangjie/.cursor/projects/Users-zhougangjie-Space-pageview/assets/image-c5e665be-017d-48d3-bb22-732489cd89b3.png`  
+前序布局意图截图：`/Users/zhougangjie/.cursor/projects/Users-zhougangjie-Space-pageview/assets/image-80725bc1-83bf-440a-864c-46b20b0f6e64.png`
 
 ## 非目标
 
@@ -32,33 +33,39 @@
 - 改动后端 API（预期纯前端；若必须改 API，先修订本 Spec）
 - 扩大或改写 light/dark 主题语义（本需求不要求新主题）
 - 像素级复刻参考截图或新品牌皮肤包
-- 削弱必显元信息、连库状态、主题切换、双向高亮或 hex 自动滚动
+- 削弱表/页必显元信息、连库状态可区分性、主题切换、双向高亮、hex 自动滚动，或宽屏左右分栏
+- 将表/页统计仅藏进设置或仅经深挖可达
 - 索引页 / FSM / VM、离线假数据主路径、公网多租户等前序非目标
 
 ## 范围与可见行为
 
 ### 在范围
 
-#### A. 顶栏 / Context 区重组（需求 1）
+#### A. 顶栏 / Context 区重组（需求 1 + 第三轮）
 
-1. **主控上移**：`connected` 后，选表、`blkno`、Load、Refresh 须出现在上方 Context/chrome 一带；左侧专用栏**完全移除**后，顶栏为唯一主控入口。
-2. **同区协调**：选择控件与状态元信息同属顶栏信息架构，分区清晰可扫读；**禁止**简陋堆砌致主控难找或元信息不可辨。
-3. **顶栏编排**：主带 = 连接状态 + 表选择 + `blkno` + Load/Refresh + 主题；次带 = 连接详情与页统计必显。**禁止**密码；长文本**允许**截断，须 title/tooltip（或等价）达全文。
-4. **表选择**：顶栏 **combobox/select**（限定名；项可达块数）。**禁止**左侧长列表为主入口；多表过滤见 P1-3。
+1. **主控上移**：`connected` 后，选表、`blkno`、Load、Refresh 位于 Context/chrome **次带**；左侧专用栏**完全移除**后，顶栏为唯一主控入口。
+2. **同区协调**：选择控件与表/页元信息同属顶栏信息架构，分区清晰可扫读；**禁止**简陋堆砌致主控难找或表/页元信息不可辨。
+3. **顶栏编排（第三轮已批准，取代原 Q4）**：
+   - **主带（固定顺序）**：标题 → connected 徽标 → **Collapse hex** → **Theme**（Collapse hex 在 Theme **之前**/左侧）。
+   - **次带**：表选择 + `blkno` + Load/Refresh，其后跟随表/页统计（见空态合同）。
+   - **连接详情**：host/port/database/user 与 PostgreSQL 完整版本串**不**在次带常驻；收入 connected 徽标，默认隐藏，**hover**（tooltip/popover）显示；**键盘可达**：至少 `title` 或可聚焦触发看到全文。
+   - **禁止**密码；长文本**允许**截断，须 title/tooltip（或等价）达全文。
+4. **表选择**：次带 **combobox/select**（限定名；项可达块数）。**禁止**左侧长列表为主入口；多表过滤见 P1-3。
 5. **左侧栏**：**完全移除** Tables + `blkno` + Load/Refresh 专用栏；不得保留空壳。
-6. **保留（布局可重组，语义不砍）**：连库状态可区分；light ↔ dark 可切换；前序必显元信息在对应状态无需深挖可见；核心路径键盘可达（选表 → blkno → 加载 → 主题）。
+6. **Collapse hex**：主带 Theme **左侧**；顶栏主带为**唯一**入口；**禁止** hex 面板内再提供该折叠控件（含 hex 左上角）。`page_loaded` 后可发现并可折叠/展开 hex。hex 面板顶栏若保留 `HEX` 标签等非折叠装饰，由 `ui-design.md` 定。
+7. **保留**：连库状态可区分；light ↔ dark 可切换；表/页元信息在对应状态下次带常驻扫读；连接详情徽标可达；核心路径键盘可达（选表 → blkno → 加载 → 主题；连接全文至少 title 或聚焦触发）。
 
-#### B. 结构图与 Hex 左右布局（需求 2）
+#### B. 结构图与 Hex 左右布局（需求 2 + 第三轮）
 
-7. **宽屏**：已加载页且视口 ≥ **960px** 时，结构图与 hex **左右**并排（**结构图左、hex 右**）；**禁止**上下堆叠为宽屏唯一布局。
-8. **窄屏**：视口 < **960px** 时，结构图与 hex **上下堆叠**（结构图上、hex 下），各自可滚；仍可浏览与联动；**禁止**因窄屏丢失双向高亮或选中能力。
-9. **联动**：结构图↔hex 双向高亮；非 hex 发起选中后 hex 自动滚动——沿用 `page-diagram-32b`，本项不削弱。
+8. **宽屏**：已加载页且视口 ≥ **960px** 时，结构图与 hex **左右**并排（**结构图左、hex 右**）；**禁止**上下为宽屏唯一布局；**禁止**因顶栏微调回退左右分栏。
+9. **窄屏**：视口 < **960px** 时上下堆叠（结构图上、hex 下），各自可滚；**禁止**丢失双向高亮或选中能力。
+10. **联动**：结构图↔hex 双向高亮；非 hex 发起选中后 hex 自动滚动——沿用 `page-diagram-32b`，本项不削弱。
 
 ### 明确保留（引用前序）
 
 | 来源 | 须保留 |
 |---|---|
-| `pg-page-viewer` | 连接/表列表/取页；状态机；light/dark（默认跟随系统）；元信息必显；密码不展示；状态完整、键盘可达、错误可读、加载稳定；空洞压缩；刷新对比 |
+| `pg-page-viewer` | 连接/表列表/取页；状态机；light/dark（默认跟随系统）；表/页元信息可达（对应状态下次带常驻；未达状态允许空白）；连接详情可达（徽标 hover/聚焦）；密码不展示；状态完整、键盘可达、错误可读、加载稳定；空洞压缩；刷新对比 |
 | `page-diagram-32b` | 32B 网格；字段选中与双向高亮；hex 32B/行；free 折叠不破坏映射；格内值与 Selection detail 一致；hex 自动定位（非 hex 发起） |
 
 ### 不在本项改动
@@ -80,34 +87,35 @@
 
 | 概念 | 合同 |
 |---|---|
-| 顶栏主控 | `connected` 后：可操作的 table 选择、`blkno`、Load；`page_loaded` 后 Refresh 可用。均位于 Context/chrome 一带。 |
-| 顶栏编排 | **主带**：连接状态 + 表选择 + `blkno` + Load/Refresh + 主题。**次带**：连接详情与页统计必显。**禁止**密码；长文本可截断但须 title/tooltip（或等价）达全文。 |
+| 顶栏主控 | `connected` 后：可操作的 table 选择、`blkno`、Load；`page_loaded` 后 Refresh 可用。均位于 Context/chrome **次带**。 |
+| 顶栏编排 | **主带（固定顺序）**：标题 → connected 徽标 → **Collapse hex** → **Theme**（Collapse hex 在 Theme 左侧）。**次带**：表选择 + `blkno` + Load/Refresh，其后跟随表/页统计（见空态）。连接详情与 PG 版本串收入 connected 徽标。**禁止**密码；长文本可截断但须 title/tooltip（或等价）达全文。 |
+| 连接详情可达 | host、port、database、user（禁密码）与 PostgreSQL 完整版本串：默认不在次带常驻；经 connected 徽标 **hover**（tooltip/popover）显示；**键盘**：至少 `title` 或可聚焦触发看到全文。 |
+| Collapse hex | `page_loaded` 后主带提供 Collapse hex（或等价折叠/展开），位于 Theme **左侧**；顶栏主带为**唯一**入口；**禁止**在 hex 面板内再提供该折叠控件。 |
 | 表选择形态 | 顶栏 **combobox/select**（限定名；项可达块数）。**必须**仅列普通 heap 用户表（`relkind = 'r'`），块数可达；**禁止**系统表；**禁止**以左侧长列表为主入口。 |
 | 左侧专用栏 | **完全移除**。主控唯一入口为顶栏；不得保留空壳侧栏。 |
 | 宽屏断点 | **960px**。视口宽度 ≥ 960px 为宽屏；否则为窄屏。 |
-| 宽屏分栏 | 视口宽度 ≥ 960px 且已加载页：结构图与 hex **左右**并排，**结构图左、hex 右**。 |
+| 宽屏分栏 | 视口宽度 ≥ 960px 且已加载页：结构图与 hex **左右**并排，**结构图左、hex 右**。**禁止**回退为宽屏仅上下。 |
 | 窄屏回退 | 视口宽度 < 960px：结构图与 hex **上下堆叠**（结构图上、hex 下）；两面板各自可滚至内容；联动仍生效。 |
 | 分栏比例 | 初始比例由 `ui-design.md` 定；可调分隔为 P1。任一侧不得使另一侧完全不可达。 |
-| 主题 | `light` \| `dark`；壳层可发现切换入口。**禁止**因重组移除。 |
-| 连库状态 | chrome/顶栏可区分至少 `disconnected` 与 `connected`（及适用的进行中态）。 |
+| 主题 | `light` \| `dark`；壳层主带可发现切换入口。**禁止**因重组移除。 |
+| 连库状态 | chrome/顶栏主带可区分至少 `disconnected` 与 `connected`（及适用的进行中态）；connected 徽标兼作连接详情入口。 |
+| 表/页统计空态 | 未选表且/或未达对应可见状态（如未 `page_loaded`）时：次带表/页统计区**空白即可**；**禁止**以 `—` / `N/A` 等占位噪音满屏堆砌。空态视觉由 `ui-design.md` 定。必显元信息仅在对应状态（如 `page_loaded`）下必显；未达状态**允许**整块不渲染。与前序 `pg-page-viewer`「按状态限定可见时机」对齐。 |
 
-#### 继承的必显元信息（摘自 `pg-page-viewer`）
+#### 继承的必显 / 可达元信息（摘自 `pg-page-viewer`，本轮修订连接可见性与空态）
 
-对应状态下默认可见（可折叠次要细节，必显项须展开或常驻；**禁止**降级为仅隐藏设置可达）：
-
-| 字段 | 可见时机 |
+| 字段 | 可见时机与呈现 |
 |---|---|
-| 连接 host、port、database、user（**禁止**密码） | `connected` 及之后 |
-| PostgreSQL 服务端完整版本串 | `connected` 及之后 |
-| 表限定名与关系 OID | 已选表 / `page_loaded` |
-| 当前 `blkno` | `page_loaded` |
-| 关系总块数 | 已选表 / `page_loaded` |
-| 页大小（字节） | `page_loaded` |
-| `pd_lower`、`pd_upper`、free space 字节数 | `page_loaded` |
-| ItemId 总数；LP 状态计数（UNUSED / NORMAL / REDIRECT / DEAD） | `page_loaded` |
-| tuple 计数（= NORMAL ItemId 对应 HeapTuple 条数） | `page_loaded` |
+| 连接 host、port、database、user（**禁止**密码） | `connected` 及之后：**经 connected 徽标 hover/聚焦可达**（不要求次带常驻） |
+| PostgreSQL 服务端完整版本串 | `connected` 及之后：**经 connected 徽标 hover/聚焦可达**（不要求次带常驻） |
+| 表限定名与关系 OID | 已选表 / `page_loaded`：**次带常驻** |
+| 当前 `blkno` | `page_loaded`：**次带常驻**（控件与/或统计） |
+| 关系总块数 | 已选表 / `page_loaded`：**次带常驻** |
+| 页大小（字节） | `page_loaded`：**次带常驻** |
+| `pd_lower`、`pd_upper`、free space 字节数 | `page_loaded`：**次带常驻** |
+| ItemId 总数；LP 状态计数（UNUSED / NORMAL / REDIRECT / DEAD） | `page_loaded`：**次带常驻** |
+| tuple 计数（= NORMAL ItemId 对应 HeapTuple 条数） | `page_loaded`：**次带常驻** |
 
-选择控件与元信息同区时：结构图+hex 仍为主内容；元信息默认不淹没主视图。主带/次带分组见上表「顶栏编排」；视觉细节由 `ui-design.md` 定。
+**可见性纪律**：仅**连接详情 + PG 版本**允许改为徽标 hover/聚焦可达。表/页统计在**对应状态**下**禁止**仅藏进设置，须次带常驻可扫读；**未达状态允许空白/整块不渲染**，**禁止**占位噪音堆砌。结构图+hex 仍为主内容；视觉细节由 `ui-design.md` 定。
 
 #### 继承的结构图 / hex 联动（摘自 `page-diagram-32b`）
 
@@ -124,10 +132,11 @@
 | 条件 | 要求 |
 |---|---|
 | 解析 | **禁止**改 `page-core` 以满足布局 |
-| 宽屏 | 视口 ≥ 960px 且已加载页：**禁止**上下为唯一布局 |
-| 窄屏 | 回退后**禁止**丢失选表/`blkno`/Load/Refresh、主题或双向高亮 |
-| 元信息 | **禁止**省略必显字段或展示密码 |
+| 宽屏 | 视口 ≥ 960px 且已加载页：**禁止**上下为唯一布局；**禁止**回退左右分栏 |
+| 窄屏 | 回退后**禁止**丢失选表/`blkno`/Load/Refresh、主题、Collapse hex 或双向高亮 |
+| 元信息 | **禁止**省略对应状态下表/页必显字段或展示密码；连接详情须经徽标可达；未达状态**禁止**以占位噪音堆砌代替空白 |
 | 主题 | **禁止**移除切换或破坏 light/dark 可读 |
+| Collapse | **禁止**在 hex 面板重复提供折叠控件 |
 | 联动 | **禁止**因左右布局破坏字节映射或自动滚动 |
 | 像素 | **允许**相对截图美化；**禁止**以未像素复刻判失败 |
 | 加载 | **禁止**无意义整页壳层跳动（允许局部指示） |
@@ -138,26 +147,30 @@
 
 ### P0
 
-- **P0-1 主控位于顶栏**  
-  Given 已连接且存在至少一张用户 heap 表，When 查看主界面，Then table 选择、`blkno`、Load 位于 Context/chrome 一带，且可完成选表→blkno→加载；Then **禁止**仅能在左侧专用栏完成该路径。
+- **P0-1 主控位于顶栏次带**  
+  Given 已连接且存在至少一张用户 heap 表，When 查看主界面，Then table 选择、`blkno`、Load 位于 Context/chrome **次带**，且可完成选表→blkno→加载；Then **禁止**仅能在左侧专用栏完成该路径；Then 上述主控**不得**仅布置于主带。
 
-- **P0-2 Refresh 在顶栏可达**  
-  Given 已成功加载某页，When 刷新同一 `(表, blkno)`，Then Refresh（或等价刷新并对比）在顶栏主控区可发现并可触发，且仍满足前序刷新对比合同。
+- **P0-2 Refresh 在顶栏次带可达**  
+  Given 已成功加载某页，When 刷新同一 `(表, blkno)`，Then Refresh（或等价刷新并对比）在顶栏**次带**主控区可发现并可触发，且仍满足前序刷新对比合同。
 
 - **P0-3 左侧栏完全移除**  
   Given 主控已上移，When 观察布局，Then 左侧 Tables/`blkno`/Load 专用栏已**完全移除**（无空壳侧栏）；主区水平空间可用于结构图/hex；主控唯一入口为顶栏。
 
-- **P0-4 顶栏协调且元信息必显**  
-  Given 已连接并成功加载某页，When 查看顶栏/Context（无需隐藏设置），Then 主带含连接状态、表选择、`blkno`、Load/Refresh、主题；次带含连接详情与页统计必显清单全部可见（连接无密码、PG 版本串、表名+OID、blkno、#blocks、页大小、lower/upper/free、ItemId 与 LP 分项、#tup）；长文本若截断则 title/tooltip（或等价）可达全文；选择控件与元信息可区分可扫读；结构图+hex 仍为主内容，元信息不淹没主视图。
+- **P0-4 顶栏编排与元信息可达**  
+  Given 已连接并成功加载某页，When 查看顶栏/Context（无需隐藏设置），Then：
+  - **主带**按固定顺序含：标题、connected 徽标、Collapse hex、Theme（Collapse hex 在 Theme 左侧）；
+  - **次带**含表选择、`blkno`、Load/Refresh，其后跟随表/页统计必显清单全部可扫读（表名+OID、#blocks、blkno、页大小、lower/upper/free、ItemId 与 LP 分项、#tup）；
+  - 次带**不**常驻长连接串与 PG 版本串占行；
+  - 选择控件与表/页元信息可区分可扫读；结构图+hex 仍为主内容，元信息不淹没主视图。
 
 - **P0-5 连库状态与主题保留**  
-  Given 应用已启动，When 查看壳层，Then 可区分连接状态，可切换 light/dark，切换后顶栏与主视图仍可读。
+  Given 应用已启动，When 查看壳层，Then 主带可区分连接状态，可切换 light/dark，切换后顶栏与主视图仍可读。
 
-- **P0-6 宽屏左右布局**  
-  Given 已加载标准 8KB 页且视口宽度 ≥ **960px**，When 查看主内容区，Then 结构图与 hex **左右**并排（**结构图左、hex 右**），二者同时可见（允许各自内滚）；**禁止**宽屏仅能上下浏览二者。
+- **P0-6 宽屏左右布局（不回退）**  
+  Given 已加载标准 8KB 页且视口宽度 ≥ **960px**，When 查看主内容区，Then 结构图与 hex **左右**并排（**结构图左、hex 右**），二者同时可见（允许各自内滚）；**禁止**宽屏仅能上下浏览二者或因顶栏微调回退为上下唯一布局。
 
 - **P0-7 窄屏回退**  
-  Given 已加载页，When 视口宽度 < **960px**，Then 结构图与 hex **上下堆叠**（结构图上、hex 下），各自可滚，二者仍可访问；选表/`blkno`/Load/Refresh 与主题切换仍可用。
+  Given 已加载页，When 视口宽度 < **960px**，Then 结构图与 hex **上下堆叠**（结构图上、hex 下），各自可滚，二者仍可访问；选表/`blkno`/Load/Refresh、主题与 Collapse hex 仍可用。
 
 - **P0-8 新布局下双向高亮**  
   Given 已加载页且结构图与 hex 均可见（宽屏左右或窄屏回退），When 结构图选中某字段，Then hex 高亮对应完整字节区间；When hex 点选落在已映射字段上的字节，Then 结构图高亮该字段。
@@ -169,10 +182,19 @@
   Given 本项实现后，When 对同一夹具页对比解析与前序行为（字段边界、解码、非 8KB 拒绝等），Then 解析与 API 语义与改布局前一致。
 
 - **P0-11 核心路径键盘可达**  
-  Given 仅用键盘且已连接，When 完成选表 → blkno → 加载 → 切换主题，Then 各步可聚焦控件有可见焦点且路径可完成。
+  Given 仅用键盘且已连接，When 完成选表 → blkno → 加载 → 切换主题，Then 各步可聚焦控件有可见焦点且路径可完成；When 需查看连接详情全文，Then 至少可通过 `title` 或可聚焦触发看到 host/port/database/user 与 PG 版本全文（无密码）。
 
 - **P0-12 加载布局稳定**  
   Given 已连接布局，When 加载或刷新某页，Then 无无意义整页壳层跳动（允许顶栏/主区分部指示）。
+
+- **P0-13 Collapse hex 唯一入口在主带 Theme 左侧**  
+  Given 已成功加载某页，When 查看顶栏主带，Then Collapse hex（或等价折叠/展开）出现在主带且位于 Theme **左侧**；When 查看 hex 面板，Then **禁止**再提供该折叠控件（含 hex 面板顶栏/左上角）；顶栏主带为 Collapse hex 的**唯一**入口。
+
+- **P0-14 连接详情经 connected 徽标可达**  
+  Given 已连接，When 不 hover/聚焦 connected 徽标，Then 次带不常驻展示长连接串与 PG 版本串；When hover（tooltip/popover）或键盘聚焦/触发该徽标（或等价入口），Then 可见 host、port、database、user（无密码）与 PostgreSQL 完整版本串。
+
+- **P0-15 未选表/未加载页时表页统计空白**  
+  Given 已连接但尚未选择表，或已选表但尚未成功 `page_loaded`，When 查看次带表/页统计区，Then 该区空白即可（允许整块不渲染）；Then **禁止**以 `—` / `N/A` 等占位噪音满屏堆砌。Given 已成功 `page_loaded`，When 查看次带，Then 对应必显元信息可扫读（见 P0-4）。
 
 ### P1
 
@@ -180,24 +202,25 @@
   Given 宽屏左右布局，When 拖拽分隔条（若实现），Then 比例变化且两侧仍可达；未实现则 N/A。
 
 - **P1-2 极窄顶栏折行**  
-  Given 视口极窄，When 查看顶栏，Then 主控与必显元信息经折行/分层仍可操作与扫读，无不可滚裁切死角。
+  Given 视口极窄，When 查看顶栏，Then 主控与（对应状态下的）表/页必显元信息经折行/分层仍可操作与扫读，无不可滚裁切死角；连接详情仍经徽标可达；未达状态的统计区仍允许空白。
 
 - **P1-3 多表时顶栏选择**  
   Given 库含大量 heap 表，When 使用顶栏 combobox/select，Then 仍可定位目标表（滚动/过滤等由 UI Design 定），不阻塞加载。
 
 ## 开放问题
 
-> **全部已裁决 / 关闭**（用户采纳 Analyst 推荐默认，2026-07-26）。下列为归档决议，不再阻塞 Planner。
+> **Q1–Q6**：全部**已裁决 / 关闭**。Q4 含第三轮微调（主带固定顺序、Collapse 唯一入口、表/页统计空态），用户确认「ok」（2026-07-26）。  
+> **本轮无新增开放问题**（tooltip vs popover、聚焦触发形态、hex 面板非折叠装饰由 `ui-design.md` 定；合同仅要求 hover + 键盘至少 title 或可聚焦触发）。
 
 | ID | 议题 | 决议 | 状态 |
 |---|---|---|---|
 | **Q1** | 宽屏断点 | **960px**（≥960 左右；否则窄屏回退） | **已裁决 / 关闭** |
 | **Q2** | 窄屏回退 | **上下堆叠**：结构图上、hex 下，各自可滚 | **已裁决 / 关闭** |
-| **Q3** | 宽屏左右侧别 | **结构图左、hex 右** | **已裁决 / 关闭** |
-| **Q4** | 顶栏主控 vs 元信息编排 | **主带**：连接状态 + 表选择 + blkno + Load/Refresh + 主题；**次带**：连接详情与页统计必显。禁密码；长文本可截断但须 title/tooltip 达全文 | **已裁决 / 关闭** |
+| **Q3** | 宽屏左右侧别 | **结构图左、hex 右**（第三轮强调不得回退） | **已裁决 / 关闭** |
+| **Q4** | 顶栏主控 vs 元信息编排 | **第三轮已批准（含微调）**：**主带（固定顺序）** = 标题 → connected 徽标 → Collapse hex → Theme（hex 在 Theme 左侧）；**次带** = 表选择 + blkno + Load/Refresh + 表/页统计；连接详情与 PG 版本经 connected 徽标 hover/聚焦可达（不次带常驻）；Collapse hex **仅**主带入口，hex 面板内不提供；未选表/未达对应状态时表页统计**空白即可**（禁占位噪音堆砌）。禁密码；长文本可截断但须 title/tooltip 达全文 | **已裁决 / 关闭** |
 | **Q5** | 表选择形态 | **顶栏 combobox/select**（限定名；项可达块数）。不再保留左侧长列表；多表过滤见 P1-3 | **已裁决 / 关闭** |
 | **Q6** | 左侧栏处置 | **完全移除**左侧 Tables 专用栏 | **已裁决 / 关闭** |
 
 ---
 
-**交接提示（Manager）**：产出 `docs/features/layout-chrome-split/spec.md` 已确认。开放问题全部关闭。建议状态 **`designing`**；调度 Planner（须 `design.md` + `ui-design.md`，再 `plan.md`）。Analyst 不改 STATUS/工作项记录；不写 Design/Plan/代码；不 commit。
+**交接提示（Manager）**：产出 `docs/features/layout-chrome-split/spec.md` 已批准写回。确认门禁 **已确认 / approved**。开放问题：Q1–Q6 全部关闭。建议状态 **`designing`**；交 Planner 修订 `ui-design.md` / 必要 `design.md` 增量 + `plan.md`。Analyst 不改 STATUS/工作项记录；不写 Design/Plan/代码；不 commit。
