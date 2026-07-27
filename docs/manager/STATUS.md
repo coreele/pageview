@@ -10,7 +10,7 @@
 
 | feature-id | 最终状态 | 归档目录 | 备注 |
 |---|---|---|---|
-| fix-dev-web-page-core | done | [docs/archive/2026/fix-dev-web-page-core/](../archive/2026/fix-dev-web-page-core/) | 2026-07-27 核验：实现已在 `main`（`3e789ff`）；源分支无独有提交，无需再合；归档 |
+| fix-dev-web-page-core | done | [docs/archive/2026/fix-dev-web-page-core/](../archive/2026/fix-dev-web-page-core/) | 2026-07-27 核验：实现已在 `main`（`3e789ff`）；源分支无独有提交，无需再合；归档提交 `beab0e4`；push 因连 GitHub 失败待补 |
 | hex-collapse | done | [docs/archive/2026/hex-collapse/](../archive/2026/hex-collapse/) | 2026-07-27 合入 `main`（FF `a2f460e`）后归档；push 成功（`origin/main`） |
 | layout-chrome-split | done | [docs/archive/2026/layout-chrome-split/](../archive/2026/layout-chrome-split/) | 2026-07-26 合入 `main`（FF `7e99933`）后归档；push 因无 origin remote 未完成 |
 | page-diagram-32b | done | [docs/archive/2026/page-diagram-32b/](../archive/2026/page-diagram-32b/) | 2026-07-26 合入 `main`（FF `32c38bd`）后归档 |
