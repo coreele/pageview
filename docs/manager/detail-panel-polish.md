@@ -60,4 +60,4 @@
   - CSS：padding / gap / 字号疏开；offset 落在 wrap
   - 文件：`apps/web/src/StructureMap.tsx`、`apps/web/src/styles.css`、`docs/features/detail-panel-polish/dev-notes.md`
 - 2026-07-27（收口）：用户目视验收通过并授权 commit/merge/push。Manager 记 QA Pass（用户验收）；状态 `qa` → `done`。无 `review.md` / `qa-report.md`（Review/正式 QA 报告均 skipped）。
-- 2026-07-27（合入/归档）：`detail-panel-polish` 分支提交 `62792c7` FF 合入 `main`；`docs/features/detail-panel-polish/` → `docs/archive/2026/detail-panel-polish/`；首次 `git push origin main` 因连 GitHub 失败待补。
+- 2026-07-27（合入/归档）：`detail-panel-polish` 分支提交 `62792c7` FF 合入 `main`；`docs/features/detail-panel-polish/` → `docs/archive/2026/detail-panel-polish/`；首次直连 push 失败后，经代理 `127.0.0.1:7890` push 成功（`origin/main` → `dd2fba5`）。
