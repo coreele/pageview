@@ -70,7 +70,7 @@ Spec 用户确认字段 → **approved**。Design skipped → 直接进入 Plan�
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| hex-collapse | [spec.md](../features/hex-collapse/spec.md) | required | approved（2026-07-27「ok」） | skipped（理由：无新模块边界/分层/技术选型；在既有 `apps/web` hex 与结构图交互上增量） | gui | Approve @ 2ab3da5 | done | 用户已授权合并；待 Merge Executor 合入 main；合入后归档 |
+| hex-collapse | [spec.md](../archive/2026/hex-collapse/spec.md) | required | approved（2026-07-27「ok」） | skipped（理由：无新模块边界/分层/技术选型；在既有 `apps/web` hex 与结构图交互上增量） | gui | Approve @ 2ab3da5 | done | 已合入 main（FF `a2f460e`）并归档；push 成功 |
 
 阻塞原因: none
 恢复条件: N/A
@@ -101,3 +101,4 @@ Spec 用户确认字段 → **approved**。Design skipped → 直接进入 Plan�
 - 2026-07-27：Reviewer **Approve**（`review.md`，相对 `2ab3da5`；未提交）。状态 `reviewing` → `qa`；调度 QA。
 - 2026-07-27：QA **Pass**（`qa-report.md` 未提交）。等待用户合并授权：`hex-collapse` → `main`。授权后 Manager 置 `done` 并与未入库 review/qa 报告一次提交，再由 Merge Executor 合入。**未合并。**
 - 2026-07-27：用户「ok」授权合并。状态 `qa` → `done`。源分支关闭提交纳入 STATUS/工作项/`review.md`/`qa-report.md` + scrollbar 样式（`styles.css`）；排除 fixture CRLF。调度 Merge Executor 合入 `main`；合入后归档。
+- 2026-07-27：Merge Executor FF 合入 `main`（`a2f460e`）；`git push origin main` 成功。Manager 归档至 `docs/archive/2026/hex-collapse/`。
