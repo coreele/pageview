@@ -37,10 +37,10 @@ describe("buildHexLayout", () => {
   });
 
   it("keeps same-row cells before and after unaligned free", () => {
-    // free [100, 200): mid-row start and end
+    // free [100, 120): start and end in the same physical row (96..128)
     const layout = buildHexLayout({
       rawLength: 256,
-      freeRange: { start: 100, end: 200 },
+      freeRange: { start: 100, end: 120 },
       bytesPerRow: BPR,
     });
     const breakRow = layout.rows.find((r) => r.parts.some((p) => p.kind === "break"));
@@ -49,10 +49,21 @@ describe("buildHexLayout", () => {
     expect(parts[0]).toMatchObject({ kind: "cells", startOffset: 96, length: 4 });
     expect(parts[1]).toMatchObject({
       kind: "break",
-      range: { start: 100, end: 200 },
-      bytes: 100,
+      range: { start: 100, end: 120 },
+      bytes: 20,
     });
-    expect(parts[2]).toMatchObject({ kind: "cells", startOffset: 200, length: 24 });
+    expect(parts[2]).toMatchObject({ kind: "cells", startOffset: 120, length: 8 });
+  });
+
+  it("aligns trailing cells to the end physical row when free spans rows", () => {
+    const layout = buildHexLayout({
+      rawLength: 256,
+      freeRange: { start: 100, end: 200 },
+      bytesPerRow: BPR,
+    });
+    const tailRow = layout.rows.find((r) => r.labelOffset === 192);
+    expect(tailRow).toBeDefined();
+    expect(tailRow!.parts).toEqual([{ kind: "cells", startOffset: 192, length: 32 }]);
   });
 
   it("maps offsets in free to the break presentation row", () => {
@@ -95,5 +106,19 @@ describe("buildHexLayout", () => {
       expect(row.labelOffset.toString(16).padStart(4, "0").length).toBeGreaterThanOrEqual(4);
     }
     expect(layout.rows[0]!.labelOffset).toBe(0);
+  });
+
+  it("aligns tail rows to physical boundaries when free spans multiple rows", () => {
+    const layout = buildHexLayout({
+      rawLength: 8192,
+      freeRange: { start: 40, end: 8040 },
+      bytesPerRow: BPR,
+    });
+    const tailRow = layout.rows.find((row) => row.labelOffset === 0x1f60);
+    expect(tailRow).toBeDefined();
+    expect(tailRow!.parts).toEqual([
+      { kind: "cells", startOffset: 0x1f60, length: 32 },
+    ]);
+    expect(layout.rows.some((row) => row.labelOffset === 0x1f68)).toBe(false);
   });
 });

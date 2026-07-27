@@ -36,11 +36,10 @@ function pushCellRows(
   while (offset < to) {
     const rowBase = Math.floor(offset / bytesPerRow) * bytesPerRow;
     const rowEnd = Math.min(rowBase + bytesPerRow, to);
-    const length = rowEnd - offset;
     rows.push({
       rowIndex: rows.length,
-      labelOffset: offset,
-      parts: [{ kind: "cells", startOffset: offset, length }],
+      labelOffset: rowBase,
+      parts: [{ kind: "cells", startOffset: rowBase, length: rowEnd - rowBase }],
     });
     offset = rowEnd;
   }
@@ -48,7 +47,8 @@ function pushCellRows(
 
 /**
  * Build hex presentation rows with non-empty free collapsed to a single break.
- * Unaligned free keeps leading/trailing non-free cells on the same presentation row.
+ * Unaligned free keeps leading/trailing non-free cells on the same row only
+ * when free start/end are in that same physical row.
  */
 export function buildHexLayout(args: {
   rawLength: number;
@@ -83,6 +83,7 @@ export function buildHexLayout(args: {
   const leadingLen = freeStart - startRowBase;
   // When freeEnd is row-aligned, trailing belongs to subsequent full rows — not the break row.
   const trailingLen = freeEnd > endRowBase ? endRowEnd - freeEnd : 0;
+  const samePhysicalRow = startRowBase === endRowBase;
 
   const breakParts: HexRowPart[] = [];
   if (leadingLen > 0) {
@@ -93,7 +94,7 @@ export function buildHexLayout(args: {
     range: { start: freeStart, end: freeEnd },
     bytes: freeEnd - freeStart,
   });
-  if (trailingLen > 0) {
+  if (samePhysicalRow && trailingLen > 0) {
     breakParts.push({ kind: "cells", startOffset: freeEnd, length: trailingLen });
   }
 
@@ -103,7 +104,7 @@ export function buildHexLayout(args: {
     parts: breakParts,
   });
 
-  const afterStart = trailingLen > 0 ? endRowEnd : freeEnd;
+  const afterStart = samePhysicalRow && trailingLen > 0 ? endRowEnd : freeEnd;
   pushCellRows(rows, afterStart, rawLength, bytesPerRow);
 
   return { rows };

@@ -145,16 +145,52 @@ function segmentsForCellPart(
   });
 }
 
+function tupleLaneKey(fieldId: string): string | null {
+  const match = /^tuple-(\d+)/.exec(fieldId);
+  return match ? `tuple-${match[1]}` : null;
+}
+
+/** Split packed physical rows so each tuple gets its own lane. */
+function groupSegmentsIntoLanes(segments: LayoutSegment[]): LayoutSegment[][] {
+  if (segments.length === 0) return [[]];
+
+  const byTuple = new Map<string, LayoutSegment[]>();
+  for (const seg of segments) {
+    const key = tupleLaneKey(seg.field.id);
+    if (!key) continue;
+    const lane = byTuple.get(key);
+    if (lane) lane.push(seg);
+    else byTuple.set(key, [seg]);
+  }
+
+  if (byTuple.size <= 1) return [segments];
+
+  return [...byTuple.values()].sort((a, b) => {
+    const aMin = Math.min(...a.map((seg) => seg.colStart));
+    const bMin = Math.min(...b.map((seg) => seg.colStart));
+    return aMin - bMin;
+  });
+}
+
 function freeBreakColumns(
   range: ByteRange,
   presRow: HexPresentationRow,
 ): { colStart: number; colEnd: number } {
-  const leading = presRow.parts.find((p) => p.kind === "cells");
+  const breakIdx = presRow.parts.findIndex(
+    (p) => p.kind === "break" && p.range.start === range.start && p.range.end === range.end,
+  );
+  const leading = breakIdx > 0 ? presRow.parts[breakIdx - 1] : undefined;
+  const trailing = breakIdx >= 0 ? presRow.parts[breakIdx + 1] : undefined;
+
   const colStart =
     leading?.kind === "cells"
       ? (leading.startOffset % STRUCTURE_BYTES_PER_ROW) + leading.length
       : range.start % STRUCTURE_BYTES_PER_ROW;
-  return { colStart, colEnd: STRUCTURE_BYTES_PER_ROW };
+  const colEnd =
+    trailing?.kind === "cells"
+      ? trailing.startOffset % STRUCTURE_BYTES_PER_ROW
+      : STRUCTURE_BYTES_PER_ROW;
+  return { colStart, colEnd };
 }
 
 function FreeBreakCell({
@@ -250,7 +286,7 @@ function FieldCell({
 
   return (
     <div
-      className={`field-cell region-${field.region}${selected ? " selected" : ""}${diff ? " diff" : ""}${lpStatus ? ` lp-${lpStatus.toLowerCase()}` : ""}${choice.mode === "value" ? " value-mode" : ""}`}
+      className={`field-cell region-${field.region}${colStart > 0 ? " has-left-stripe" : ""}${selected ? " selected" : ""}${diff ? " diff" : ""}${lpStatus ? ` lp-${lpStatus.toLowerCase()}` : ""}${choice.mode === "value" ? " value-mode" : ""}`}
       style={{ gridColumn: `${colStart + 1} / ${colEnd + 1}` }}
       role="button"
       tabIndex={0}
@@ -350,40 +386,70 @@ function StructurePresentationRows({
             <span className="structure-row-offset mono muted">
               {presRow.labelOffset.toString(16).padStart(4, "0")}
             </span>
-            <div className={`structure-row-grid${hasFreeBreak ? " structure-row-grid-free" : ""}`}>
-              {presRow.parts.map((part, partIdx) => {
-                if (part.kind === "cells") {
-                  return segmentsForCellPart(segments, part.startOffset, part.length).map((seg) => (
-                    <FieldCell
-                      key={`${seg.field.id}-${seg.colStart}`}
-                      field={seg.field}
-                      colStart={seg.colStart}
-                      colEnd={seg.colEnd}
-                      selected={isFieldSelected(selectedId, seg.field)}
-                      diff={isFieldDiff(diffIds, seg.field)}
+            {hasFreeBreak ? (
+              <div className="structure-row-grid structure-row-grid-free">
+                {presRow.parts.map((part, partIdx) => {
+                  if (part.kind === "cells") {
+                    return segmentsForCellPart(segments, part.startOffset, part.length).map((seg) => (
+                      <FieldCell
+                        key={`${seg.field.id}-${seg.colStart}`}
+                        field={seg.field}
+                        colStart={seg.colStart}
+                        colEnd={seg.colEnd}
+                        selected={isFieldSelected(selectedId, seg.field)}
+                        diff={isFieldDiff(diffIds, seg.field)}
+                        onSelect={onSelect}
+                        fields={fields}
+                        metrics={metrics}
+                        renderValue={isValueSegment(seg, segments)}
+                      />
+                    ));
+                  }
+                  const { colStart, colEnd } = freeBreakColumns(part.range, presRow);
+                  return (
+                    <FreeBreakCell
+                      key={`free-${partIdx}`}
+                      range={part.range}
+                      bytes={part.bytes}
+                      colStart={colStart}
+                      colEnd={colEnd}
+                      selected={selectedId === "free"}
+                      diff={diffIds.has("free")}
                       onSelect={onSelect}
-                      fields={fields}
-                      metrics={metrics}
-                      renderValue={isValueSegment(seg, segments)}
+                      withId
                     />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="structure-row-lanes">
+                {presRow.parts.map((part, partIdx) => {
+                  if (part.kind !== "cells") return null;
+                  const partSegments = segmentsForCellPart(segments, part.startOffset, part.length);
+                  return groupSegmentsIntoLanes(partSegments).map((lane, laneIdx) => (
+                    <div
+                      key={`${partIdx}-${laneIdx}`}
+                      className="structure-row-grid structure-row-lane"
+                    >
+                      {lane.map((seg) => (
+                        <FieldCell
+                          key={`${seg.field.id}-${seg.colStart}`}
+                          field={seg.field}
+                          colStart={seg.colStart}
+                          colEnd={seg.colEnd}
+                          selected={isFieldSelected(selectedId, seg.field)}
+                          diff={isFieldDiff(diffIds, seg.field)}
+                          onSelect={onSelect}
+                          fields={fields}
+                          metrics={metrics}
+                          renderValue={isValueSegment(seg, segments)}
+                        />
+                      ))}
+                    </div>
                   ));
-                }
-                const { colStart, colEnd } = freeBreakColumns(part.range, presRow);
-                return (
-                  <FreeBreakCell
-                    key={`free-${partIdx}`}
-                    range={part.range}
-                    bytes={part.bytes}
-                    colStart={colStart}
-                    colEnd={colEnd}
-                    selected={selectedId === "free"}
-                    diff={diffIds.has("free")}
-                    onSelect={onSelect}
-                    withId
-                  />
-                );
-              })}
-            </div>
+                })}
+              </div>
+            )}
           </div>
         );
       })}
