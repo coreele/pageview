@@ -59,4 +59,4 @@
 - 2026-07-27：Developer 完成。根因确认：exports→缺失 dist。改动：`page-core` 入口改为 `./src/index.ts`；README Run 说明；`dev-notes.md`。验证：`dev:web` ready @5173，无 entry 解析错误；typecheck/test 通过。Review skipped → 进入 `qa`，调度 QA。
 - 2026-07-27：QA **Pass**（`qa-report.md` 未提交）。等待用户合并授权（源分支 `fix-dev-web-page-core` → `main`）。授权后 Manager 置 `done` 并与报告一次提交，再合入。
 - 2026-07-27：用户确认授权合并（回复 “ok”）。状态置 `done`；与 `qa-report.md` / `dev-notes.md` / 实现一次提交；调度 Merge Executor 合入 `main`。
-- 2026-07-27：用户同意继续处理「待合入」收尾（「ok」）。核验：`3e789ff` 已在 `main`；源分支无独有提交；**跳过重复合入**；归档至 `docs/archive/2026/fix-dev-web-page-core/`。
+- 2026-07-27：用户同意继续处理「待合入」收尾（「ok」）。核验：`3e789ff` 已在 `main`；源分支无独有提交；**跳过重复合入**；归档至 `docs/archive/2026/fix-dev-web-page-core/`。归档提交 `beab0e4`；`git push origin main` **失败**（连 GitHub 443 失败）；本地 ahead，待补 push。
