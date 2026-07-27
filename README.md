@@ -1,88 +1,83 @@
-# Pageview — PostgreSQL heap page viewer
+# pg-page-viewer
 
-Local tool: connect to PostgreSQL, fetch heap pages via `pageinspect.get_raw_page()`, visualize page layout in the browser.
+English | [中文](./README.zh-CN.md)
 
-**Audience:** developers/learners. **Not** for public internet hosting.
+Browse PostgreSQL heap pages in the browser. Connect locally, fetch raw blocks via [`pageinspect`](https://www.postgresql.org/docs/current/pageinspect.html), and inspect structure + hex side by side.
 
-## Packages
+Built for developers learning or debugging heap layout — **not** intended for public deployment.
 
-| Package | Role |
-|---|---|
-| `packages/page-core` | Pure TS parser/decoder + structure-field derive (browser + Vitest) |
-| `apps/server` | Fastify thin proxy (default `127.0.0.1:8787`) |
-| `apps/web` | React UI: top chrome (primary: status / Collapse hex / theme; secondary: table·blkno·Load + page stats), **32B/row structure diagram**, hex dump (32B/row) |
+## Features
 
-## Scope (v1)
+- **Structure diagram** — 32 bytes/row: page header, ItemId array, free space, tuples
+- **Hex dump** — same 32B/row layout, linked selection and scroll-to-offset
+- **Tuple decode** — column values, `t_infomask` / `t_infomask2` bit strips, HOT/ctid hints
+- **Diff highlight** — byte-level changes on Refresh
+- **Light / dark** theme
 
-- Heap user tables only (`relkind = r`); no system catalogs, indexes, FSM/VM
-- Standard 8KB pages only
-- Page controls live in the chrome secondary strip (table / blkno / Load / Refresh); page stats appear there only after a page loads. Connection host/db/user and PG version are on the connected badge (hover or focus). Collapse hex sits on the primary strip left of Theme (no sidebar)
-- Page view: structure diagram aligned to **32 bytes per row** (header → ItemId → always-collapsed free space break → tuples); hex matches 32B/row with the same free-space break (no Expand/Collapse free controls), ≥4-digit offsets, and auto-scrolls to the selection using collapsed geometry; at ≥960px they appear side by side (structure left, hex right), and below 960px they stack
-- TOAST pointers shown as TOASTed — external toast pages not fetched
-
-## Prerequisites
+## Requirements
 
 - Node.js 20+, pnpm 9+
-- Live browsing: PostgreSQL **16.11** (16.x OK) with `pageinspect` and a role that can call `get_raw_page` (often superuser)
-
-Enable the extension yourself — the app **never** runs `CREATE EXTENSION`:
+- PostgreSQL 16.x with `pageinspect` enabled
+- A role that can call `get_raw_page` (often superuser)
 
 ```sql
 CREATE EXTENSION pageinspect;
 ```
 
-## Install & verify (L2)
+The app never runs `CREATE EXTENSION` for you.
+
+## Quick start
 
 ```bash
 pnpm install
-cp .env.example .env   # fill locally; never commit secrets
-pnpm --filter page-core test
-pnpm -r typecheck
-pnpm -r build
+cp .env.example .env   # optional: auto-connect on server start
+pnpm dev:server        # http://127.0.0.1:8787
+pnpm dev:web           # http://127.0.0.1:5173
 ```
 
-## Run
-
-After `pnpm install` (no prior `page-core` build required for the web app — it resolves the workspace package from source):
-
-```bash
-pnpm dev:server   # http://127.0.0.1:8787
-pnpm dev:web      # http://127.0.0.1:5173 (proxies /api)
-```
-
-If env credentials are complete at server start, the process auto-connects (UI form still overrides the session).
+Open the web UI, connect (or rely on `.env`), pick a heap table and block number, then **Load**.
 
 ## Environment
 
-Keys only in `.env.example`. Prefer `DATABASE_URL`, or `PGHOST` / `PGPORT` / `PGDATABASE` / `PGUSER` / `PGPASSWORD`. Optional: `HOST` (default `127.0.0.1`), `PORT` (default `8787`).
+Set credentials in `.env` (never commit secrets):
 
-Passwords stay in server process memory — not in repo config, not in frontend `localStorage` (theme preference may use `localStorage['pg-page-viewer.theme']` only).
+- `DATABASE_URL`, or `PGHOST` / `PGPORT` / `PGDATABASE` / `PGUSER` / `PGPASSWORD`
+- `HOST` (default `127.0.0.1`), `PORT` (default `8787`)
 
-## Theme
+Passwords stay in the server process — not in the repo or browser storage.
 
-Light / dark. Default follows `prefers-color-scheme` (fallback light). Chrome toggle switches themes; optional cross-session memory via the theme key above.
+## Repo layout
 
-## Fixture capture (optional L3 assets)
-
-See `packages/page-core/fixtures/README.md`. Example:
-
-```bash
-pnpm capture-fixtures -- --rel public.demo --blkno 0 --out packages/page-core/fixtures/demo-blk0
-```
-
-## Integration smoke (L3)
-
-```bash
-pnpm test:integration
-```
-
-Requires configured `.env` and a table with `relpages > 0`. Without credentials the command exits non-zero and prints a block reason (do not treat as L2 failure).
-
-## Failure tips
-
-| Symptom | Next step |
+| Path | Description |
 |---|---|
-| `PAGEINSPECT_MISSING` | Run `CREATE EXTENSION pageinspect;` as superuser, reconnect |
-| Auth / connection refused | Fix host/port/user/password; ensure Postgres is listening on localhost |
-| `BLKNO_OUT_OF_RANGE` | Use `blkno` in `0 .. blocks-1` |
-| Permission on `get_raw_page` | Use a privileged role or grant as documented by your PG setup |
+| `packages/page-core` | Page parser, tuple decoder, structure field derivation |
+| `apps/server` | Fastify API proxy to PostgreSQL |
+| `apps/web` | React UI |
+
+## Development
+
+```bash
+pnpm --filter page-core test
+pnpm --filter web test
+pnpm -r typecheck
+pnpm -r build
+pnpm test:integration   # needs .env + a table with blocks
+```
+
+Fixture capture: see `packages/page-core/fixtures/README.md`.
+
+## Scope
+
+- Heap user tables only (`relkind = r`)
+- Standard 8 KB pages
+- TOAST pointers shown; external toast pages not fetched
+- No indexes, FSM/VM, or system catalogs
+
+## Troubleshooting
+
+| Error | Fix |
+|---|---|
+| `PAGEINSPECT_MISSING` | `CREATE EXTENSION pageinspect;` as superuser, reconnect |
+| Connection refused | Check host/port/credentials; Postgres listening on localhost |
+| `BLKNO_OUT_OF_RANGE` | Use `blkno` in `0 .. relpages-1` |
+| `get_raw_page` denied | Use a privileged role |
