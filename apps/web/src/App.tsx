@@ -42,6 +42,7 @@ export function App() {
   const [prevRaw, setPrevRaw] = useState<Uint8Array | null>(null);
   const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
   const [hexCollapsed, setHexCollapsed] = useState(false);
+  const [detailCollapsed, setDetailCollapsed] = useState(false);
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
   const hexLocateNonceRef = useRef(0);
   const hexLocateHandledNonceRef = useRef(0);
@@ -390,15 +391,26 @@ export function App() {
         </div>
 
         {page && (
-          <button
-            className="chrome-collapse"
-            type="button"
-            aria-expanded={!hexCollapsed}
-            aria-controls="hex-panel"
-            onClick={() => setHexCollapsed((v) => !v)}
-          >
-            {hexCollapsed ? "Show hex" : "Collapse hex"}
-          </button>
+          <div className="chrome-actions">
+            <button
+              className="chrome-detail"
+              type="button"
+              aria-expanded={!detailCollapsed}
+              aria-controls="selection-detail-panel"
+              onClick={() => setDetailCollapsed((v) => !v)}
+            >
+              {detailCollapsed ? "Show detail" : "Collapse detail"}
+            </button>
+            <button
+              className="chrome-collapse"
+              type="button"
+              aria-expanded={!hexCollapsed}
+              aria-controls="hex-panel"
+              onClick={() => setHexCollapsed((v) => !v)}
+            >
+              {hexCollapsed ? "Show hex" : "Collapse hex"}
+            </button>
+          </div>
         )}
         <button
           className="chrome-theme"
@@ -516,6 +528,7 @@ export function App() {
                 selectedId={selectedId}
                 highlight={highlight}
                 diffIds={diffIds}
+                detailOpen={!detailCollapsed}
                 onSelect={onSelectStructure}
                 onLoadCrossBlock={(target) => {
                   if (selectedOid != null) {

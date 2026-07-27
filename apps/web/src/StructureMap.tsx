@@ -15,6 +15,7 @@ import {
   type StructureField,
 } from "page-core";
 import { InfomaskBitPair } from "./InfomaskBitStrip";
+import { buildHexLayout, type HexPresentationRow } from "./hexLayout";
 
 type Props = {
   page: ParsedPage;
@@ -22,6 +23,7 @@ type Props = {
   selectedId: string | null;
   highlight: ByteRange | null;
   diffIds: Set<string>;
+  detailOpen?: boolean;
   onSelect: (id: string, range: ByteRange) => void;
   onLoadCrossBlock: (blkno: number) => void;
 };
@@ -95,19 +97,6 @@ function buildLayoutSegments(fields: StructureField[]): LayoutSegment[] {
   return segments;
 }
 
-function groupByRow(segments: LayoutSegment[]): Map<number, LayoutSegment[]> {
-  const map = new Map<number, LayoutSegment[]>();
-  for (const s of segments) {
-    const list = map.get(s.row) ?? [];
-    list.push(s);
-    map.set(s.row, list);
-  }
-  for (const list of map.values()) {
-    list.sort((a, b) => a.colStart - b.colStart);
-  }
-  return map;
-}
-
 function isFieldSelected(selectedId: string | null, field: StructureField): boolean {
   if (!selectedId) return false;
   if (selectedId === field.id) return true;
@@ -141,46 +130,65 @@ function isValueSegment(seg: LayoutSegment, all: LayoutSegment[]): boolean {
   return best.row === seg.row && best.colStart === seg.colStart;
 }
 
-function FreeSpaceBand({
-  page,
-  selectedId,
-  diffIds,
+function segmentsForCellPart(
+  segments: LayoutSegment[],
+  startOffset: number,
+  length: number,
+): LayoutSegment[] {
+  const end = startOffset + length;
+  const row = Math.floor(startOffset / STRUCTURE_BYTES_PER_ROW);
+  return segments.filter((seg) => {
+    if (seg.row !== row) return false;
+    const segStart = row * STRUCTURE_BYTES_PER_ROW + seg.colStart;
+    const segEnd = row * STRUCTURE_BYTES_PER_ROW + seg.colEnd;
+    return segStart < end && segEnd > startOffset;
+  });
+}
+
+function freeBreakColumns(
+  range: ByteRange,
+  presRow: HexPresentationRow,
+): { colStart: number; colEnd: number } {
+  const leading = presRow.parts.find((p) => p.kind === "cells");
+  const colStart =
+    leading?.kind === "cells"
+      ? (leading.startOffset % STRUCTURE_BYTES_PER_ROW) + leading.length
+      : range.start % STRUCTURE_BYTES_PER_ROW;
+  return { colStart, colEnd: STRUCTURE_BYTES_PER_ROW };
+}
+
+function FreeBreakCell({
+  range,
+  bytes,
+  colStart,
+  colEnd,
+  selected,
+  diff,
   onSelect,
+  withId,
 }: {
-  page: ParsedPage;
-  selectedId: string | null;
-  diffIds: Set<string>;
+  range: ByteRange;
+  bytes: number;
+  colStart: number;
+  colEnd: number;
+  selected: boolean;
+  diff: boolean;
   onSelect: (id: string, range: ByteRange) => void;
+  withId?: boolean;
 }) {
-  const { range, bytes } = page.freeSpace;
-  if (range.end <= range.start) return null;
-  const selected = selectedId === "free";
-  const diff = diffIds.has("free");
   return (
-    <div
-      id="free-space-band"
-      className={`free-band${selected ? " selected" : ""}${diff ? " diff" : ""}`}
+    <button
+      id={withId ? "free-space-band" : undefined}
+      type="button"
+      className={`free-band region-free${selected ? " selected" : ""}${diff ? " diff" : ""}`}
+      style={{ gridColumn: `${colStart + 1} / ${colEnd + 1}` }}
+      aria-label={`free space [${range.start}..${range.end}) ${bytes} bytes`}
+      onClick={() => onSelect("free", range)}
     >
-      <div
-        className="free-band-body"
-        role="button"
-        tabIndex={0}
-        aria-label={`free space [${range.start}..${range.end}) ${bytes} bytes`}
-        onClick={() => onSelect("free", range)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onSelect("free", range);
-          }
-        }}
-      >
-        <div className="free-break">
-          <span className="free-break-label mono">
-            free space [{range.start}..{range.end}) · {bytes} bytes
-          </span>
-        </div>
-      </div>
-    </div>
+      <span className="free-break-label mono">
+        free space [{range.start}..{range.end}) · {bytes} bytes
+      </span>
+    </button>
   );
 }
 
@@ -300,54 +308,85 @@ function FieldCell({
   );
 }
 
-function DiagramRows({
+function StructurePresentationRows({
+  page,
   fields,
   selectedId,
   diffIds,
   onSelect,
   metrics,
 }: {
+  page: ParsedPage;
   fields: StructureField[];
   selectedId: string | null;
   diffIds: Set<string>;
   onSelect: (id: string, range: ByteRange) => void;
   metrics: CellMetrics;
 }) {
-  const segments = buildLayoutSegments(fields);
-  const grouped = groupByRow(segments);
-  const sortedRows = [...grouped.keys()].sort((a, b) => a - b);
-  if (sortedRows.length === 0) return null;
+  const segments = useMemo(() => buildLayoutSegments(fields), [fields]);
+  const layout = useMemo(
+    () =>
+      buildHexLayout({
+        rawLength: page.raw.length,
+        freeRange: page.freeSpace.range,
+        bytesPerRow: STRUCTURE_BYTES_PER_ROW,
+      }),
+    [page.raw.length, page.freeSpace.range.start, page.freeSpace.range.end],
+  );
+
+  if (layout.rows.length === 0) return null;
 
   return (
     <>
-      {sortedRows.map((row) => (
-        <div
-          key={row}
-          className="structure-row"
-          role="row"
-          aria-label={`offset row 0x${(row * STRUCTURE_BYTES_PER_ROW).toString(16)}`}
-        >
-          <span className="structure-row-offset mono muted">
-            {(row * STRUCTURE_BYTES_PER_ROW).toString(16).padStart(4, "0")}
-          </span>
-          <div className="structure-row-grid">
-            {(grouped.get(row) ?? []).map((seg) => (
-              <FieldCell
-                key={`${seg.field.id}-${seg.colStart}`}
-                field={seg.field}
-                colStart={seg.colStart}
-                colEnd={seg.colEnd}
-                selected={isFieldSelected(selectedId, seg.field)}
-                diff={isFieldDiff(diffIds, seg.field)}
-                onSelect={onSelect}
-                fields={fields}
-                metrics={metrics}
-                renderValue={isValueSegment(seg, segments)}
-              />
-            ))}
+      {layout.rows.map((presRow) => {
+        const hasFreeBreak = presRow.parts.some((p) => p.kind === "break");
+        return (
+          <div
+            key={presRow.rowIndex}
+            className="structure-row"
+            role="row"
+            aria-label={`offset row 0x${presRow.labelOffset.toString(16)}`}
+          >
+            <span className="structure-row-offset mono muted">
+              {presRow.labelOffset.toString(16).padStart(4, "0")}
+            </span>
+            <div className={`structure-row-grid${hasFreeBreak ? " structure-row-grid-free" : ""}`}>
+              {presRow.parts.map((part, partIdx) => {
+                if (part.kind === "cells") {
+                  return segmentsForCellPart(segments, part.startOffset, part.length).map((seg) => (
+                    <FieldCell
+                      key={`${seg.field.id}-${seg.colStart}`}
+                      field={seg.field}
+                      colStart={seg.colStart}
+                      colEnd={seg.colEnd}
+                      selected={isFieldSelected(selectedId, seg.field)}
+                      diff={isFieldDiff(diffIds, seg.field)}
+                      onSelect={onSelect}
+                      fields={fields}
+                      metrics={metrics}
+                      renderValue={isValueSegment(seg, segments)}
+                    />
+                  ));
+                }
+                const { colStart, colEnd } = freeBreakColumns(part.range, presRow);
+                return (
+                  <FreeBreakCell
+                    key={`free-${partIdx}`}
+                    range={part.range}
+                    bytes={part.bytes}
+                    colStart={colStart}
+                    colEnd={colEnd}
+                    selected={selectedId === "free"}
+                    diff={diffIds.has("free")}
+                    onSelect={onSelect}
+                    withId
+                  />
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </>
   );
 }
@@ -403,18 +442,15 @@ export function StructureMap({
   selectedId,
   highlight,
   diffIds,
+  detailOpen = true,
   onSelect,
   onLoadCrossBlock,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const metrics = useStructureCellMetrics(rootRef);
   const fields = useMemo(() => deriveStructureFields(page), [page]);
-  const upperFields = useMemo(
-    () => fields.filter((f) => !f.visualOnly && (f.region === "header" || f.region === "itemid")),
-    [fields],
-  );
-  const tupleFields = useMemo(
-    () => fields.filter((f) => !f.visualOnly && f.region === "tuple"),
+  const diagramFields = useMemo(
+    () => fields.filter((f) => !f.visualOnly && f.region !== "free"),
     [fields],
   );
 
@@ -439,133 +475,106 @@ export function StructureMap({
         <span className="legend-meta muted">32 B / row · low offset ↑ · linked with hex</span>
       </div>
 
-      <section className="diagram-section" aria-label="PageHeader and ItemId">
-        <div className="structure-section-label">
-          <span className="section-dot region-header" />
-          PageHeader / ItemId
-        </div>
-        <DiagramRows
-          fields={upperFields}
-          selectedId={selectedId}
-          diffIds={diffIds}
-          onSelect={onSelect}
-          metrics={metrics}
-        />
-      </section>
-
-      <section className="diagram-section" aria-label="Free space">
-        <div className="structure-section-label">
-          <span className="section-dot region-free" />
-          Free space
-        </div>
-        <FreeSpaceBand
+      <div className="structure-flow" aria-label="Page structure flow">
+        <StructurePresentationRows
           page={page}
-          selectedId={selectedId}
-          diffIds={diffIds}
-          onSelect={onSelect}
-        />
-      </section>
-
-      <section className="diagram-section" aria-label="HeapTuple">
-        <div className="structure-section-label">
-          <span className="section-dot region-tuple" />
-          HeapTuple
-        </div>
-        <DiagramRows
-          fields={tupleFields}
+          fields={diagramFields}
           selectedId={selectedId}
           diffIds={diffIds}
           onSelect={onSelect}
           metrics={metrics}
         />
-      </section>
+      </div>
 
-      {(selectedItem || selectedTuple || selectedField) && (
-        <div className="panel selection-detail">
-          <div className="selection-detail__header">
-            <strong>Selection detail</strong>
-            {selectedField && (
-              <div className="selection-detail__field mono">
-                <div className="selection-detail__label">{selectedField.fullLabel}</div>
-                {selectedField.valueText != null && (
-                  <div className="selection-value">{selectedField.valueText}</div>
+      {detailOpen && (selectedItem || selectedTuple || selectedField) && (
+        <div className="selection-detail-wrap">
+          <div className="selection-detail__title">detail</div>
+          <div id="selection-detail-panel" className="panel selection-detail">
+            <div className="selection-detail__header">
+              {selectedField && (
+                <div className="selection-detail__field mono">
+                  <div className="selection-detail__label">{selectedField.fullLabel}</div>
+                  {selectedField.valueText != null && (
+                    <div className="selection-value">{selectedField.valueText}</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {selectedItem && (
+              <div className="flag-list" aria-label="ItemId flags">
+                {decodeItemIdFlags(selectedItem.flags).map((b) => (
+                  <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
+                    {b.set ? "●" : "○"} {b.name} — {b.meaning}
+                  </div>
+                ))}
+              </div>
+            )}
+            {selectedTuple && (
+              <>
+                <div className="selection-detail__infomask">
+                  <InfomaskBitPair
+                    infomask={selectedTuple.header.t_infomask}
+                    infomask2={selectedTuple.header.t_infomask2}
+                    bits={decodeInfomask(selectedTuple.header.t_infomask)}
+                    bits2={decodeInfomask2(selectedTuple.header.t_infomask2)}
+                  />
+                </div>
+                <div className="selection-detail__section selection-meta">
+                  {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
+                    <div className="muted">
+                      HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
+                      {selectedTuple.heapOnlyTuple ? "HEAP_ONLY_TUPLE" : ""}
+                    </div>
+                  )}
+                  <div className="selection-ctid">
+                    ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
+                    {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
+                        >
+                          Load block {selectedTuple.header.t_ctid.blockNumber}
+                        </button>
+                        <span className="muted"> (cross-block; no prefetch)</span>
+                      </>
+                    ) : (
+                      <span className="muted"> (same page)</span>
+                    )}
+                  </div>
+                </div>
+                {selectedTuple.columns && (
+                  <div className="selection-detail__section selection-detail__columns">
+                    <strong>Columns</strong>
+                    <ul>
+                      {selectedTuple.columns.map((c) => (
+                        <li key={c.attnum} className="mono">
+                          {c.dropped ? (
+                            <span className="muted">
+                              #{c.attnum} {c.name}: (dropped)
+                            </span>
+                          ) : (
+                            <>
+                              #{c.attnum} {c.name} ({c.typeName}): {c.null ? "NULL" : c.display}
+                              {c.toasted ? " [TOASTed]" : ""}
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
+              </>
+            )}
+            {highlight && (
+              <div className="selection-detail__highlight muted mono">
+                highlight bytes [{highlight.start}..{highlight.end})
               </div>
             )}
           </div>
-          {selectedItem && (
-            <div className="flag-list" aria-label="ItemId flags">
-              {decodeItemIdFlags(selectedItem.flags).map((b) => (
-                <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
-                  {b.set ? "●" : "○"} {b.name} — {b.meaning}
-                </div>
-              ))}
-            </div>
-          )}
-          {selectedTuple && (
-            <>
-              <div className="selection-detail__infomask">
-                <InfomaskBitPair
-                  infomask={selectedTuple.header.t_infomask}
-                  infomask2={selectedTuple.header.t_infomask2}
-                  bits={decodeInfomask(selectedTuple.header.t_infomask)}
-                  bits2={decodeInfomask2(selectedTuple.header.t_infomask2)}
-                />
-              </div>
-              <div className="selection-detail__section selection-meta">
-                {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
-                  <div className="muted">
-                    HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
-                    {selectedTuple.heapOnlyTuple ? "HEAP_ONLY_TUPLE" : ""}
-                  </div>
-                )}
-                <div className="selection-ctid">
-                  ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
-                  {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
-                    <>
-                      {" "}
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
-                      >
-                        Load block {selectedTuple.header.t_ctid.blockNumber}
-                      </button>
-                      <span className="muted"> (cross-block; no prefetch)</span>
-                    </>
-                  ) : (
-                    <span className="muted"> (same page)</span>
-                  )}
-                </div>
-              </div>
-              {selectedTuple.columns && (
-                <div className="selection-detail__section selection-detail__columns">
-                  <strong>Columns</strong>
-                  <ul>
-                    {selectedTuple.columns.map((c) => (
-                      <li key={c.attnum} className="mono">
-                        {c.dropped ? (
-                          <span className="muted">
-                            #{c.attnum} {c.name}: (dropped)
-                          </span>
-                        ) : (
-                          <>
-                            #{c.attnum} {c.name} ({c.typeName}): {c.null ? "NULL" : c.display}
-                            {c.toasted ? " [TOASTed]" : ""}
-                          </>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </>
-          )}
-          {highlight && (
-            <div className="selection-detail__highlight muted mono">
-              highlight bytes [{highlight.start}..{highlight.end})
-            </div>
-          )}
         </div>
       )}
 
