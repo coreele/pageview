@@ -21,8 +21,6 @@ type Props = {
   selectedId: string | null;
   highlight: ByteRange | null;
   diffIds: Set<string>;
-  freeCollapsed: boolean;
-  onToggleFreeCollapsed: () => void;
   onSelect: (id: string, range: ByteRange) => void;
   onLoadCrossBlock: (blkno: number) => void;
 };
@@ -146,15 +144,11 @@ function FreeSpaceBand({
   page,
   selectedId,
   diffIds,
-  freeCollapsed,
-  onToggleFreeCollapsed,
   onSelect,
 }: {
   page: ParsedPage;
   selectedId: string | null;
   diffIds: Set<string>;
-  freeCollapsed: boolean;
-  onToggleFreeCollapsed: () => void;
   onSelect: (id: string, range: ByteRange) => void;
 }) {
   const { range, bytes } = page.freeSpace;
@@ -164,7 +158,7 @@ function FreeSpaceBand({
   return (
     <div
       id="free-space-band"
-      className={`free-band${freeCollapsed ? " collapsed" : ""}${selected ? " selected" : ""}${diff ? " diff" : ""}`}
+      className={`free-band${selected ? " selected" : ""}${diff ? " diff" : ""}`}
     >
       <div
         className="free-band-body"
@@ -182,19 +176,9 @@ function FreeSpaceBand({
         <div className="free-break">
           <span className="free-break-label mono">
             free space [{range.start}..{range.end}) · {bytes} bytes
-            {freeCollapsed ? "" : " (compressed)"}
           </span>
         </div>
       </div>
-      <button
-        type="button"
-        className="free-toggle"
-        aria-expanded={!freeCollapsed}
-        aria-controls="free-space-band"
-        onClick={onToggleFreeCollapsed}
-      >
-        {freeCollapsed ? "Expand free space" : "Collapse free space"}
-      </button>
     </div>
   );
 }
@@ -418,8 +402,6 @@ export function StructureMap({
   selectedId,
   highlight,
   diffIds,
-  freeCollapsed,
-  onToggleFreeCollapsed,
   onSelect,
   onLoadCrossBlock,
 }: Props) {
@@ -479,8 +461,6 @@ export function StructureMap({
           page={page}
           selectedId={selectedId}
           diffIds={diffIds}
-          freeCollapsed={freeCollapsed}
-          onToggleFreeCollapsed={onToggleFreeCollapsed}
           onSelect={onSelect}
         />
       </section>

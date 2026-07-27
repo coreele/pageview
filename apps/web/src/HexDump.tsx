@@ -1,14 +1,17 @@
-import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import {
   computeHexScrollTarget,
   STRUCTURE_BYTES_PER_ROW,
   type ByteRange,
 } from "page-core";
+import { buildHexLayout, presentationRowForOffset } from "./hexLayout";
 
 type HexLocate = { offset: number; nonce: number };
 
 type Props = {
   raw: Uint8Array;
+  freeRange: ByteRange;
+  freeDiff?: boolean;
   highlight: ByteRange | null;
   locate: HexLocate | null;
   /** Survives HexDump unmount so manual re-expand does not re-scroll. */
@@ -24,8 +27,14 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 }
 
+function rangesOverlap(a: ByteRange, b: ByteRange): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
 export function HexDump({
   raw,
+  freeRange,
+  freeDiff = false,
   highlight,
   locate,
   locateHandledNonceRef,
@@ -34,8 +43,17 @@ export function HexDump({
   const containerRef = useRef<HTMLDivElement>(null);
   const [locateRow, setLocateRow] = useState<number | null>(null);
   const [announce, setAnnounce] = useState("");
-  const rows: ReactNode[] = [];
   const bytesPerRow = STRUCTURE_BYTES_PER_ROW;
+
+  const layout = useMemo(
+    () =>
+      buildHexLayout({
+        rawLength: raw.length,
+        freeRange,
+        bytesPerRow,
+      }),
+    [raw.length, freeRange.start, freeRange.end, bytesPerRow],
+  );
 
   useEffect(() => {
     if (!locate) return;
@@ -67,9 +85,13 @@ export function HexDump({
     const rowGapPx = Number.isFinite(measuredGap)
       ? Math.max(0, measuredGap)
       : parseFloat(styles.rowGap) || parseFloat(styles.gap) || 0;
-    const firstRow = Math.floor(locate.offset / bytesPerRow);
+
+    const firstRow = presentationRowForOffset(layout, locate.offset);
     const lastRow = highlight
-      ? Math.floor((Math.max(highlight.end, locate.offset + 1) - 1) / bytesPerRow)
+      ? presentationRowForOffset(
+          layout,
+          Math.max(highlight.end, locate.offset + 1) - 1,
+        )
       : firstRow;
 
     const target = computeHexScrollTarget({
@@ -99,33 +121,56 @@ export function HexDump({
       setAnnounce("");
     }, prefersReducedMotion() ? 400 : 700);
     return () => window.clearTimeout(clear);
-    // Scroll only when nonce advances (ref survives unmount). highlight read from render.
+    // Scroll only when nonce advances (ref survives unmount). highlight/layout read from render.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- P0-12 nonce contract
   }, [locate?.nonce]);
 
-  for (let i = 0; i < raw.length; i += bytesPerRow) {
-    const offsetLabel = i.toString(16).padStart(4, "0");
-    const rowIndex = i / bytesPerRow;
+  const rows: ReactNode[] = [];
+  for (const row of layout.rows) {
     const cells: ReactNode[] = [];
-    for (let j = 0; j < bytesPerRow && i + j < raw.length; j++) {
-      const off = i + j;
-      const hl =
-        highlight && off >= highlight.start && off < highlight.end ? "hl" : undefined;
-      cells.push(
-        <button
-          key={off}
-          type="button"
-          className={`hex-cell${hl ? ` ${hl}` : ""}`}
-          onClick={() => onSelectOffset(off)}
-        >
-          {toHexByte(raw[off]!)}
-        </button>,
-      );
+    for (const part of row.parts) {
+      if (part.kind === "break") {
+        const selected =
+          highlight != null && rangesOverlap(highlight, part.range) ? " selected" : "";
+        const hl =
+          highlight != null && rangesOverlap(highlight, part.range) ? " hl" : "";
+        const diff = freeDiff ? " diff" : "";
+        cells.push(
+          <button
+            key={`break-${part.range.start}-${part.range.end}`}
+            type="button"
+            className={`hex-free-break free-break${selected}${hl}${diff}`}
+            aria-label={`free space [${part.range.start}..${part.range.end}) ${part.bytes} bytes`}
+            onClick={() => onSelectOffset(part.range.start)}
+          >
+            <span className="free-break-label mono">
+              free space [{part.range.start}..{part.range.end}) · {part.bytes} bytes
+            </span>
+          </button>,
+        );
+        continue;
+      }
+      for (let j = 0; j < part.length; j++) {
+        const off = part.startOffset + j;
+        const hl =
+          highlight && off >= highlight.start && off < highlight.end ? "hl" : undefined;
+        cells.push(
+          <button
+            key={off}
+            type="button"
+            className={`hex-cell${hl ? ` ${hl}` : ""}`}
+            onClick={() => onSelectOffset(off)}
+          >
+            {toHexByte(raw[off]!)}
+          </button>,
+        );
+      }
     }
+    const offsetLabel = row.labelOffset.toString(16).padStart(4, "0");
     rows.push(
       <div
-        key={i}
-        className={`hex-row${locateRow === rowIndex ? " locate-flash" : ""}`}
+        key={`row-${row.rowIndex}-${row.labelOffset}`}
+        className={`hex-row${locateRow === row.rowIndex ? " locate-flash" : ""}`}
         role="row"
       >
         <span className="hex-offset mono muted">{offsetLabel}</span>
@@ -133,6 +178,7 @@ export function HexDump({
       </div>,
     );
   }
+
   return (
     <div className="hex" aria-label="Hex dump" ref={containerRef}>
       <div className="sr-only" aria-live="polite">

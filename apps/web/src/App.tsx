@@ -42,7 +42,6 @@ export function App() {
   const [prevRaw, setPrevRaw] = useState<Uint8Array | null>(null);
   const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
   const [hexCollapsed, setHexCollapsed] = useState(false);
-  const [freeCollapsed, setFreeCollapsed] = useState(false);
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
   const hexLocateNonceRef = useRef(0);
   const hexLocateHandledNonceRef = useRef(0);
@@ -517,8 +516,6 @@ export function App() {
                 selectedId={selectedId}
                 highlight={highlight}
                 diffIds={diffIds}
-                freeCollapsed={freeCollapsed}
-                onToggleFreeCollapsed={() => setFreeCollapsed((v) => !v)}
                 onSelect={onSelectStructure}
                 onLoadCrossBlock={(target) => {
                   if (selectedOid != null) {
@@ -538,6 +535,8 @@ export function App() {
               <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
                 <HexDump
                   raw={page.raw}
+                  freeRange={page.freeSpace.range}
+                  freeDiff={diffIds.has("free")}
                   highlight={highlight}
                   locate={hexLocate}
                   locateHandledNonceRef={hexLocateHandledNonceRef}

@@ -678,17 +678,13 @@ input {
     );
   border: 1px dashed color-mix(in srgb, var(--border) 90%, #64748b);
   border-radius: 6px;
-  padding: 0.4rem 0.55rem;
+  padding: 0.2rem 0.55rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   min-width: 720px;
-  transition: box-shadow 120ms ease;
-}
-
-.free-band.collapsed {
-  padding: 0.2rem 0.55rem;
   min-height: 1.7rem;
+  transition: box-shadow 120ms ease;
 }
 
 .free-band.selected,
@@ -704,13 +700,6 @@ input {
   cursor: pointer;
   flex: 1;
   min-width: 0;
-}
-
-.free-toggle {
-  align-self: center;
-  font-size: 0.72rem;
-  padding: 0.2rem 0.5rem;
-  flex-shrink: 0;
 }
 
 .free-break {
@@ -790,6 +779,16 @@ input {
   overflow: hidden;
 }
 
+.hex-row-grid:has(.hex-free-break) {
+  display: flex;
+  align-items: stretch;
+}
+
+.hex-row-grid:has(.hex-free-break) .hex-cell {
+  flex: 0 0 calc((100% - 31px) / 32);
+  max-width: calc((100% - 31px) / 32);
+}
+
 .hex-cell {
   margin: 0;
   border: none;
@@ -812,6 +811,49 @@ input {
   background: var(--hex-hl);
   color: var(--cell-ink);
   font-weight: 600;
+}
+
+.hex-free-break {
+  flex: 1;
+  min-width: 6rem;
+  margin: 0;
+  border: 1px dashed color-mix(in srgb, var(--border) 90%, #64748b);
+  border-radius: 3px;
+  padding: 0.05rem 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  font: inherit;
+  color: var(--text-muted);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      color-mix(in srgb, var(--region-free) 70%, transparent),
+      color-mix(in srgb, var(--region-free) 70%, transparent) 6px,
+      color-mix(in srgb, var(--region-free) 92%, #94a3b8) 6px,
+      color-mix(in srgb, var(--region-free) 92%, #94a3b8) 12px
+    );
+}
+
+.hex-free-break::before,
+.hex-free-break::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed color-mix(in srgb, var(--border) 80%, #64748b);
+}
+
+.hex-free-break:hover {
+  filter: brightness(1.05);
+}
+
+.hex-free-break.hl,
+.hex-free-break.selected {
+  box-shadow: inset 0 0 0 2px var(--hex-hl);
+}
+
+.hex-free-break.diff {
+  outline: 2px solid var(--diff);
 }
 
 .hex-row.locate-flash {
