@@ -17,10 +17,17 @@ describe("infomask bit strip consumes decode order/set", () => {
     expect(bits.filter((b) => b.set).map((b) => b.name)).toEqual(["HEAP_XMAX_INVALID"]);
   });
 
-  it("keeps HEAP_NATTS set for t_infomask2 even when value is 0", () => {
-    const bits = decodeInfomask2(0);
+  it("returns HEAP_NATTS as first entry, set when natts > 0", () => {
+    const bits = decodeInfomask2(0x2);
     expect(bits[0]?.name).toBe("HEAP_NATTS");
     expect(bits[0]?.set).toBe(true);
+    expect(bits[0]?.meaning).toContain("2");
+  });
+
+  it("marks HEAP_NATTS unset when natts is 0", () => {
+    const bits = decodeInfomask2(0);
+    expect(bits[0]?.name).toBe("HEAP_NATTS");
+    expect(bits[0]?.set).toBe(false);
     expect(bits.slice(1).every((b) => !b.set)).toBe(true);
   });
 });

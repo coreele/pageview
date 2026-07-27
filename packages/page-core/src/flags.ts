@@ -79,7 +79,7 @@ export function decodeInfomask2(value: number): FlagBit[] {
       bit: HEAP_NATTS_MASK,
       name: "HEAP_NATTS",
       meaning: `Number of attributes: ${natts}`,
-      set: true,
+      set: natts > 0,
     },
     ...bits,
   ];

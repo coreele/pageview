@@ -14,7 +14,7 @@ import {
   type ParsedPage,
   type StructureField,
 } from "page-core";
-import { InfomaskBitStrip } from "./InfomaskBitStrip";
+import { InfomaskBitPair } from "./InfomaskBitStrip";
 
 type Props = {
   page: ParsedPage;
@@ -482,15 +482,17 @@ export function StructureMap({
 
       {(selectedItem || selectedTuple || selectedField) && (
         <div className="panel selection-detail">
-          <strong>Selection detail</strong>
-          {selectedField && (
-            <div className="mono" style={{ marginBottom: "0.35rem" }}>
-              <div>{selectedField.fullLabel}</div>
-              {selectedField.valueText != null && (
-                <div className="selection-value">{selectedField.valueText}</div>
-              )}
-            </div>
-          )}
+          <div className="selection-detail__header">
+            <strong>Selection detail</strong>
+            {selectedField && (
+              <div className="selection-detail__field mono">
+                <div className="selection-detail__label">{selectedField.fullLabel}</div>
+                {selectedField.valueText != null && (
+                  <div className="selection-value">{selectedField.valueText}</div>
+                )}
+              </div>
+            )}
+          </div>
           {selectedItem && (
             <div className="flag-list" aria-label="ItemId flags">
               {decodeItemIdFlags(selectedItem.flags).map((b) => (
@@ -502,42 +504,42 @@ export function StructureMap({
           )}
           {selectedTuple && (
             <>
-              <InfomaskBitStrip
-                label="t_infomask"
-                value={selectedTuple.header.t_infomask}
-                bits={decodeInfomask(selectedTuple.header.t_infomask)}
-              />
-              <InfomaskBitStrip
-                label="t_infomask2"
-                value={selectedTuple.header.t_infomask2}
-                bits={decodeInfomask2(selectedTuple.header.t_infomask2)}
-              />
-              {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
-                <div className="muted">
-                  HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
-                  {selectedTuple.heapOnlyTuple ? "HEAP_ONLY_TUPLE" : ""}
-                </div>
-              )}
-              <div>
-                ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
-                {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
-                  <>
-                    {" "}
-                    <button
-                      type="button"
-                      className="primary"
-                      onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
-                    >
-                      Load block {selectedTuple.header.t_ctid.blockNumber}
-                    </button>
-                    <span className="muted"> (cross-block; no prefetch)</span>
-                  </>
-                ) : (
-                  <span className="muted"> (same page)</span>
+              <div className="selection-detail__infomask">
+                <InfomaskBitPair
+                  infomask={selectedTuple.header.t_infomask}
+                  infomask2={selectedTuple.header.t_infomask2}
+                  bits={decodeInfomask(selectedTuple.header.t_infomask)}
+                  bits2={decodeInfomask2(selectedTuple.header.t_infomask2)}
+                />
+              </div>
+              <div className="selection-detail__section selection-meta">
+                {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
+                  <div className="muted">
+                    HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
+                    {selectedTuple.heapOnlyTuple ? "HEAP_ONLY_TUPLE" : ""}
+                  </div>
                 )}
+                <div className="selection-ctid">
+                  ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
+                  {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
+                    <>
+                      {" "}
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
+                      >
+                        Load block {selectedTuple.header.t_ctid.blockNumber}
+                      </button>
+                      <span className="muted"> (cross-block; no prefetch)</span>
+                    </>
+                  ) : (
+                    <span className="muted"> (same page)</span>
+                  )}
+                </div>
               </div>
               {selectedTuple.columns && (
-                <div style={{ marginTop: "0.5rem" }}>
+                <div className="selection-detail__section selection-detail__columns">
                   <strong>Columns</strong>
                   <ul>
                     {selectedTuple.columns.map((c) => (
@@ -560,7 +562,7 @@ export function StructureMap({
             </>
           )}
           {highlight && (
-            <div className="muted mono">
+            <div className="selection-detail__highlight muted mono">
               highlight bytes [{highlight.start}..{highlight.end})
             </div>
           )}
