@@ -5,12 +5,12 @@
 路径等级: standard
 源分支: hex-collapse
 目标分支: main
-文档影响: 预期产出 `docs/features/hex-collapse/spec.md`、`plan.md`、`dev-notes.md`、`review.md`、`qa-report.md`；若 Spec/Plan 确认后需修订 README 中 hex/折叠说明则一并更新。无独立 Design（见门禁）。
+文档影响: 已归档至 `docs/archive/2026/hex-collapse/`（原 `docs/features/hex-collapse/`：spec.md、plan.md、dev-notes.md、review.md、qa-report.md）；含滚动条主题色样式合入。无独立 Design。
 
 > 权威工作流、门禁与状态说明见 [docs/README.md](../README.md)。
 > 活跃状态见 [STATUS.md](STATUS.md)。
 >
-> 文档路径：`docs/features/hex-collapse/`（未拆分）。
+> 文档路径（已归档）：`docs/archive/2026/hex-collapse/`。
 
 ## 与其他工作项关系
 
