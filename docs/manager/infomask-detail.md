@@ -24,14 +24,14 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| infomask-detail | [spec.md](../archive/2026/infomask-detail/spec.md) | required | approved（2026-07-27「ok」） | skipped | gui | Approve @ 8117685 | done | 已合入 main（FF `6caa2e5`）并归档；push 待补 |
+| infomask-detail | [spec.md](../archive/2026/infomask-detail/spec.md) | required | approved（2026-07-27「ok」） | skipped | gui | Approve @ 8117685 | done | 已合入 main（FF `6caa2e5`）并归档；push 成功 |
 
-阻塞原因: none（push 失败不影响本地 done/归档；见进度笔记）
-恢复条件: N/A（工作流已关闭；push 恢复条件：网络可达后 `git push origin main`）
+阻塞原因: none
+恢复条件: N/A
 恢复后的目标状态: N/A
 
 ## 进度笔记
 
 - 2026-07-27：登记 → 澄清 → Spec/Plan 批准 → Develop `8117685` → Review Approve → QA Pass。
 - 2026-07-27：用户确认 UI 微调并「ok」授权合并。状态 `qa` → `done`。关闭提交：`ae17838`（UI 微调）、`6caa2e5`（STATUS/工作项/review/qa）。排除 `.tmp-qa-*` 与 fixture CRLF。
-- 2026-07-27：Merge Executor FF 合入 `main`（`6caa2e5`）。`git push origin main` 失败：`Failed to connect to github.com port 443`；本地 `main` ahead origin。Manager 归档至 `docs/archive/2026/infomask-detail/`。
+- 2026-07-27：Merge Executor FF 合入 `main`（`6caa2e5`）。首次 `git push origin main` 失败（github.com:443）；Manager 归档至 `docs/archive/2026/infomask-detail/`（`0c8448a`）后重试 push **成功**（`origin/main` @ `0c8448a`）。
