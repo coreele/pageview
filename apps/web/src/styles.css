@@ -19,6 +19,9 @@
   --diagram-grid-line: color-mix(in srgb, #94a3b8 35%, transparent);
   --cell-ink: #0f172a;
   --hex-locate: #38bdf8;
+  --scrollbar-thumb: color-mix(in srgb, var(--border) 55%, var(--text-muted));
+  --scrollbar-thumb-hover: color-mix(in srgb, var(--border) 25%, var(--text-muted));
+  --scrollbar-track: transparent;
   --chrome-bar-h: 46px;
   --chrome-meta-h: 50px;
 }
@@ -43,6 +46,9 @@
   --diagram-grid-line: color-mix(in srgb, #64748b 40%, transparent);
   --cell-ink: #e2e8f0;
   --hex-locate: #7dd3fc;
+  --scrollbar-thumb: #3a4a58;
+  --scrollbar-thumb-hover: #526778;
+  --scrollbar-track: color-mix(in srgb, var(--diagram-bg) 80%, transparent);
 }
 
 *,
@@ -327,6 +333,50 @@ input {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* Soften system scrollbars to match chrome (esp. structure pane between columns). */
+.main,
+.pane-structure,
+.hex {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.main::-webkit-scrollbar,
+.pane-structure::-webkit-scrollbar,
+.hex::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.main::-webkit-scrollbar-track,
+.pane-structure::-webkit-scrollbar-track,
+.hex::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+.main::-webkit-scrollbar-thumb,
+.pane-structure::-webkit-scrollbar-thumb,
+.hex::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.main::-webkit-scrollbar-thumb:hover,
+.pane-structure::-webkit-scrollbar-thumb:hover,
+.hex::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.main::-webkit-scrollbar-corner,
+.pane-structure::-webkit-scrollbar-corner,
+.hex::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 /* Narrow default: single column, structure above hex, page scrolls in .main. */

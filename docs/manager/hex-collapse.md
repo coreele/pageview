@@ -60,11 +60,17 @@ Spec 用户确认字段 → **approved**。Design skipped → 直接进入 Plan�
 
 分支已记录：源 **`hex-collapse`** → 目标 **`main`**。实现须在源分支上进行，**禁止**在 `main` 直接实施。
 
+## 合并授权（approved，2026-07-27）
+
+用户答复「ok」= **授权**将源分支 **`hex-collapse`** 合入目标分支 **`main`**。
+
+合入前源分支关闭提交须纳入：STATUS/`done`、本工作项记录、`review.md`、`qa-report.md`，以及工作区已有的滚动条主题色优化（`apps/web/src/styles.css`）。**禁止**丢弃该 scrollbar 改动；**禁止**纳入无关 fixture CRLF 噪声。
+
 ## 切片（未拆分，sub-feature-id = feature-id）
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| hex-collapse | [spec.md](../features/hex-collapse/spec.md) | required | approved（2026-07-27「ok」） | skipped（理由：无新模块边界/分层/技术选型；在既有 `apps/web` hex 与结构图交互上增量） | gui | required | developing | Developer 在源分支 hex-collapse 按 Plan T1–T9 实施；完成后调度 Reviewer |
+| hex-collapse | [spec.md](../features/hex-collapse/spec.md) | required | approved（2026-07-27「ok」） | skipped（理由：无新模块边界/分层/技术选型；在既有 `apps/web` hex 与结构图交互上增量） | gui | Approve @ 2ab3da5 | done | 用户已授权合并；待 Merge Executor 合入 main；合入后归档 |
 
 阻塞原因: none
 恢复条件: N/A
@@ -91,3 +97,7 @@ Spec 用户确认字段 → **approved**。Design skipped → 直接进入 Plan�
 - 2026-07-27：用户「ok」批准修订后 Spec。状态 `awaiting-spec-approval` → `planning`；调度 Planner 编写 `plan.md`（无 ui-design）。Plan 确认前不调度 Developer。
 - 2026-07-27：Planner 产出 `docs/features/hex-collapse/plan.md`（T1–T9）。状态 `planning` → `awaiting-plan-approval`。确认前不调度 Developer。
 - 2026-07-27：用户「ok」批准 Plan。状态 `awaiting-plan-approval` → `planned` → `developing`；调度 Developer（源分支 `hex-collapse` ← `main`）。
+- 2026-07-27：Developer 完成 T1–T9（分支 `hex-collapse`，commit `2ab3da5`）；L2 验证 Pass；`dev-notes.md` 已写。状态 `developing` → `reviewing`；调度 Reviewer。
+- 2026-07-27：Reviewer **Approve**（`review.md`，相对 `2ab3da5`；未提交）。状态 `reviewing` → `qa`；调度 QA。
+- 2026-07-27：QA **Pass**（`qa-report.md` 未提交）。等待用户合并授权：`hex-collapse` → `main`。授权后 Manager 置 `done` 并与未入库 review/qa 报告一次提交，再由 Merge Executor 合入。**未合并。**
+- 2026-07-27：用户「ok」授权合并。状态 `qa` → `done`。源分支关闭提交纳入 STATUS/工作项/`review.md`/`qa-report.md` + scrollbar 样式（`styles.css`）；排除 fixture CRLF。调度 Merge Executor 合入 `main`；合入后归档。

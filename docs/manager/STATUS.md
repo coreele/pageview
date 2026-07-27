@@ -6,6 +6,7 @@
 
 | feature-id | sub-feature-id | 路径 | 状态 | Spec | Design | UI 表面 | Review | 源分支 | 目标分支 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|---|---|
+| hex-collapse | hex-collapse | standard | done | required | skipped | gui | required | hex-collapse | main | 用户已授权合并；待 Merge Executor 合入 main |
 | fix-dev-web-page-core | fix-dev-web-page-core | fast | done | skipped | skipped | none | skipped | fix-dev-web-page-core | main | 用户已授权合并；待合入 main |
 
 ## 归档
