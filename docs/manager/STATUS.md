@@ -10,7 +10,7 @@
 
 | feature-id | 最终状态 | 归档目录 | 备注 |
 |---|---|---|---|
-| detail-panel-polish | done | [docs/archive/2026/detail-panel-polish/](../archive/2026/detail-panel-polish/) | 2026-07-27 合入 `main`（FF `62792c7`）后归档；push 待补（首次连 GitHub 失败） |
+| detail-panel-polish | done | [docs/archive/2026/detail-panel-polish/](../archive/2026/detail-panel-polish/) | 2026-07-27 合入 `main`（FF `62792c7`）后归档（`bde8dbb`）；`git push origin main` 连 GitHub 443 失败，本地领先 origin 2 commits 待补 |
 | infomask-detail | done | [docs/archive/2026/infomask-detail/](../archive/2026/infomask-detail/) | 2026-07-27 合入 `main`（FF `6caa2e5`）后归档；归档提交 `0c8448a`；push 成功（`origin/main`） |
 | fix-dev-web-page-core | done | [docs/archive/2026/fix-dev-web-page-core/](../archive/2026/fix-dev-web-page-core/) | 2026-07-27 核验：实现已在 `main`（`3e789ff`）；源分支无独有提交，无需再合；归档提交 `beab0e4`；push 因连 GitHub 失败待补 |
 | hex-collapse | done | [docs/archive/2026/hex-collapse/](../archive/2026/hex-collapse/) | 2026-07-27 合入 `main`（FF `a2f460e`）后归档；push 成功（`origin/main`） |
