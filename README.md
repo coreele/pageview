@@ -43,6 +43,8 @@ pnpm -r build
 
 ## Run
 
+After `pnpm install` (no prior `page-core` build required for the web app — it resolves the workspace package from source):
+
 ```bash
 pnpm dev:server   # http://127.0.0.1:8787
 pnpm dev:web      # http://127.0.0.1:5173 (proxies /api)

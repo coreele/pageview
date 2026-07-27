@@ -6,7 +6,7 @@
 
 | feature-id | sub-feature-id | 路径 | 状态 | Spec | Design | UI 表面 | Review | 源分支 | 目标分支 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| （无） | — | — | — | — | — | — | — | — | — | — |
+| fix-dev-web-page-core | fix-dev-web-page-core | fast | done | skipped | skipped | none | skipped | fix-dev-web-page-core | main | 用户已授权合并；待合入 main |
 
 ## 归档
 
