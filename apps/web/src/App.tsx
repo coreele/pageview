@@ -537,11 +537,6 @@ export function App() {
                   }
                 }}
               />
-              {schema && (
-                <div className="muted">
-                  Schema loaded for {schema.qualifiedName} ({schema.columns.length} columns)
-                </div>
-              )}
             </section>
 
             {!hexCollapsed && (

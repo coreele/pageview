@@ -1342,12 +1342,14 @@ input {
 @media (min-width: 960px) {
   .main-paged {
     overflow: hidden;
+    min-height: 0;
   }
 
   .main-paged .main-split {
     grid-template-columns: minmax(280px, 0.55fr) minmax(280px, 0.45fr);
     flex: 1 1 auto;
     min-height: 0;
+    align-items: stretch;
   }
 
   /* Collapsed: hex pane unmounted — single column, structure fills main. */
@@ -1360,7 +1362,22 @@ input {
   }
 
   .main-paged .pane-structure {
+    overflow: hidden;
+  }
+
+  .main-paged .pane-structure > .structure-diagram {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .main-paged .pane-structure .structure-flow {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: auto;
+  }
+
+  .main-paged .pane-structure .selection-detail-wrap {
+    flex-shrink: 0;
   }
 
   .main-paged .pane-hex {
