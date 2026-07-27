@@ -14,6 +14,7 @@ import {
   type ParsedPage,
   type StructureField,
 } from "page-core";
+import { InfomaskBitStrip } from "./InfomaskBitStrip";
 
 type Props = {
   page: ParsedPage;
@@ -501,22 +502,16 @@ export function StructureMap({
           )}
           {selectedTuple && (
             <>
-              <div className="flag-list" aria-label="t_infomask bits">
-                <div className="muted">t_infomask=0x{selectedTuple.header.t_infomask.toString(16)}</div>
-                {decodeInfomask(selectedTuple.header.t_infomask).map((b) => (
-                  <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
-                    {b.set ? "●" : "○"} {b.name} — {b.meaning}
-                  </div>
-                ))}
-              </div>
-              <div className="flag-list" aria-label="t_infomask2 bits">
-                <div className="muted">t_infomask2=0x{selectedTuple.header.t_infomask2.toString(16)}</div>
-                {decodeInfomask2(selectedTuple.header.t_infomask2).map((b) => (
-                  <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
-                    {b.set ? "●" : "○"} {b.name} — {b.meaning}
-                  </div>
-                ))}
-              </div>
+              <InfomaskBitStrip
+                label="t_infomask"
+                value={selectedTuple.header.t_infomask}
+                bits={decodeInfomask(selectedTuple.header.t_infomask)}
+              />
+              <InfomaskBitStrip
+                label="t_infomask2"
+                value={selectedTuple.header.t_infomask2}
+                bits={decodeInfomask2(selectedTuple.header.t_infomask2)}
+              />
               {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
                 <div className="muted">
                   HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
