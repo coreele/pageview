@@ -11,6 +11,8 @@ export type HexBreakPart = {
   kind: "break";
   range: ByteRange;
   bytes: number;
+  /** When set, selection/highlight uses this span (e.g. full free on a tail segment). */
+  selectRange?: ByteRange;
 };
 
 export type HexRowPart = HexCellsPart | HexBreakPart;
@@ -48,7 +50,8 @@ function pushCellRows(
 /**
  * Build hex presentation rows with non-empty free collapsed to a single break.
  * Unaligned free keeps leading/trailing non-free cells on the same row only
- * when free start/end are in that same physical row.
+ * when free start/end are in that same physical row. Cross-row free with a
+ * mid-row end emits a tail break row for the remaining free bytes.
  */
 export function buildHexLayout(args: {
   rawLength: number;
@@ -105,7 +108,31 @@ export function buildHexLayout(args: {
   });
 
   const afterStart = samePhysicalRow && trailingLen > 0 ? endRowEnd : freeEnd;
-  pushCellRows(rows, afterStart, rawLength, bytesPerRow);
+  const needsEndRowFreeTail =
+    !samePhysicalRow && freeEnd > endRowBase && freeEnd % bytesPerRow !== 0;
+
+  if (needsEndRowFreeTail) {
+    const tailParts: HexRowPart[] = [
+      {
+        kind: "break",
+        range: { start: endRowBase, end: freeEnd },
+        bytes: freeEnd - endRowBase,
+        selectRange: { start: freeStart, end: freeEnd },
+      },
+    ];
+    const tailCellsLen = endRowEnd - freeEnd;
+    if (tailCellsLen > 0) {
+      tailParts.push({ kind: "cells", startOffset: freeEnd, length: tailCellsLen });
+    }
+    rows.push({
+      rowIndex: rows.length,
+      labelOffset: endRowBase,
+      parts: tailParts,
+    });
+    pushCellRows(rows, endRowEnd, rawLength, bytesPerRow);
+  } else {
+    pushCellRows(rows, afterStart, rawLength, bytesPerRow);
+  }
 
   return { rows };
 }
@@ -114,17 +141,33 @@ export function buildHexLayout(args: {
 export function presentationRowForOffset(layout: HexLayout, offset: number): number {
   if (layout.rows.length === 0) return 0;
 
+  // Prefer concrete cell rows over collapsed free break when both match.
   for (const row of layout.rows) {
     for (const part of row.parts) {
-      if (part.kind === "break") {
-        if (offset >= part.range.start && offset < part.range.end) {
-          return row.rowIndex;
-        }
-      } else if (offset >= part.startOffset && offset < part.startOffset + part.length) {
+      if (
+        part.kind === "cells" &&
+        offset >= part.startOffset &&
+        offset < part.startOffset + part.length
+      ) {
         return row.rowIndex;
       }
     }
   }
+
+  let bestBreakRow: number | null = null;
+  let bestBreakSpan = Infinity;
+  for (const row of layout.rows) {
+    for (const part of row.parts) {
+      if (part.kind === "break" && offset >= part.range.start && offset < part.range.end) {
+        const span = part.range.end - part.range.start;
+        if (span < bestBreakSpan) {
+          bestBreakSpan = span;
+          bestBreakRow = row.rowIndex;
+        }
+      }
+    }
+  }
+  if (bestBreakRow !== null) return bestBreakRow;
 
   // Past end / gaps: nearest preceding row by label
   let best = layout.rows[0]!.rowIndex;

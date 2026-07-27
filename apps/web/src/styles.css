@@ -713,6 +713,7 @@ input {
   width: 100%;
   height: 100%;
   margin: 0;
+  position: relative;
   border: 1px dashed color-mix(in srgb, var(--region-free) 70%, var(--border));
   border-radius: 0;
   padding: 0.28rem 0.6rem;
@@ -729,9 +730,18 @@ input {
 
 .free-band.selected,
 .free-band:focus-visible {
-  box-shadow:
-    inset 0 0 0 1px var(--field-selected),
-    0 0 0 1px color-mix(in srgb, var(--field-selected) 35%, transparent);
+  outline: none;
+  z-index: 2;
+  filter: none;
+}
+
+.free-band.selected::after,
+.free-band:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--field-selected) 18%, transparent);
+  pointer-events: none;
 }
 
 .free-band.diff {
@@ -935,12 +945,12 @@ input {
   overflow: hidden;
 }
 
-.hex-row-grid:has(.hex-free-break) {
+.hex-row-grid:has(.hex-free-break):not(:has(.hex-cell)) {
   display: flex;
   align-items: stretch;
 }
 
-.hex-row-grid:has(.hex-free-break) .hex-cell {
+.hex-row-grid:has(.hex-free-break):not(:has(.hex-cell)) .hex-cell {
   flex: 0 0 calc((100% - 31px) / 32);
   max-width: calc((100% - 31px) / 32);
 }

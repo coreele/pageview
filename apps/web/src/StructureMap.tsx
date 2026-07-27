@@ -15,7 +15,12 @@ import {
   type StructureField,
 } from "page-core";
 import { InfomaskBitPair } from "./InfomaskBitStrip";
-import { buildHexLayout, type HexPresentationRow } from "./hexLayout";
+import { buildHexLayout } from "./hexLayout";
+import {
+  freeBreakColumns,
+  groupSegmentsIntoLanes,
+  segmentsForCellPart,
+} from "./structureLayout";
 
 type Props = {
   page: ParsedPage;
@@ -130,71 +135,9 @@ function isValueSegment(seg: LayoutSegment, all: LayoutSegment[]): boolean {
   return best.row === seg.row && best.colStart === seg.colStart;
 }
 
-function segmentsForCellPart(
-  segments: LayoutSegment[],
-  startOffset: number,
-  length: number,
-): LayoutSegment[] {
-  const end = startOffset + length;
-  const row = Math.floor(startOffset / STRUCTURE_BYTES_PER_ROW);
-  return segments.filter((seg) => {
-    if (seg.row !== row) return false;
-    const segStart = row * STRUCTURE_BYTES_PER_ROW + seg.colStart;
-    const segEnd = row * STRUCTURE_BYTES_PER_ROW + seg.colEnd;
-    return segStart < end && segEnd > startOffset;
-  });
-}
-
-function tupleLaneKey(fieldId: string): string | null {
-  const match = /^tuple-(\d+)/.exec(fieldId);
-  return match ? `tuple-${match[1]}` : null;
-}
-
-/** Split packed physical rows so each tuple gets its own lane. */
-function groupSegmentsIntoLanes(segments: LayoutSegment[]): LayoutSegment[][] {
-  if (segments.length === 0) return [[]];
-
-  const byTuple = new Map<string, LayoutSegment[]>();
-  for (const seg of segments) {
-    const key = tupleLaneKey(seg.field.id);
-    if (!key) continue;
-    const lane = byTuple.get(key);
-    if (lane) lane.push(seg);
-    else byTuple.set(key, [seg]);
-  }
-
-  if (byTuple.size <= 1) return [segments];
-
-  return [...byTuple.values()].sort((a, b) => {
-    const aMin = Math.min(...a.map((seg) => seg.colStart));
-    const bMin = Math.min(...b.map((seg) => seg.colStart));
-    return aMin - bMin;
-  });
-}
-
-function freeBreakColumns(
-  range: ByteRange,
-  presRow: HexPresentationRow,
-): { colStart: number; colEnd: number } {
-  const breakIdx = presRow.parts.findIndex(
-    (p) => p.kind === "break" && p.range.start === range.start && p.range.end === range.end,
-  );
-  const leading = breakIdx > 0 ? presRow.parts[breakIdx - 1] : undefined;
-  const trailing = breakIdx >= 0 ? presRow.parts[breakIdx + 1] : undefined;
-
-  const colStart =
-    leading?.kind === "cells"
-      ? (leading.startOffset % STRUCTURE_BYTES_PER_ROW) + leading.length
-      : range.start % STRUCTURE_BYTES_PER_ROW;
-  const colEnd =
-    trailing?.kind === "cells"
-      ? trailing.startOffset % STRUCTURE_BYTES_PER_ROW
-      : STRUCTURE_BYTES_PER_ROW;
-  return { colStart, colEnd };
-}
-
 function FreeBreakCell({
   range,
+  selectRange,
   bytes,
   colStart,
   colEnd,
@@ -204,6 +147,7 @@ function FreeBreakCell({
   withId,
 }: {
   range: ByteRange;
+  selectRange: ByteRange;
   bytes: number;
   colStart: number;
   colEnd: number;
@@ -212,18 +156,25 @@ function FreeBreakCell({
   onSelect: (id: string, range: ByteRange) => void;
   withId?: boolean;
 }) {
+  const isTail = selectRange.start !== range.start || selectRange.end !== range.end;
   return (
     <button
       id={withId ? "free-space-band" : undefined}
       type="button"
       className={`free-band region-free${selected ? " selected" : ""}${diff ? " diff" : ""}`}
       style={{ gridColumn: `${colStart + 1} / ${colEnd + 1}` }}
-      aria-label={`free space [${range.start}..${range.end}) ${bytes} bytes`}
-      onClick={() => onSelect("free", range)}
+      aria-label={
+        isTail
+          ? `free space continuation [${range.start}..${range.end})`
+          : `free space [${selectRange.start}..${selectRange.end}) ${bytes} bytes`
+      }
+      onClick={() => onSelect("free", selectRange)}
     >
-      <span className="free-break-label mono">
-        free space [{range.start}..{range.end}) · {bytes} bytes
-      </span>
+      {!isTail ? (
+        <span className="free-break-label mono">
+          free space [{selectRange.start}..{selectRange.end}) · {bytes} bytes
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -406,17 +357,19 @@ function StructurePresentationRows({
                     ));
                   }
                   const { colStart, colEnd } = freeBreakColumns(part.range, presRow);
+                  const selectRange = part.selectRange ?? part.range;
                   return (
                     <FreeBreakCell
                       key={`free-${partIdx}`}
                       range={part.range}
+                      selectRange={selectRange}
                       bytes={part.bytes}
                       colStart={colStart}
                       colEnd={colEnd}
                       selected={selectedId === "free"}
                       diff={diffIds.has("free")}
                       onSelect={onSelect}
-                      withId
+                      withId={partIdx === presRow.parts.findIndex((p) => p.kind === "break")}
                     />
                   );
                 })}

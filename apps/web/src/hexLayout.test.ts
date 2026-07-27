@@ -63,7 +63,15 @@ describe("buildHexLayout", () => {
     });
     const tailRow = layout.rows.find((r) => r.labelOffset === 192);
     expect(tailRow).toBeDefined();
-    expect(tailRow!.parts).toEqual([{ kind: "cells", startOffset: 192, length: 32 }]);
+    expect(tailRow!.parts).toEqual([
+      {
+        kind: "break",
+        range: { start: 192, end: 200 },
+        bytes: 8,
+        selectRange: { start: 100, end: 200 },
+      },
+      { kind: "cells", startOffset: 200, length: 24 },
+    ]);
   });
 
   it("maps offsets in free to the break presentation row", () => {
@@ -117,8 +125,46 @@ describe("buildHexLayout", () => {
     const tailRow = layout.rows.find((row) => row.labelOffset === 0x1f60);
     expect(tailRow).toBeDefined();
     expect(tailRow!.parts).toEqual([
-      { kind: "cells", startOffset: 0x1f60, length: 32 },
+      {
+        kind: "break",
+        range: { start: 0x1f60, end: 8040 },
+        bytes: 8,
+        selectRange: { start: 40, end: 8040 },
+      },
+      { kind: "cells", startOffset: 8040, length: 24 },
     ]);
     expect(layout.rows.some((row) => row.labelOffset === 0x1f68)).toBe(false);
+  });
+
+  it("merges end-row free tail into free space at the physical row boundary", () => {
+    const layout = buildHexLayout({
+      rawLength: 8192,
+      freeRange: { start: 48, end: 7960 },
+      bytesPerRow: BPR,
+    });
+    const tailRow = layout.rows.find((row) => row.labelOffset === 0x1f00);
+    expect(tailRow).toBeDefined();
+    expect(tailRow!.parts[0]).toMatchObject({
+      kind: "break",
+      range: { start: 0x1f00, end: 7960 },
+      bytes: 24,
+      selectRange: { start: 48, end: 7960 },
+    });
+    expect(layout.rows.flatMap((r) => r.parts).filter((p) => p.kind === "break")).toHaveLength(2);
+  });
+
+  it("maps tail free bytes in the end physical row to that row, not the break row", () => {
+    const layout = buildHexLayout({
+      rawLength: 256,
+      freeRange: { start: 100, end: 200 },
+      bytesPerRow: BPR,
+    });
+    const mainBreakRowIndex = layout.rows.findIndex(
+      (r) => r.parts.some((p) => p.kind === "break" && p.selectRange == null),
+    );
+    const tailRowIndex = layout.rows.findIndex((r) => r.labelOffset === 192);
+    expect(presentationRowForOffset(layout, 150)).toBe(mainBreakRowIndex);
+    expect(presentationRowForOffset(layout, 195)).toBe(tailRowIndex);
+    expect(tailRowIndex).not.toBe(mainBreakRowIndex);
   });
 });

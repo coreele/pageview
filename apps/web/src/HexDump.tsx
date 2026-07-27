@@ -5,6 +5,7 @@ import {
   type ByteRange,
 } from "page-core";
 import { buildHexLayout, presentationRowForOffset } from "./hexLayout";
+import { freeBreakColumns } from "./structureLayout";
 
 type HexLocate = { offset: number; nonce: number };
 
@@ -130,22 +131,31 @@ export function HexDump({
     const cells: ReactNode[] = [];
     for (const part of row.parts) {
       if (part.kind === "break") {
+        const selectRange = part.selectRange ?? part.range;
+        const isTail = part.selectRange != null;
+        const { colStart, colEnd } = freeBreakColumns(part.range, row);
         const selected =
-          highlight != null && rangesOverlap(highlight, part.range) ? " selected" : "";
-        const hl =
-          highlight != null && rangesOverlap(highlight, part.range) ? " hl" : "";
+          highlight != null && rangesOverlap(highlight, selectRange) ? " selected" : "";
+        const hl = highlight != null && rangesOverlap(highlight, selectRange) ? " hl" : "";
         const diff = freeDiff ? " diff" : "";
         cells.push(
           <button
             key={`break-${part.range.start}-${part.range.end}`}
             type="button"
             className={`hex-free-break free-break${selected}${hl}${diff}`}
-            aria-label={`free space [${part.range.start}..${part.range.end}) ${part.bytes} bytes`}
-            onClick={() => onSelectOffset(part.range.start)}
+            style={{ gridColumn: `${colStart + 1} / ${colEnd + 1}` }}
+            aria-label={
+              isTail
+                ? `free space continuation [${part.range.start}..${part.range.end})`
+                : `free space [${selectRange.start}..${selectRange.end}) ${part.bytes} bytes`
+            }
+            onClick={() => onSelectOffset(selectRange.start)}
           >
-            <span className="free-break-label mono">
-              free space [{part.range.start}..{part.range.end}) · {part.bytes} bytes
-            </span>
+            {!isTail ? (
+              <span className="free-break-label mono">
+                free space [{selectRange.start}..{selectRange.end}) · {part.bytes} bytes
+              </span>
+            ) : null}
           </button>,
         );
         continue;
