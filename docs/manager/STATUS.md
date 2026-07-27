@@ -4,7 +4,9 @@
 
 ## 活跃工作项
 
-（无）
+| feature-id | sub-feature-id | 路径 | 状态 | 当前角色 | 下一步 |
+|---|---|---|---|---|---|
+| infomask-detail | infomask-detail | standard | done | merge-executor | 合入 main 后归档；**尚未合入** |
 
 ## 归档
 
