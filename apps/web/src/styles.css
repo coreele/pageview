@@ -507,7 +507,7 @@ input {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(32, minmax(0, 1fr));
-  gap: 1px;
+  gap: 0;
   min-height: 2.08rem;
   height: 2.08rem;
   background: var(--diagram-grid-line);
@@ -517,8 +517,9 @@ input {
 }
 
 .field-cell {
+  position: relative;
   border: none;
-  border-right: 1px solid color-mix(in srgb, var(--cell-ink) 12%, transparent);
+  border-right: none;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 10.5px;
   font-weight: 500;
@@ -648,11 +649,19 @@ input {
 
 .field-cell.selected,
 .field-cell:focus-visible {
-  box-shadow:
-    inset 0 0 0 2px var(--field-selected),
-    0 0 0 1px color-mix(in srgb, var(--field-selected) 35%, transparent);
+  outline: none;
   z-index: 2;
   filter: none;
+}
+
+.field-cell.selected::after,
+.field-cell:focus-visible::after {
+  content: "";
+  position: absolute;
+  /* Full-bleed highlight that sits flush against the semantic stripe. */
+  inset: 0;
+  background: color-mix(in srgb, var(--field-selected) 18%, transparent);
+  pointer-events: none;
 }
 
 .field-cell.diff {
@@ -982,8 +991,12 @@ input {
 }
 
 .hex-row.locate-flash {
-  box-shadow: inset 3px 0 0 var(--hex-locate);
-  background: color-mix(in srgb, var(--hex-locate) 14%, transparent);
+  /* Keep locate feedback, but remove the intrusive side stripe. */
+  box-shadow: none;
+  outline: 1px solid color-mix(in srgb, var(--hex-locate) 55%, transparent);
+  outline-offset: -1px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--hex-locate) 11%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
