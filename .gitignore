@@ -1,13 +1,30 @@
+# Dependencies
 node_modules/
+
+# Build outputs (apps/* + packages/*)
 dist/
 build/
 *.tsbuildinfo
+
+# Env / secrets (keep .env.example tracked)
 .env
-.DS_Store
+.env.*
+!.env.example
+
+# Test & tooling caches
 coverage/
-*.log
 .vite/
-apps/web/dist/
-apps/server/dist/
-packages/page-core/dist/
-.tmp-uicheck
+.vitest/
+
+# Local QA / Playwright scratch dirs
+.tmp-*
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini

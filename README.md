@@ -6,6 +6,8 @@ Browse PostgreSQL heap pages in the browser. Connect locally, fetch raw blocks v
 
 Built for developers learning or debugging heap layout — **not** intended for public deployment.
 
+![UI overview: structure diagram, hex dump, and tuple detail](./docs/assets/ui-overview.png)
+
 ## Features
 
 - **Structure diagram** — 32 bytes/row: page header, ItemId array, free space, tuples
