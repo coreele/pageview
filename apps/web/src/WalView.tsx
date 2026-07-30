@@ -227,15 +227,15 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
                         }
                       }}
                     >
-                      <span className="wal-col wal-lsn mono" title={`end ${r.endLsn ?? "—"} · prev ${r.prevLsn ?? "—"}`}>
+                      <span className="wal-col wal-lsn mono" title={r.endLsn ? `end ${r.endLsn}` : undefined}>
                         {r.startLsn}
-                        {(r.endLsn || r.prevLsn) && (
+                        {r.endLsn && (
                           <span className="wal-lsn-sub muted">
-                            {r.endLsn ? ` → ${r.endLsn}` : ""}
-                            {r.prevLsn ? ` · prev ${r.prevLsn}` : ""}
+                            {` → ${r.endLsn}`}
                           </span>
                         )}
                       </span>
+                      <span className="wal-col wal-xid mono">{r.xid ?? "—"}</span>
                       <span className="wal-col wal-rm">
                         <strong>{r.resourceManager}</strong>
                         <span className="muted"> · {r.recordType}</span>
@@ -244,7 +244,6 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
                         len {r.recordLength}
                         {r.mainDataLength != null ? ` · main ${r.mainDataLength}` : ""}
                       </span>
-                      <span className="wal-col wal-xid mono">{r.xid ?? "—"}</span>
                       <span
                         className="wal-col wal-desc"
                         title={[r.description, r.blockRef].filter(Boolean).join("\n") || undefined}

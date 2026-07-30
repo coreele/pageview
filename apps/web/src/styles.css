@@ -1493,7 +1493,7 @@ input {
 
 .wal-record-row {
   display: grid;
-  grid-template-columns: minmax(9rem, 14rem) minmax(7rem, 11rem) minmax(6rem, 9rem) 4.5rem minmax(0, 1fr) auto;
+  grid-template-columns: minmax(9rem, 14rem) 4.5rem minmax(7rem, 11rem) minmax(6rem, 9rem) minmax(0, 1fr) auto;
   gap: 0.45rem 0.65rem;
   align-items: start;
   width: 100%;

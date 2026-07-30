@@ -7,7 +7,7 @@
 ## 目标与任务
 
 - **主目标**：在 WAL 模式下浏览一批结构化 record（一行一条宽元数据），选中单条，处理含 FPI 的折叠摘要；明确 hex 在 v1 不可用。
-- **关键任务（优先级）**：切换至 WAL → 填写/一键填入 LSN → 加载批次 → 扫读列表与选中 →（可选）展开 FPI 元信息。
+- **关键任务（优先级）**：切换至 WAL → 填写或「填入最近窗口」→ 加载批次 → 扫读列表与选中 →（可选）展开 FPI 元信息。
 - **信息优先级**：record 列表 > LSN 查询控件 > 选中/详情与 hex 占位 > 连接元信息（沿用既有 strip，不抢列表）。
 
 ## 信息架构与元信息
@@ -23,7 +23,7 @@
 ├─ WAL Navigator / 查询 ──────┬─ WAL Main ──────────────────────┤
 │ start LSN                   │ Record 列表（一行一条）           │
 │ end LSN                     │  选中行高亮                       │
-│ [填入当前 LSN] [Load]       │  FPI：默认折叠摘要                │
+│ [填入最近窗口] [Load]       │  FPI：默认折叠摘要                │
 │                             ├─ 详情 / Hex 占位 ─────────────────┤
 │                             │ 选中摘要；hex：「v1 不可用」说明   │
 └─────────────────────────────┴──────────────────────────────────┘
@@ -37,10 +37,10 @@
 
 | 列 / 区 | 内容 | 备注 |
 |---|---|---|
-| LSN | `start_lsn`；有则旁注 `end_lsn` / `prev_lsn`（次要字重或 `title`） | 等宽 |
+| LSN | `start_lsn`；有则旁注 `end_lsn`（次要字重） | 等宽；**列表不显示 `prev_lsn`**（API 仍可透出） |
+| xid | 有则显示 | **第二列**；可空显示 — |
 | RM / type | `resource_manager`、`record_type` | 主扫读 |
 | 长度 | `record_length`；可得则 `main_data_length` | |
-| xid | 有则显示 | 可空 |
 | 摘要 | `description` / `block_ref` | 单行截断 + `title` 全文 |
 | FPI | `fpi_length > 0`：折叠芯片「FPI · N bytes」；展开仅元信息 | 见下 |
 
@@ -59,17 +59,19 @@
 
 1. 启动 / 已连接 → chrome 可见 **Page | WAL**。
 2. 选 WAL → 主区换 WAL UI；**不**自动请求大范围批次（`wal_idle`）；连接保持。
-3. 用户填 start/end（必填）；可选「填入当前 LSN」→ 调用 `GET /api/wal/current-lsn` 写入控件 → **仍须**用户点 Load。
-4. Load → `wal_loading` → 成功 `wal_loaded`（或空态）/ 失败 `wal_error`。
+3. 用户填 start/end（必填）；可选 **「填入最近窗口」**（废止「填入当前 LSN」双填 tip）→ `GET /api/wal/recent-window?limit=20` → 成功则写入 **start + end**（窗口，非 tip 点）→ **仍须**用户点 Load；**禁止** Fill 后自动 Load。
+4. Load → `wal_loading` → 成功 `wal_loaded`：列表约 **最近 20 条**（或更少）；**禁止** tip 点查 Empty batch 冒充成功。失败 → `wal_error`（含 recent-window 已删段等，**不得**把失败结果写成成功窗口）。
 5. 点击行 → `wal_record_selected`；换批次成功 → **清空选中**；FPI 全部回到折叠。
 6. 切回 Page → Page 主区；会话不断开；缺扩展失败限于该模式请求。
+
+Fill 失败（网络/门禁/BAD_LSN/过大）：保留或清空起终点以实现为准，但须可见错误；**禁止**静默留下假成功 tip 双填。
 
 ## 状态
 
 | 状态 | 呈现 | 用户可执行动作 |
 |---|---|---|
 | 初始（未连） | 连接表单；模式切换可用但 WAL Load 不可成功浏览 | 连接；切模式 |
-| `wal_idle` | LSN 空或已填未加载；列表区提示输入区间后 Load | 填 LSN；一键当前 LSN；Load |
+| `wal_idle` | LSN 空或已填未加载；列表区提示输入区间后 Load | 填 LSN；**填入最近窗口**；Load |
 | `wal_loading` | Load/列表局部 spinner；chrome+strip 保留 | 等待 |
 | `wal_loaded` | 一行一条列表；条数可见 | 选中；展开 FPI；改区间再 Load |
 | 空批次 | 明确空说明（合法区间无 record）；不崩溃 | 改区间；回 Page |
@@ -99,7 +101,7 @@
 |---|---|---|
 | 模式 | Page / WAL | Tab；Enter/Space |
 | LSN | start/end 输入 | Tab；Enter → Load |
-| 填入当前 | 按钮 | Tab；Enter/Space |
+| 填入最近窗口 | 按钮 | Tab；Enter/Space |
 | Load | 按钮 | Enter/Space |
 | 列表 | 行 | Tab 入列表；↑↓；Enter 选中 |
 | FPI | 折叠控件 | Enter/Space 切换 |
@@ -134,15 +136,23 @@ N/A（`UI 表面=gui`）。
 | P0-10 Page hex | mode=page 不改 hex 合同 |
 | P0-12 monorepo | 同应用壳增量（非独立站） |
 | P1-1 空批次 | 空态文案 |
-| P1-2 当前 LSN | 「填入当前 LSN」；不自动 Load |
+| P1-2 Fill 最近 ~20 | 「填入最近窗口」→ recent-window 写控件；**不**自动 Load；再 Load 见约 20 条；失败可读且不写假窗口 |
 | P1-3 切换保留连接 | 切模式不提交密码；失败限于模式请求 |
 
 ## 对 Plan / Developer 的要点
 
 - 先壳层模式切换，再 WAL 查询+列表，再 FPI/选中/占位；勿把 WAL 塞进 `StructureMap`。
-- 进入 WAL **禁止**自动盲拉；批次过大错误展示 Design 硬错误文案（非静默空列表）。
-- 验证证据：模式往返截图或手测清单；含 FPI 行折叠/展开；选中+hex 占位；Page hex 回归。
+- 进入 WAL **禁止**自动盲拉；Fill = recent-window，**禁止** tip 双填；批次过大错误展示 Design 硬错误文案（非静默空列表）。
+- 验证证据：Fill → 控件为窗口 → 手动 Load → 约 20 行；模式往返；含 FPI 折叠/展开；选中+hex 占位；Page hex 回归。
 
 ## 开放阻塞
 
 无。
+
+## 修订记录
+
+| 日期 | 摘要 |
+|---|---|
+| 2026-07-30 | 初稿 |
+| 2026-07-30 | 增量：Fill → 填入最近窗口（非 tip 双填）；对齐 P1-2 |
+| 2026-07-30 | 列表列：仅 start/end LSN（不显示 prev）；xid 为第二列 |

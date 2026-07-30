@@ -4,7 +4,7 @@
 >
 > **feature-id**：`wal-viewer` · **sub-feature-id**：`wal-viewer`（未拆分）
 >
-> **确认门禁**：路径等级 `full`。须由当前用户会话确认后方可进入 Design/Plan。文末开放问题含默认建议；工作项「产品共识」7 条已固化为合同与验收，**不得标为开放问题**。
+> **确认门禁**：路径等级 `full`。整份 Spec 已于 2026-07-30 批准；同日「Fill → recent ~20 window」经用户「ok」确认。产品共识 7 条及既有裁决（必填 start/end、不盲拉、批次硬错误、按模式扩展校验）仍为合同，**不得标为开放问题**。
 
 ## 背景与目标
 
@@ -48,7 +48,7 @@
 ### WAL 主视图：record 列表
 
 - 一批 record：**一行一条**。
-- 宽元数据行，至少可辨识：start LSN（及数据源提供的 end/prev LSN）、resource manager、record type、record 长度（及可得的 main_data/fpi 长度）、以及 xid / description / block_ref 等有用摘要（可截断）。字段布局由 `ui-design.md` 定；上述核心列不得缺省到不可辨识。
+- 宽元数据行，至少可辨识：start LSN（及数据源提供的 end LSN；prev LSN 由 API 透出即可，**列表行不展示**）、resource manager、record type、record 长度（及可得的 main_data/fpi 长度）、以及 xid（**列表第二列**）/ description / block_ref 等有用摘要（可截断）。字段布局由 `ui-design.md` 定；上述核心列不得缺省到不可辨识。
 - **禁止**硬套 page 32B/行 grid。
 
 ### 选中与 hex 占位
@@ -68,10 +68,14 @@
 - Page：仍 `get_raw_page` 原始字节 + 既有 hex 联动。
 - WAL v1：无原始字节 hex；PG17+ 增强**不在本工作项范围**。
 
-### 查询输入
+### 查询输入与 Fill 辅助
 
-- 用户须能指定区间：至少 **start LSN** 与 **end LSN**（或 Design 认可的等价起终点控件）。
-- 允许辅助填充（如当前 WAL LSN）；不得取消用户对区间的显式控制（见开放问题默认建议）。
+- 用户须能指定区间：至少 **start LSN** 与 **end LSN**（或 Design 认可的等价起终点控件）；二者**必填**方可 Load。
+- **进入 WAL 模式不自动盲拉**；不因切模式自动 Load。
+- **Fill**（「填入最近窗口」或等价；**废止**「填入当前 LSN」= 起终点同 tip）（**已确认 2026-07-30**）：
+  - **end** = `pg_current_wal_lsn()`（tip）。
+  - **start** = 基于 tip 向前推算，约含 **最近 ~20 条** record；不足则有多少给多少。
+  - **仅填控件，不自动 Load**；随后 Load 须看到最新约 20 条（或更少），**禁止** tip 点查 Empty batch 冒充成功。
 - 加载中 / 空 / 错误须明确呈现（`docs/standards/ui.md` GUI 底线）。
 
 ### 文档影响（需求级）
@@ -87,7 +91,16 @@
 | 能力 | 建议接口 | 行为 |
 |---|---|---|
 | WAL 记录批次 | 如 `GET /api/wal/records`（`startLsn`、`endLsn`） | 基于 `pg_walinspect`（典型 `pg_get_wal_records_info`）返回区间内每条 record 一行结构化字段；**禁止**以 `get_raw_page` 冒充 |
+| 最近窗口辅助 | 如 `GET /api/wal/recent-window?limit=20`，或扩展 current-lsn 返回 `{ startLsn, endLsn, count }` | 见下方 **recent-window 行为合同**；路径形状留给 Design |
 | （可选）单条 | 如 `GET /api/wal/records/:lsn` | `pg_get_wal_record_info` 或等价；v1 可仅批次接口，但选中所需字段须已在批次载荷中足够 |
+
+**recent-window 行为合同**（`limit` 默认 20；与 Fill 对齐）：
+
+1. **endLsn** = `pg_current_wal_lsn()`（tip）。
+2. **startLsn** 由服务端基于 tip **启发式扩窗**向前推算，使结果大约含最近 `limit` 条 record；不足则有多少给多少。
+3. 若扩窗后结果 **> limit**：取**尾部** `limit` 条，并将返回的 **startLsn 回填**为该批最早一条 record 的 `start_lsn`。
+4. 遵守既有批次硬阈值 **R1≤2000 / R2≤2MiB / R3≤16MiB**；**禁止**截断或部分结果假成功。
+5. 已删/不可读 WAL segment 等：返回**可读错误**（原因 + 可执行下一步）；**禁止**静默空成功。
 
 **每条 record 交付义务**：
 
@@ -131,8 +144,9 @@ Page 既有接口（connect / tables / `get_raw_page` 等）成功路径语义�
 | PG 主版本 < 15 | 明确不支持 WAL；**禁止**进入列表成功态 |
 | 缺少/不可用 `pg_walinspect` | 明确提示与自行启用指引；**禁止** `CREATE EXTENSION`；**禁止**伪造成功列表 |
 | 权限不足 | 明确权限错误 + 可执行下一步 |
-| LSN 无效/区间不可用/服务端报错 | 原因 + 至少一条可执行下一步；**禁止**仅裸异常/堆栈 |
+| LSN 无效/区间不可用/已删段/服务端报错 | 原因 + 至少一条可执行下一步；**禁止**仅裸异常/堆栈 |
 | 空区间 | 明确空态，不崩溃 |
+| 批次过大（触 R1/R2/R3） | **硬错误**；**禁止**截断或部分结果假成功 |
 | Page 取页 | 仍 `get_raw_page`；与 WAL 错误域分离 |
 
 安全：与既有一致——密码不落盘、不在 UI 展示；不面向公网。
@@ -172,7 +186,7 @@ Page 既有接口（connect / tables / `get_raw_page` 等）成功路径语义�
   Given 用户在 Page 模式成功加载一页，When 使用既有 hex 视图，Then 仍基于 `get_raw_page` 原始字节可用。
 
 - **P0-11 错误可读**  
-  Given WAL 请求因扩展缺失、权限不足或 LSN 区间无效而失败，When 错误呈现，Then 含原因与至少一条可执行下一步；**禁止**仅裸异常码/堆栈。
+  Given WAL 请求因扩展缺失、权限不足、LSN 区间无效或已删段而失败，When 错误呈现，Then 含原因与至少一条可执行下一步；**禁止**仅裸异常码/堆栈。
 
 - **P0-12 monorepo 增量**  
   Given 本工作项交付物，When 审查仓库形态，Then WAL 能力位于同一 monorepo，并复用（或扩展）既有 `apps/server` 与 `apps/web` 运行路径，而非独立无关应用仓库。
@@ -182,25 +196,25 @@ Page 既有接口（connect / tables / `get_raw_page` 等）成功路径语义�
 - **P1-1 空批次**  
   Given 合法 LSN 区间内无有效 record，When 加载，Then 明确空态，界面可用且不崩溃。
 
-- **P1-2 当前 LSN 辅助**  
-  Given 已连接且 WAL 可用，When 用户使用「填入当前 LSN」或等价辅助（若实现），Then 起/终点控件填入服务端当前 WAL LSN，仍须用户确认后再加载。
+- **P1-2 Fill 最近 ~20 窗口**（**已确认 2026-07-30**）  
+  Given 已连接且 WAL 可用、库中有可读 WAL record，When 用户触发 Fill，Then：**end** = tip（`pg_current_wal_lsn()`）；**start** = 服务端最近窗口起点（约 20 条，不足则更少）；**不**自动 Load。When 用户再点 Load，Then 列表为该窗口最新约 20 条（或更少），**禁止** tip 点查 Empty batch。若 recent-window 因已删段等失败，Then 可读错误，且不得把起终点写成成功窗口。
 
 - **P1-3 模式切换保留连接**  
   Given 已连接成功，When 在 Page 与 WAL 间多次切换，Then 无需重新提交密码即可继续使用两模式（会话仍有效）；仅缺某一扩展时，失败限于对应模式请求，不因此强制断开整会话。
 
 ## 开放问题
 
-> **已确认（2026-07-30）**：下列裁决已由当前用户会话批准；合同与验收按此执行。
+> **已确认（2026-07-30）**：下列裁决已由当前用户会话批准；合同与验收按此执行。无待确认开放项。
 
-1. **默认 LSN 区间如何预填？** — **已确认：采纳默认**  
-   v1 必填 start/end LSN；可一键填入 `pg_current_wal_lsn()`（或等价）；**不**在进入 WAL 模式时自动盲拉大范围。
+1. **默认 LSN 区间如何预填？** — **已确认（含 2026-07-30 产品变更）**  
+   必填 start/end；进入 WAL 不盲拉。Fill = **recent ~20 window**（见「查询输入与 Fill 辅助」）。**废止**起/终点同填 tip。
 
 2. **单次批次大小上限？** — **已确认：硬错误**  
-   以用户 `[startLsn, endLsn]` 为准；结果过大时**明确失败**（硬错误）；**禁止**截断或部分结果。阈值由 Design/Plan 选定。
+   以用户 `[startLsn, endLsn]` 为准；过大则硬错误，**禁止**截断/部分结果。阈值 **R1≤2000 / R2≤2MiB / R3≤16MiB**（含 recent-window）。
 
-3. **connect 是否同时校验 `pageinspect` 与 `pg_walinspect`？** — **已确认：采纳默认**  
-   **不**强制两者皆有；Page 请求校验 `pageinspect`，WAL 请求校验 `pg_walinspect` + PG15+。
+3. **connect 是否同时校验 `pageinspect` 与 `pg_walinspect`？** — **已确认**  
+   **不**强制两者皆有；Page → `pageinspect`，WAL → `pg_walinspect` + PG15+。
 
 ---
 
-**交接提示（Manager）**：Spec 已确认（含开放问题裁决）。调度 `planner`（Design required + UI gui → `design.md` + `ui-design.md`，再 `plan.md`）。批次过大 = 硬错误（非截断）。
+**交接提示（Manager）**：Spec 已与「Fill → recent ~20 window」用户 ok 对齐；无待确认开放项。建议下一状态 **`designing`**：调度 `planner` 轻改 design / ui-design / plan。
