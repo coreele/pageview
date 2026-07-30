@@ -20,15 +20,23 @@ import {
 } from "./api";
 import { HexDump } from "./HexDump";
 import { StructureMap } from "./StructureMap";
+import { WalView } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
 type LoadState = "idle" | "connecting" | "loading-tables" | "loading-page";
+type AppMode = "page" | "wal";
 
 export function App() {
   const [theme, setTheme] = useState<Theme>(
     () => (document.documentElement.dataset.theme as Theme) || readSystemTheme(),
   );
+  const [mode, setMode] = useState<AppMode>("page");
+  const [walRangeMeta, setWalRangeMeta] = useState<{
+    startLsn: string;
+    endLsn: string;
+    count: number;
+  } | null>(null);
   const [session, setSession] = useState<PublicSession | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [error, setError] = useState<AppError | null>(null);
@@ -255,6 +263,31 @@ export function App() {
     <div className="app">
       <header className="chrome" aria-label="Application chrome">
         <h1 className="chrome-title">pg-page-viewer</h1>
+        <div className="mode-switch" role="group" aria-label="View mode">
+          <button
+            type="button"
+            className={mode === "page" ? "mode-btn active" : "mode-btn"}
+            aria-pressed={mode === "page"}
+            onClick={() => {
+              setMode("page");
+              setError(null);
+            }}
+          >
+            Page
+          </button>
+          <button
+            type="button"
+            className={mode === "wal" ? "mode-btn active" : "mode-btn"}
+            aria-pressed={mode === "wal"}
+            onClick={() => {
+              setMode("wal");
+              setError(null);
+              setWalRangeMeta(null);
+            }}
+          >
+            WAL
+          </button>
+        </div>
         <span
           className={`badge chrome-badge${connected ? " ok badge-conn" : ""}`}
           aria-live="polite"
@@ -276,6 +309,34 @@ export function App() {
           {!connected ? (
             <div className="meta-row">
               <span className="muted">未连接</span>
+            </div>
+          ) : mode === "wal" ? (
+            <div className="meta-row meta-controls-row">
+              <div className="meta-stats" aria-label="WAL context">
+                <span className="meta-item">
+                  <span className="label">mode</span>
+                  <span className="value">WAL</span>
+                </span>
+                {walRangeMeta ? (
+                  <>
+                    <span className="meta-item">
+                      <span className="label">range</span>
+                      <span className="value mono" title={`${walRangeMeta.startLsn} – ${walRangeMeta.endLsn}`}>
+                        {walRangeMeta.startLsn} – {walRangeMeta.endLsn}
+                      </span>
+                    </span>
+                    <span className="meta-item">
+                      <span className="label">#records</span>
+                      <span className="value">{walRangeMeta.count}</span>
+                    </span>
+                  </>
+                ) : (
+                  <span className="meta-item">
+                    <span className="label">range</span>
+                    <span className="value muted">not loaded</span>
+                  </span>
+                )}
+              </div>
             </div>
           ) : (
             <div className="meta-row meta-controls-row">
@@ -390,7 +451,7 @@ export function App() {
           )}
         </div>
 
-        {page && (
+        {mode === "page" && page && (
           <div className="chrome-actions">
             <button
               className="chrome-detail"
@@ -422,7 +483,7 @@ export function App() {
         </button>
       </header>
 
-      <main className={`main${page ? " main-paged" : ""}`}>
+      <main className={`main${mode === "page" && page ? " main-paged" : ""}${mode === "wal" ? " main-wal" : ""}`}>
         {error && (
           <div className="panel error-panel" role="alert">
             <div>
@@ -493,28 +554,36 @@ export function App() {
               </button>
             </form>
             <p className="muted">
-              Or set env credentials so the server auto-connects on start (P0-12). Password is never
-              stored in the browser. Enable <code>pageinspect</code> yourself — this app never runs{" "}
-              <code>CREATE EXTENSION</code>.
+              Or set env credentials so the server auto-connects on start. Password is never stored
+              in the browser. Enable <code>pageinspect</code> / <code>pg_walinspect</code> yourself —
+              this app never runs <code>CREATE EXTENSION</code>.
             </p>
           </div>
         )}
 
-        {connected && !page && selectedTable?.blocks === 0 && (
+        {connected && mode === "wal" && (
+          <WalView
+            connected={connected}
+            onError={setError}
+            onRangeMeta={setWalRangeMeta}
+          />
+        )}
+
+        {connected && mode === "page" && !page && selectedTable?.blocks === 0 && (
           <div className="panel muted">
             Empty relation (0 blocks). Insert rows or pick another table.
           </div>
         )}
 
-        {connected && !page && !error && selectedTable && selectedTable.blocks > 0 && (
+        {connected && mode === "page" && !page && !error && selectedTable && selectedTable.blocks > 0 && (
           <div className="panel muted">Select blkno and press Load to fetch a raw page.</div>
         )}
 
-        {connected && !selectedTable && !error && (
+        {connected && mode === "page" && !selectedTable && !error && (
           <div className="panel muted">Select a heap table to begin.</div>
         )}
 
-        {page && (
+        {connected && mode === "page" && page && (
           <div className="main-split" data-hex={hexCollapsed ? "collapsed" : "expanded"}>
             <section className="pane pane-structure" aria-label="Page structure">
               {loadState === "loading-page" && (

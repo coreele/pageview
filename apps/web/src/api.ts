@@ -35,6 +35,20 @@ export type SchemaResponse = {
   }>;
 };
 
+export type WalRecordDto = {
+  startLsn: string;
+  endLsn: string | null;
+  prevLsn: string | null;
+  xid: string | null;
+  resourceManager: string;
+  recordType: string;
+  recordLength: number;
+  mainDataLength: number | null;
+  fpiLength: number;
+  description: string | null;
+  blockRef: string | null;
+};
+
 async function parseError(res: Response): Promise<AppError> {
   try {
     const body = (await res.json()) as AppError;
@@ -83,6 +97,23 @@ export async function fetchPage(
   blkno: number,
 ): Promise<{ pageBase64: string; byteLength: number; qualifiedName: string; blkno: number }> {
   const res = await fetch(`/api/tables/${oid}/pages/${blkno}`);
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+export async function fetchCurrentWalLsn(): Promise<string> {
+  const res = await fetch("/api/wal/current-lsn");
+  if (!res.ok) throw await parseError(res);
+  const data = (await res.json()) as { lsn: string };
+  return data.lsn;
+}
+
+export async function fetchWalRecords(
+  startLsn: string,
+  endLsn: string,
+): Promise<{ records: WalRecordDto[]; startLsn: string; endLsn: string; count: number }> {
+  const qs = new URLSearchParams({ startLsn, endLsn });
+  const res = await fetch(`/api/wal/records?${qs}`);
   if (!res.ok) throw await parseError(res);
   return res.json();
 }
