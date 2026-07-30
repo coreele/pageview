@@ -20,7 +20,7 @@
 ### WAL 模式
 
 - 顶部 **Page | WAL** 切换；独立列表 UI（一行一条宽元数据）
-- 必填 start/end LSN；可一键填入当前 LSN（**不会**自动 Load）
+- 必填 start/end LSN；可一键「填入最近窗口」（约最近 20 条；**不会**自动 Load）
 - 含 FPI 的记录默认折叠（仅长度/元信息；不渲染原始 8KB 页）
 - **v1 不提供 WAL 原始字节 hex** — 仅 `pg_walinspect` 结构化字段
 - 批次硬上限（超限失败，禁止截断）：≤2000 条、≤2 MiB JSON、≤16 MiB LSN 跨度

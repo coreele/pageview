@@ -20,7 +20,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 ### WAL mode
 
 - Chrome switch **Page | WAL**; independent list UI (one wide metadata row per record)
-- Query by start/end LSN; optional “Fill current LSN” (does not auto-load)
+- Query by start/end LSN; optional “Fill recent window” (~20 latest records; does not auto-load)
 - FPI rows default collapsed (length/metadata only; no raw 8KB page render)
 - **v1 has no WAL raw-byte hex** — structured `pg_walinspect` fields only
 - Hard batch limits (fail, never truncate): ≤2000 records, ≤2 MiB JSON, ≤16 MiB LSN span
