@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState, type KeyboardEvent } from "react";
 import { hasFpi } from "wal-core";
 import {
-  fetchCurrentWalLsn,
+  fetchRecentWalWindow,
   fetchWalRecords,
   type AppError,
   type WalRecordDto,
@@ -22,25 +22,26 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
   const [records, setRecords] = useState<WalRecordDto[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [expandedFpi, setExpandedFpi] = useState<Set<string>>(() => new Set());
-  const [fillingLsn, setFillingLsn] = useState(false);
+  const [fillingWindow, setFillingWindow] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   const recordKey = (r: WalRecordDto, i: number) => `${r.startLsn}::${i}`;
 
   const selected = records.find((r, i) => recordKey(r, i) === selectedKey) ?? null;
 
-  const onFillCurrentLsn = async () => {
+  const onFillRecentWindow = async () => {
     if (!connected) return;
-    setFillingLsn(true);
+    setFillingWindow(true);
     onError(null);
     try {
-      const lsn = await fetchCurrentWalLsn();
-      setStartLsn(lsn);
-      setEndLsn(lsn);
+      const window = await fetchRecentWalWindow(20);
+      setStartLsn(window.startLsn);
+      setEndLsn(window.endLsn);
+      // Fill only — do not Load
     } catch (e) {
       onError(e as AppError);
     } finally {
-      setFillingLsn(false);
+      setFillingWindow(false);
     }
   };
 
@@ -59,7 +60,7 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
       onError({
         code: "BAD_LSN",
         message: "start LSN and end LSN are required",
-        nextStep: "Enter both LSN values (or use Fill current LSN), then press Load.",
+        nextStep: "Enter both LSN values (or use Fill recent window), then press Load.",
       });
       setPhase("error");
       return;
@@ -151,15 +152,15 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
         <div className="wal-nav-actions">
           <button
             type="button"
-            disabled={!connected || fillingLsn || phase === "loading"}
-            onClick={() => void onFillCurrentLsn()}
+            disabled={!connected || fillingWindow || phase === "loading"}
+            onClick={() => void onFillRecentWindow()}
           >
-            {fillingLsn ? (
+            {fillingWindow ? (
               <>
                 <span className="spinner" /> Filling…
               </>
             ) : (
-              "Fill current LSN"
+              "填入最近窗口"
             )}
           </button>
           <button
@@ -178,7 +179,8 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
           </button>
         </div>
         <p className="muted wal-hint">
-          Enter a start/end LSN range, then Load. Filling current LSN does not auto-load.
+          Enter a start/end LSN range, then Load. 「填入最近窗口」fills ~20 recent records and does not
+          auto-load.
         </p>
       </aside>
 
@@ -191,7 +193,9 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
           onKeyDown={onListKeyDown}
         >
           {phase === "idle" && (
-            <div className="panel muted">Enter start and end LSN, then press Load.</div>
+            <div className="panel muted">
+              Enter start and end LSN (or use 填入最近窗口), then press Load.
+            </div>
           )}
           {phase === "loading" && (
             <div className="panel muted">

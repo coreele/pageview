@@ -108,6 +108,15 @@ export async function fetchCurrentWalLsn(): Promise<string> {
   return data.lsn;
 }
 
+export async function fetchRecentWalWindow(
+  limit = 20,
+): Promise<{ startLsn: string; endLsn: string; count: number }> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  const res = await fetch(`/api/wal/recent-window?${qs}`);
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
 export async function fetchWalRecords(
   startLsn: string,
   endLsn: string,
