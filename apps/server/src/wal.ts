@@ -1,5 +1,7 @@
 import type { Pool } from "pg";
 import {
+  BATCH_LIMIT_R1_MAX_RECORDS,
+  BATCH_LIMIT_R3_MAX_LSN_SPAN,
   checkBatchRecordCount,
   checkBatchResponseSize,
   checkLsnSpan,
@@ -20,7 +22,26 @@ export const WAL_BATCH_TOO_LARGE_NEXT =
 
 /** Actionable next step when WAL LSN is past tip, recycled, or otherwise unreadable. */
 export const WAL_RANGE_UNAVAILABLE_NEXT =
-  "Narrow the LSN range to WAL that still exists on this server: use Fill current LSN, then move start earlier within retained pg_wal segments (start ≤ end), and retry Load.";
+  "Narrow the LSN range to WAL that still exists on this server: use Fill recent window, then adjust start within retained pg_wal segments (start ≤ end), and retry Load.";
+
+/** Design §4.1 — default Fill window size and initial probe span. */
+export const RECENT_WINDOW_DEFAULT_LIMIT = 20;
+export const RECENT_WINDOW_INITIAL_SPAN = 64 * 1024;
+
+export type RecentWindow = {
+  startLsn: string;
+  endLsn: string;
+  count: number;
+};
+
+export type ParseLimitOk = { ok: true; limit: number };
+export type ParseLimitFail = {
+  ok: false;
+  code: "BAD_LSN";
+  reason: string;
+  message: string;
+  nextStep: string;
+};
 
 export type WalGateErr = {
   code: string;
@@ -125,6 +146,115 @@ export function mapWalGateError(err: WalGateErr): { statusCode: number; body: Ap
 export async function fetchCurrentWalLsn(pool: Pool): Promise<string> {
   const res = await pool.query<{ lsn: string }>(`SELECT pg_current_wal_lsn()::text AS lsn`);
   return String(res.rows[0]?.lsn ?? "");
+}
+
+/** Format bigint LSN as PostgreSQL-style `HI/LO` hex (uppercase, unpadded). */
+export function formatLsn(value: bigint): string {
+  if (value < 0n) throw new Error("LSN must be non-negative");
+  const hi = value >> 32n;
+  const lo = value & 0xffffffffn;
+  return `${hi.toString(16).toUpperCase()}/${lo.toString(16).toUpperCase()}`;
+}
+
+/** `end - span`, clamped to `0/0`. */
+export function lsnMinusSpan(endLsn: string, span: bigint): string {
+  const end = parseLsn(endLsn);
+  const start = end > span ? end - span : 0n;
+  return formatLsn(start);
+}
+
+export function parseRecentWindowLimit(raw: string | undefined): ParseLimitOk | ParseLimitFail {
+  if (raw === undefined || raw.trim() === "") {
+    return { ok: true, limit: RECENT_WINDOW_DEFAULT_LIMIT };
+  }
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) {
+    return {
+      ok: false,
+      code: "BAD_LSN",
+      reason: "invalid_limit",
+      message: "limit must be a positive integer",
+      nextStep: `Provide limit as a positive integer ≤ ${BATCH_LIMIT_R1_MAX_RECORDS} (default ${RECENT_WINDOW_DEFAULT_LIMIT}), then retry.`,
+    };
+  }
+  const limit = Number(trimmed);
+  if (!Number.isInteger(limit) || limit < 1 || limit > BATCH_LIMIT_R1_MAX_RECORDS) {
+    return {
+      ok: false,
+      code: "BAD_LSN",
+      reason: "invalid_limit",
+      message: `limit must be between 1 and ${BATCH_LIMIT_R1_MAX_RECORDS}`,
+      nextStep: `Provide limit as a positive integer ≤ ${BATCH_LIMIT_R1_MAX_RECORDS} (default ${RECENT_WINDOW_DEFAULT_LIMIT}), then retry.`,
+    };
+  }
+  return { ok: true, limit };
+}
+
+/** Apply §4.1 tail/backfill rules; never attach records[]. */
+export function windowFromRecords(
+  tip: string,
+  records: WalRecord[],
+  limit: number,
+): RecentWindow {
+  if (records.length === 0) {
+    return { startLsn: tip, endLsn: tip, count: 0 };
+  }
+  const slice = records.length > limit ? records.slice(-limit) : records;
+  return {
+    startLsn: slice[0]!.startLsn,
+    endLsn: tip,
+    count: slice.length,
+  };
+}
+
+/**
+ * Heuristic expand from ~64KiB until ≥limit records, R3, or 0/0.
+ * Uses the same query path as /records (caller injects fetchWalRecords).
+ */
+export async function resolveRecentWindow(opts: {
+  tip: string;
+  limit: number;
+  queryRecords: (startLsn: string, endLsn: string) => Promise<WalRecord[]>;
+  initialSpan?: number;
+  maxSpan?: number;
+}): Promise<RecentWindow> {
+  const {
+    tip,
+    limit,
+    queryRecords,
+    initialSpan = RECENT_WINDOW_INITIAL_SPAN,
+    maxSpan = BATCH_LIMIT_R3_MAX_LSN_SPAN,
+  } = opts;
+
+  let span = BigInt(initialSpan);
+  const max = BigInt(maxSpan);
+  let lastRecords: WalRecord[] = [];
+
+  for (;;) {
+    const start = lsnMinusSpan(tip, span);
+    lastRecords = await queryRecords(start, tip);
+
+    if (lastRecords.length >= limit) break;
+    if (parseLsn(start) === 0n) break;
+    if (span >= max) break;
+
+    const doubled = span * 2n;
+    span = doubled > max ? max : doubled;
+  }
+
+  return windowFromRecords(tip, lastRecords, limit);
+}
+
+export async function fetchRecentWalWindow(
+  pool: Pool,
+  limit: number,
+): Promise<RecentWindow> {
+  const tip = await fetchCurrentWalLsn(pool);
+  return resolveRecentWindow({
+    tip,
+    limit,
+    queryRecords: (startLsn, endLsn) => fetchWalRecords(pool, startLsn, endLsn),
+  });
 }
 
 export async function fetchWalRecords(

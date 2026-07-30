@@ -20,8 +20,10 @@ import {
 import {
   classifyWalinspectError,
   fetchCurrentWalLsn,
+  fetchRecentWalWindow,
   fetchWalRecords,
   mapWalGateError,
+  parseRecentWindowLimit,
   requireWalCapabilities,
 } from "./wal.js";
 
@@ -397,6 +399,34 @@ export async function buildApp(session: SessionState = emptySession()) {
       return reply.code(mapped.statusCode).send(mapped.body);
     }
   });
+
+  app.get<{ Querystring: { limit?: string } }>(
+    "/api/wal/recent-window",
+    async (req, reply) => {
+      if (!session.connected || !session.pool) {
+        return notConnectedReply(reply);
+      }
+      const parsed = parseRecentWindowLimit(req.query.limit);
+      if (!parsed.ok) {
+        return reply.code(400).send(
+          appError(400, parsed.code, parsed.message, parsed.nextStep).body,
+        );
+      }
+      try {
+        await requireWalCapabilities(session.pool, session.serverVersion);
+        const window = await fetchRecentWalWindow(session.pool, parsed.limit);
+        // Fill helper only — never attach records[]
+        return {
+          startLsn: window.startLsn,
+          endLsn: window.endLsn,
+          count: window.count,
+        };
+      } catch (e) {
+        const mapped = mapPgError(e);
+        return reply.code(mapped.statusCode).send(mapped.body);
+      }
+    },
+  );
 
   app.get<{ Querystring: { startLsn?: string; endLsn?: string } }>(
     "/api/wal/records",

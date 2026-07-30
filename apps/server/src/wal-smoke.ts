@@ -35,6 +35,54 @@ async function main(): Promise<void> {
   const emptyBody = emptyish.json() as { records?: unknown[] };
   console.log("records-point", emptyish.statusCode, emptyBody);
 
+  const windowRes = await app.inject({
+    method: "GET",
+    url: "/api/wal/recent-window?limit=20",
+  });
+  const windowBody = windowRes.json() as {
+    startLsn?: string;
+    endLsn?: string;
+    count?: number;
+    records?: unknown;
+    code?: string;
+  };
+  console.log("recent-window", windowRes.statusCode, windowBody);
+
+  let recordsOk = true;
+  if (windowRes.statusCode === 200) {
+    const { startLsn, endLsn, count } = windowBody;
+    if (
+      typeof startLsn !== "string" ||
+      typeof endLsn !== "string" ||
+      typeof count !== "number" ||
+      "records" in windowBody ||
+      endLsn !== lsn ||
+      count < 0 ||
+      count > 20
+    ) {
+      console.error("recent-window shape/contract failed");
+      recordsOk = false;
+    } else {
+      const loaded = await app.inject({
+        method: "GET",
+        url: `/api/wal/records?startLsn=${encodeURIComponent(startLsn)}&endLsn=${encodeURIComponent(endLsn)}`,
+      });
+      const loadedBody = loaded.json() as { records?: unknown[]; count?: number };
+      console.log("records-window", loaded.statusCode, {
+        count: loadedBody.count,
+        recordLen: loadedBody.records?.length,
+      });
+      recordsOk =
+        loaded.statusCode === 200 &&
+        Array.isArray(loadedBody.records) &&
+        loadedBody.records.length === count &&
+        // P1-2: must not be tip point-query empty when WAL exists
+        (count === 0 || loadedBody.records.length > 0);
+    }
+  } else {
+    recordsOk = false;
+  }
+
   const oversized = await app.inject({
     method: "GET",
     url: "/api/wal/records?startLsn=0/0&endLsn=1/0",
@@ -48,11 +96,12 @@ async function main(): Promise<void> {
     emptyish.statusCode === 200 &&
     Array.isArray(emptyBody.records) &&
     emptyBody.records.length === 0;
+  const windowOk = windowRes.statusCode === 200 && recordsOk;
   const r3Ok =
     oversized.statusCode === 400 &&
     oversizedBody.code === "WAL_BATCH_TOO_LARGE" &&
     !("records" in oversizedBody);
-  if (!tipOk || !r3Ok) {
+  if (!tipOk || !windowOk || !r3Ok) {
     process.exit(1);
   }
   console.log("WAL L3 smoke OK");
