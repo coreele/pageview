@@ -32,18 +32,27 @@ async function main(): Promise<void> {
     method: "GET",
     url: `/api/wal/records?startLsn=${encodeURIComponent(lsn)}&endLsn=${encodeURIComponent(lsn)}`,
   });
-  console.log("records-point", emptyish.statusCode, emptyish.json());
+  const emptyBody = emptyish.json() as { records?: unknown[] };
+  console.log("records-point", emptyish.statusCode, emptyBody);
 
   const oversized = await app.inject({
     method: "GET",
     url: "/api/wal/records?startLsn=0/0&endLsn=1/0",
   });
-  const oversizedBody = oversized.json() as { code?: string; records?: unknown };
+  const oversizedBody = oversized.json() as { code?: string; records?: unknown; nextStep?: string };
   console.log("r3-oversized", oversized.statusCode, oversizedBody.code, "hasRecords", "records" in oversizedBody);
 
   await app.close();
   if (session.pool) await session.pool.end();
-  if (emptyish.statusCode !== 200 || oversized.statusCode !== 400 || oversizedBody.code !== "WAL_BATCH_TOO_LARGE") {
+  const tipOk =
+    emptyish.statusCode === 200 &&
+    Array.isArray(emptyBody.records) &&
+    emptyBody.records.length === 0;
+  const r3Ok =
+    oversized.statusCode === 400 &&
+    oversizedBody.code === "WAL_BATCH_TOO_LARGE" &&
+    !("records" in oversizedBody);
+  if (!tipOk || !r3Ok) {
     process.exit(1);
   }
   console.log("WAL L3 smoke OK");

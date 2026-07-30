@@ -4,6 +4,7 @@ import {
   checkBatchResponseSize,
   checkLsnSpan,
   mapWalinspectRow,
+  parseLsn,
   validateLsnRange,
   type WalRecord,
   type WalinspectRow,
@@ -16,6 +17,10 @@ import {
 
 export const WAL_BATCH_TOO_LARGE_NEXT =
   "Narrow the LSN range (fewer records or shorter span ≤16 MiB), then retry Load. The server never returns a truncated partial batch.";
+
+/** Actionable next step when WAL LSN is past tip, recycled, or otherwise unreadable. */
+export const WAL_RANGE_UNAVAILABLE_NEXT =
+  "Narrow the LSN range to WAL that still exists on this server: use Fill current LSN, then move start earlier within retained pg_wal segments (start ≤ end), and retry Load.";
 
 export type WalGateErr = {
   code: string;
@@ -31,6 +36,41 @@ function appError(
   nextStep: string,
 ): { statusCode: number; body: AppErrorBody } {
   return { statusCode, body: { code, message, nextStep } };
+}
+
+/**
+ * Tip / future LSN: pg_current_wal_lsn is the write frontier; no complete record
+ * starts at or after it, so Fill current (start=end=current) is an empty batch.
+ */
+export function isTipEmptyBatch(startLsn: string, currentLsn: string): boolean {
+  try {
+    return parseLsn(startLsn) >= parseLsn(currentLsn);
+  } catch {
+    return false;
+  }
+}
+
+/** Map pg_walinspect / xlogreader messages to BAD_LSN (P0-11); null if unrelated. */
+export function classifyWalinspectError(message: string): WalGateErr | null {
+  const m = message.trim();
+  if (!m) return null;
+
+  const tipOrMissing =
+    /could not find a valid record after/i.test(m) ||
+    /could not read WAL\b/i.test(m) ||
+    /could not open file/i.test(m) ||
+    /already been removed/i.test(m) ||
+    /WAL (start|input) LSN must be less than/i.test(m) ||
+    /WAL start LSN must be less than end LSN/i.test(m);
+
+  if (!tipOrMissing) return null;
+
+  return {
+    code: "BAD_LSN",
+    message: m,
+    nextStep: WAL_RANGE_UNAVAILABLE_NEXT,
+    reason: "wal_range_unavailable",
+  };
 }
 
 export function mapWalGateError(err: WalGateErr): { statusCode: number; body: AppErrorBody } {
@@ -69,7 +109,8 @@ export function mapWalGateError(err: WalGateErr): { statusCode: number; body: Ap
         400,
         "BAD_LSN",
         err.message ?? `Invalid LSN range (${err.reason ?? "unknown"})`,
-        "Enter valid start/end LSN values as XX/YYYYYYYY with start ≤ end, then retry.",
+        err.nextStep ??
+          "Enter valid start/end LSN values as XX/YYYYYYYY with start ≤ end, then retry.",
       );
     default:
       return appError(
@@ -107,21 +148,45 @@ export async function fetchWalRecords(
     throw e;
   }
 
-  const res = await pool.query(
-    `SELECT start_lsn::text AS start_lsn,
-            end_lsn::text AS end_lsn,
-            prev_lsn::text AS prev_lsn,
-            xid::text AS xid,
-            resource_manager,
-            record_type,
-            record_length,
-            main_data_length,
-            fpi_length,
-            description,
-            block_ref
-     FROM pg_get_wal_records_info($1::pg_lsn, $2::pg_lsn)`,
-    [startLsn, endLsn],
-  );
+  // P1-1 / Fill tip: start at or past current LSN → empty success (no pg_walinspect error).
+  const currentLsn = await fetchCurrentWalLsn(pool);
+  if (isTipEmptyBatch(startLsn, currentLsn)) {
+    return [];
+  }
+
+  let res;
+  try {
+    res = await pool.query(
+      `SELECT start_lsn::text AS start_lsn,
+              end_lsn::text AS end_lsn,
+              prev_lsn::text AS prev_lsn,
+              xid::text AS xid,
+              resource_manager,
+              record_type,
+              record_length,
+              main_data_length,
+              fpi_length,
+              description,
+              block_ref
+       FROM pg_get_wal_records_info($1::pg_lsn, $2::pg_lsn)`,
+      [startLsn, endLsn],
+    );
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const classified = classifyWalinspectError(msg);
+    if (classified) {
+      const err = new Error(classified.message ?? msg) as Error & {
+        code: string;
+        reason?: string;
+        nextStep?: string;
+      };
+      err.code = classified.code;
+      err.reason = classified.reason;
+      err.nextStep = classified.nextStep;
+      throw err;
+    }
+    throw e;
+  }
 
   const countCheck = checkBatchRecordCount(res.rowCount ?? res.rows.length);
   if (!countCheck.ok) {

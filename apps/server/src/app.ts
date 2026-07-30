@@ -18,6 +18,7 @@ import {
   type SessionState,
 } from "./session.js";
 import {
+  classifyWalinspectError,
   fetchCurrentWalLsn,
   fetchWalRecords,
   mapWalGateError,
@@ -93,12 +94,21 @@ function mapPgError(e: unknown): { statusCode: number; body: AppErrorBody } {
   }
   // Invalid LSN cast / walinspect argument errors
   if (err.code === "22023" || err.code === "22P02") {
+    const classified = classifyWalinspectError(err.message ?? "");
+    if (classified) {
+      return mapWalGateError(classified);
+    }
     return appError(
       400,
       "BAD_LSN",
       err.message ?? "Invalid LSN",
       "Enter valid start/end LSN values as XX/YYYYYYYY with start ≤ end, then retry.",
     );
+  }
+  // pg_walinspect / xlogreader often uses XX000 with a readable message (DEF-1/DEF-2).
+  const walClassified = classifyWalinspectError(err.message ?? "");
+  if (walClassified) {
+    return mapWalGateError(walClassified);
   }
   return appError(
     500,
