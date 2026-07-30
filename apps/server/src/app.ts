@@ -11,12 +11,18 @@ import {
   emptySession,
   PAGEINSPECT_NEXT,
   readEnvCredentials,
+  requirePageinspect,
   toPublicSession,
-  verifyPageinspect,
   type AppErrorBody,
   type ConnectBody,
   type SessionState,
 } from "./session.js";
+import {
+  fetchCurrentWalLsn,
+  fetchWalRecords,
+  mapWalGateError,
+  requireWalCapabilities,
+} from "./wal.js";
 
 const { Pool } = pg;
 
@@ -30,7 +36,7 @@ function appError(
 }
 
 function mapPgError(e: unknown): { statusCode: number; body: AppErrorBody } {
-  const err = e as { code?: string; message?: string; nextStep?: string; errno?: string };
+  const err = e as { code?: string; message?: string; nextStep?: string; errno?: string; reason?: string };
   if (err.code === "PAGEINSPECT_MISSING") {
     return appError(
       400,
@@ -38,6 +44,20 @@ function mapPgError(e: unknown): { statusCode: number; body: AppErrorBody } {
       err.message ?? "pageinspect missing",
       err.nextStep ?? PAGEINSPECT_NEXT,
     );
+  }
+  if (
+    err.code === "WALINSPECT_MISSING" ||
+    err.code === "PG_VERSION_UNSUPPORTED" ||
+    err.code === "WAL_BATCH_TOO_LARGE" ||
+    err.code === "BAD_LSN" ||
+    err.code === "NOT_CONNECTED"
+  ) {
+    return mapWalGateError({
+      code: err.code,
+      message: err.message,
+      nextStep: err.nextStep,
+      reason: err.reason,
+    });
   }
   if (err.code === "28P01" || err.code === "28000") {
     return appError(
@@ -68,7 +88,16 @@ function mapPgError(e: unknown): { statusCode: number; body: AppErrorBody } {
       403,
       "PERMISSION",
       err.message ?? "Permission denied",
-      "Use a role with privileges to call pageinspect.get_raw_page (often superuser), then retry.",
+      "Use a role with privileges for the requested operation (pageinspect or pg_walinspect), then retry.",
+    );
+  }
+  // Invalid LSN cast / walinspect argument errors
+  if (err.code === "22023" || err.code === "22P02") {
+    return appError(
+      400,
+      "BAD_LSN",
+      err.message ?? "Invalid LSN",
+      "Enter valid start/end LSN values as XX/YYYYYYYY with start ≤ end, then retry.",
     );
   }
   return appError(
@@ -115,7 +144,7 @@ export async function connectSession(session: SessionState, creds: Creds): Promi
   try {
     const ver = await client.query("SELECT version() AS v");
     session.serverVersion = String(ver.rows[0].v);
-    await verifyPageinspect(client);
+    // Connect only checks connectivity + version; extensions are enforced per mode.
     session.pool = pool;
     session.connected = true;
     session.lastError = null;
@@ -149,6 +178,15 @@ export async function tryAutoConnectFromEnv(session: SessionState): Promise<void
   } catch {
     // Keep process up; lastError is on session for /api/session
   }
+}
+
+function notConnectedReply(reply: { code: (n: number) => { send: (b: AppErrorBody) => unknown } }) {
+  return reply
+    .code(401)
+    .send(
+      appError(401, "NOT_CONNECTED", "Not connected", "Connect via the form or configure env credentials, then retry.")
+        .body,
+    );
 }
 
 export async function buildApp(session: SessionState = emptySession()) {
@@ -207,80 +245,39 @@ export async function buildApp(session: SessionState = emptySession()) {
 
   app.get("/api/tables", async (_req, reply) => {
     if (!session.connected || !session.pool) {
-      return reply
-        .code(401)
-        .send(
-          appError(401, "NOT_CONNECTED", "Not connected", "Connect via the form or configure env credentials, then retry.")
-            .body,
-        );
+      return notConnectedReply(reply);
     }
-    const res = await session.pool.query(LIST_TABLES_SQL);
-    return {
-      tables: res.rows.map((r) => ({
-        oid: Number(r.oid),
-        schema: r.schema,
-        name: r.name,
-        qualifiedName: `${r.schema}.${r.name}`,
-        blocks: Number(r.blocks),
-      })),
-    };
+    try {
+      await requirePageinspect(session.pool);
+      const res = await session.pool.query(LIST_TABLES_SQL);
+      return {
+        tables: res.rows.map((r) => ({
+          oid: Number(r.oid),
+          schema: r.schema,
+          name: r.name,
+          qualifiedName: `${r.schema}.${r.name}`,
+          blocks: Number(r.blocks),
+        })),
+      };
+    } catch (e) {
+      const mapped = mapPgError(e);
+      return reply.code(mapped.statusCode).send(mapped.body);
+    }
   });
 
   app.get<{ Params: { oid: string } }>("/api/tables/:oid/schema", async (req, reply) => {
     if (!session.connected || !session.pool) {
-      return reply
-        .code(401)
-        .send(appError(401, "NOT_CONNECTED", "Not connected", "Connect first, then retry.").body);
+      return notConnectedReply(reply);
     }
-    const oid = Number(req.params.oid);
-    const cls = await session.pool.query(
-      `SELECT c.oid, c.relkind, n.nspname, c.relname
-       FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-       WHERE c.oid = $1`,
-      [oid],
-    );
-    if (cls.rowCount === 0 || cls.rows[0].relkind !== "r") {
-      return reply
-        .code(404)
-        .send(
-          appError(404, "NOT_HEAP_TABLE", "Relation is not a user heap table", "Pick a heap user table from the list.")
-            .body,
-        );
-    }
-    const cols = await session.pool.query(SCHEMA_COLUMNS_SQL, [oid]);
-    return {
-      oid,
-      schema: cls.rows[0].nspname,
-      name: cls.rows[0].relname,
-      qualifiedName: `${cls.rows[0].nspname}.${cls.rows[0].relname}`,
-      columns: cols.rows.map((r) => mapSchemaColumnRow(r)),
-    };
-  });
-
-  app.get<{ Params: { oid: string; blkno: string } }>(
-    "/api/tables/:oid/pages/:blkno",
-    async (req, reply) => {
-      if (!session.connected || !session.pool) {
-        return reply
-          .code(401)
-          .send(appError(401, "NOT_CONNECTED", "Not connected", "Connect first, then retry.").body);
-      }
+    try {
+      await requirePageinspect(session.pool);
       const oid = Number(req.params.oid);
-      const blkno = Number(req.params.blkno);
-      if (!Number.isInteger(blkno) || blkno < 0) {
-        return reply
-          .code(400)
-          .send(
-            appError(
-              400,
-              "BAD_BLKNO",
-              "Invalid block number",
-              "Enter a non-negative integer blkno within the relation block count.",
-            ).body,
-          );
-      }
-
-      const cls = await session.pool.query(PAGE_RELATION_SQL, [oid]);
+      const cls = await session.pool.query(
+        `SELECT c.oid, c.relkind, n.nspname, c.relname
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE c.oid = $1`,
+        [oid],
+      );
       if (cls.rowCount === 0 || cls.rows[0].relkind !== "r") {
         return reply
           .code(404)
@@ -289,22 +286,67 @@ export async function buildApp(session: SessionState = emptySession()) {
               .body,
           );
       }
-      const blocks = Number(cls.rows[0].blocks);
-      if (blkno >= blocks) {
-        return reply
-          .code(400)
-          .send(
-            appError(
-              400,
-              "BLKNO_OUT_OF_RANGE",
-              `Block ${blkno} is out of range (relation has ${blocks} block(s))`,
-              `Choose blkno in 0..${Math.max(0, blocks - 1)} or pick another table.`,
-            ).body,
-          );
-      }
+      const cols = await session.pool.query(SCHEMA_COLUMNS_SQL, [oid]);
+      return {
+        oid,
+        schema: cls.rows[0].nspname,
+        name: cls.rows[0].relname,
+        qualifiedName: `${cls.rows[0].nspname}.${cls.rows[0].relname}`,
+        columns: cols.rows.map((r) => mapSchemaColumnRow(r)),
+      };
+    } catch (e) {
+      const mapped = mapPgError(e);
+      return reply.code(mapped.statusCode).send(mapped.body);
+    }
+  });
 
-      const qualified = `${cls.rows[0].nspname}.${cls.rows[0].relname}`;
+  app.get<{ Params: { oid: string; blkno: string } }>(
+    "/api/tables/:oid/pages/:blkno",
+    async (req, reply) => {
+      if (!session.connected || !session.pool) {
+        return notConnectedReply(reply);
+      }
       try {
+        await requirePageinspect(session.pool);
+        const oid = Number(req.params.oid);
+        const blkno = Number(req.params.blkno);
+        if (!Number.isInteger(blkno) || blkno < 0) {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "BAD_BLKNO",
+                "Invalid block number",
+                "Enter a non-negative integer blkno within the relation block count.",
+              ).body,
+            );
+        }
+
+        const cls = await session.pool.query(PAGE_RELATION_SQL, [oid]);
+        if (cls.rowCount === 0 || cls.rows[0].relkind !== "r") {
+          return reply
+            .code(404)
+            .send(
+              appError(404, "NOT_HEAP_TABLE", "Relation is not a user heap table", "Pick a heap user table from the list.")
+                .body,
+            );
+        }
+        const blocks = Number(cls.rows[0].blocks);
+        if (blkno >= blocks) {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "BLKNO_OUT_OF_RANGE",
+                `Block ${blkno} is out of range (relation has ${blocks} block(s))`,
+                `Choose blkno in 0..${Math.max(0, blocks - 1)} or pick another table.`,
+              ).body,
+            );
+        }
+
+        const qualified = `${cls.rows[0].nspname}.${cls.rows[0].relname}`;
         const pageRes = await session.pool.query(`SELECT get_raw_page($1, $2::int) AS page`, [
           qualified,
           blkno,
@@ -327,6 +369,52 @@ export async function buildApp(session: SessionState = emptySession()) {
         };
       } catch (e) {
         const mapped = mapPgError(e);
+        return reply.code(mapped.statusCode).send(mapped.body);
+      }
+    },
+  );
+
+  app.get("/api/wal/current-lsn", async (_req, reply) => {
+    if (!session.connected || !session.pool) {
+      return notConnectedReply(reply);
+    }
+    try {
+      await requireWalCapabilities(session.pool, session.serverVersion);
+      const lsn = await fetchCurrentWalLsn(session.pool);
+      return { lsn };
+    } catch (e) {
+      const mapped = mapPgError(e);
+      return reply.code(mapped.statusCode).send(mapped.body);
+    }
+  });
+
+  app.get<{ Querystring: { startLsn?: string; endLsn?: string } }>(
+    "/api/wal/records",
+    async (req, reply) => {
+      if (!session.connected || !session.pool) {
+        return notConnectedReply(reply);
+      }
+      const startLsn = req.query.startLsn?.trim() ?? "";
+      const endLsn = req.query.endLsn?.trim() ?? "";
+      if (!startLsn || !endLsn) {
+        return reply
+          .code(400)
+          .send(
+            appError(
+              400,
+              "BAD_LSN",
+              "startLsn and endLsn are required",
+              "Provide both startLsn and endLsn query parameters, then retry.",
+            ).body,
+          );
+      }
+      try {
+        await requireWalCapabilities(session.pool, session.serverVersion);
+        const records = await fetchWalRecords(session.pool, startLsn, endLsn);
+        return { records, startLsn, endLsn, count: records.length };
+      } catch (e) {
+        const mapped = mapPgError(e);
+        // Hard error: never attach partial records
         return reply.code(mapped.statusCode).send(mapped.body);
       }
     },
