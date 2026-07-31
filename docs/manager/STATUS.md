@@ -10,7 +10,7 @@
 
 | feature-id | 最终状态 | 归档目录 | 备注 |
 |---|---|---|---|
-| wal-viewer | done | [docs/archive/2026/wal-viewer/](../archive/2026/wal-viewer/) | 2026-07-31 合入 `main`（FF `9b5ffca`）后归档；push 结果见本提交后 `git push` |
+| wal-viewer | done | [docs/archive/2026/wal-viewer/](../archive/2026/wal-viewer/) | 2026-07-31 合入 `main`（FF `9b5ffca`）后归档（`428851e`）；push 成功（`origin/main`；源分支 `wal-viewer` 亦已推送） |
 | detail-panel-polish | done | [docs/archive/2026/detail-panel-polish/](../archive/2026/detail-panel-polish/) | 2026-07-27 合入 `main`（FF `62792c7`）后归档（`bde8dbb`）；push 成功（`origin/main`，经 `127.0.0.1:7890`） |
 | infomask-detail | done | [docs/archive/2026/infomask-detail/](../archive/2026/infomask-detail/) | 2026-07-27 合入 `main`（FF `6caa2e5`）后归档；归档提交 `0c8448a`；push 成功（`origin/main`） |
 | fix-dev-web-page-core | done | [docs/archive/2026/fix-dev-web-page-core/](../archive/2026/fix-dev-web-page-core/) | 2026-07-27 核验：实现已在 `main`（`3e789ff`）；源分支无独有提交，无需再合；归档提交 `beab0e4`；push 因连 GitHub 失败待补 |
