@@ -10,17 +10,20 @@ import {
 import {
   connect,
   fetchPage,
+  fetchRecentWalWindow,
   fetchSchema,
+  fetchWalRecords,
   getSession,
   listTables,
   type AppError,
   type PublicSession,
   type SchemaResponse,
   type TableRow,
+  type WalRecordDto,
 } from "./api";
 import { HexDump } from "./HexDump";
 import { StructureMap } from "./StructureMap";
-import { WalView } from "./WalView";
+import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
@@ -37,6 +40,12 @@ export function App() {
     endLsn: string;
     count: number;
   } | null>(null);
+  const [walStartLsn, setWalStartLsn] = useState("");
+  const [walEndLsn, setWalEndLsn] = useState("");
+  const [walPhase, setWalPhase] = useState<WalPhase>("idle");
+  const [walFilling, setWalFilling] = useState(false);
+  const [walRecords, setWalRecords] = useState<WalRecordDto[]>([]);
+  const [walNewLsns, setWalNewLsns] = useState<Set<string>>(() => new Set());
   const [session, setSession] = useState<PublicSession | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [error, setError] = useState<AppError | null>(null);
@@ -247,6 +256,106 @@ export function App() {
     if (canLoad && selectedOid != null) void loadBlk(selectedOid, blkno);
   };
 
+  const canWalLoad = connected && walPhase !== "loading" && !walFilling;
+
+  const applyWalLoadResult = useCallback(
+    (data: { records: WalRecordDto[]; startLsn: string; endLsn: string; count: number }) => {
+      const prevKeys = new Set(walRecords.map((r) => r.startLsn));
+      const newLsns =
+        prevKeys.size === 0
+          ? new Set<string>()
+          : new Set(
+              data.records
+                .filter((r) => !prevKeys.has(r.startLsn))
+                .map((r) => r.startLsn),
+            );
+      setWalNewLsns(newLsns);
+      setWalRecords(data.records);
+      setWalPhase("loaded");
+      setWalRangeMeta({ startLsn: data.startLsn, endLsn: data.endLsn, count: data.count });
+    },
+    [walRecords],
+  );
+
+  // Prefill recent ~20 window when entering WAL (connected). Does not auto-Load.
+  useEffect(() => {
+    if (!connected || mode !== "wal") return;
+    let cancelled = false;
+    (async () => {
+      setWalFilling(true);
+      try {
+        const window = await fetchRecentWalWindow(20);
+        if (cancelled) return;
+        setWalStartLsn(window.startLsn);
+        setWalEndLsn(window.endLsn);
+      } catch (e) {
+        if (!cancelled) setError(e as AppError);
+      } finally {
+        if (!cancelled) setWalFilling(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, mode]);
+
+  const onWalLoad = async () => {
+    if (!connected) {
+      setError({
+        code: "NOT_CONNECTED",
+        message: "Not connected",
+        nextStep: "Connect first, then load a WAL range.",
+      });
+      return;
+    }
+    const start = walStartLsn.trim();
+    const end = walEndLsn.trim();
+    if (!start || !end) {
+      setError({
+        code: "BAD_LSN",
+        message: "start LSN and end LSN are required",
+        nextStep: "Enter both LSN values (or use recent 20), then press Load.",
+      });
+      setWalPhase("error");
+      return;
+    }
+    setWalPhase("loading");
+    setError(null);
+    try {
+      const data = await fetchWalRecords(start, end);
+      applyWalLoadResult(data);
+    } catch (e) {
+      setWalRecords([]);
+      setWalNewLsns(new Set());
+      setWalPhase("error");
+      setWalRangeMeta(null);
+      setError(e as AppError);
+    }
+  };
+
+  /** Fill recent ~20 window and Load in one step. */
+  const onWalRecent20 = async () => {
+    if (!connected) return;
+    setWalFilling(true);
+    setWalPhase("loading");
+    setError(null);
+    try {
+      const window = await fetchRecentWalWindow(20);
+      setWalStartLsn(window.startLsn);
+      setWalEndLsn(window.endLsn);
+      const data = await fetchWalRecords(window.startLsn, window.endLsn);
+      applyWalLoadResult(data);
+    } catch (e) {
+      setWalRecords([]);
+      setWalNewLsns(new Set());
+      setWalPhase("error");
+      setWalRangeMeta(null);
+      setError(e as AppError);
+    } finally {
+      setWalFilling(false);
+    }
+  };
+
   const connSummary =
     connected && session
       ? `${session.host}:${session.port} / ${session.database} / ${session.user}`
@@ -312,6 +421,70 @@ export function App() {
             </div>
           ) : mode === "wal" ? (
             <div className="meta-row meta-controls-row">
+              <div className="chrome-controls">
+                <label className="control">
+                  <span className="control-label">start LSN</span>
+                  <input
+                    className="mono wal-lsn-input"
+                    value={walStartLsn}
+                    onChange={(e) => setWalStartLsn(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void onWalLoad();
+                      }
+                    }}
+                    placeholder="0/16B3748"
+                    disabled={!connected || walPhase === "loading"}
+                    required
+                  />
+                </label>
+                <label className="control">
+                  <span className="control-label">end LSN</span>
+                  <input
+                    className="mono wal-lsn-input"
+                    value={walEndLsn}
+                    onChange={(e) => setWalEndLsn(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void onWalLoad();
+                      }
+                    }}
+                    placeholder="0/16B4000"
+                    disabled={!connected || walPhase === "loading"}
+                    required
+                  />
+                </label>
+                <button
+                  className="primary"
+                  type="button"
+                  disabled={!canWalLoad}
+                  onClick={() => void onWalLoad()}
+                >
+                  {walPhase === "loading" && !walFilling ? (
+                    <>
+                      <span className="spinner" /> Load
+                    </>
+                  ) : (
+                    "Load"
+                  )}
+                </button>
+                <button
+                  type="button"
+                  disabled={!connected || walFilling || walPhase === "loading"}
+                  onClick={() => void onWalRecent20()}
+                  title="Fill recent ~20 window and Load"
+                >
+                  {walFilling ? (
+                    <>
+                      <span className="spinner" /> recent 20
+                    </>
+                  ) : (
+                    "recent 20"
+                  )}
+                </button>
+              </div>
               <div className="meta-stats" aria-label="WAL context">
                 <span className="meta-item">
                   <span className="label">mode</span>
@@ -321,7 +494,10 @@ export function App() {
                   <>
                     <span className="meta-item">
                       <span className="label">range</span>
-                      <span className="value mono" title={`${walRangeMeta.startLsn} – ${walRangeMeta.endLsn}`}>
+                      <span
+                        className="value mono"
+                        title={`${walRangeMeta.startLsn} – ${walRangeMeta.endLsn}`}
+                      >
                         {walRangeMeta.startLsn} – {walRangeMeta.endLsn}
                       </span>
                     </span>
@@ -329,6 +505,12 @@ export function App() {
                       <span className="label">#records</span>
                       <span className="value">{walRangeMeta.count}</span>
                     </span>
+                    {walNewLsns.size > 0 && (
+                      <span className="meta-item">
+                        <span className="label">#new</span>
+                        <span className="value wal-new-count">{walNewLsns.size}</span>
+                      </span>
+                    )}
                   </>
                 ) : (
                   <span className="meta-item">
@@ -451,26 +633,28 @@ export function App() {
           )}
         </div>
 
-        {mode === "page" && page && (
+        {((mode === "page" && page) || (mode === "wal" && connected)) && (
           <div className="chrome-actions">
             <button
               className="chrome-detail"
               type="button"
               aria-expanded={!detailCollapsed}
-              aria-controls="selection-detail-panel"
+              aria-controls={mode === "wal" ? "wal-detail-panel" : "selection-detail-panel"}
               onClick={() => setDetailCollapsed((v) => !v)}
             >
               {detailCollapsed ? "Show detail" : "Collapse detail"}
             </button>
-            <button
-              className="chrome-collapse"
-              type="button"
-              aria-expanded={!hexCollapsed}
-              aria-controls="hex-panel"
-              onClick={() => setHexCollapsed((v) => !v)}
-            >
-              {hexCollapsed ? "Show hex" : "Collapse hex"}
-            </button>
+            {mode === "page" && (
+              <button
+                className="chrome-collapse"
+                type="button"
+                aria-expanded={!hexCollapsed}
+                aria-controls="hex-panel"
+                onClick={() => setHexCollapsed((v) => !v)}
+              >
+                {hexCollapsed ? "Show hex" : "Collapse hex"}
+              </button>
+            )}
           </div>
         )}
         <button
@@ -563,9 +747,10 @@ export function App() {
 
         {connected && mode === "wal" && (
           <WalView
-            connected={connected}
-            onError={setError}
-            onRangeMeta={setWalRangeMeta}
+            phase={walPhase}
+            records={walRecords}
+            newLsns={walNewLsns}
+            detailOpen={!detailCollapsed}
           />
         )}
 

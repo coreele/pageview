@@ -1,95 +1,30 @@
-import { useCallback, useRef, useState, type KeyboardEvent } from "react";
-import { hasFpi } from "wal-core";
-import {
-  fetchRecentWalWindow,
-  fetchWalRecords,
-  type AppError,
-  type WalRecordDto,
-} from "./api";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import type { WalRecordDto } from "./api";
+
+export type WalPhase = "idle" | "loading" | "loaded" | "error";
+
+const emptyNewLsns = new Set<string>();
 
 export type WalViewProps = {
-  connected: boolean;
-  onError: (err: AppError | null) => void;
-  onRangeMeta: (meta: { startLsn: string; endLsn: string; count: number } | null) => void;
+  phase: WalPhase;
+  records: WalRecordDto[];
+  /** start_lsn values new vs previous Load (empty on first Load). */
+  newLsns?: Set<string>;
+  detailOpen?: boolean;
 };
 
-type WalPhase = "idle" | "loading" | "loaded" | "error";
-
-export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
-  const [startLsn, setStartLsn] = useState("");
-  const [endLsn, setEndLsn] = useState("");
-  const [phase, setPhase] = useState<WalPhase>("idle");
-  const [records, setRecords] = useState<WalRecordDto[]>([]);
+export function WalView({ phase, records, newLsns, detailOpen = true }: WalViewProps) {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [expandedFpi, setExpandedFpi] = useState<Set<string>>(() => new Set());
-  const [fillingWindow, setFillingWindow] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
+  const highlighted = newLsns ?? emptyNewLsns;
+
+  useEffect(() => {
+    setSelectedKey(null);
+  }, [records]);
 
   const recordKey = (r: WalRecordDto, i: number) => `${r.startLsn}::${i}`;
 
   const selected = records.find((r, i) => recordKey(r, i) === selectedKey) ?? null;
-
-  const onFillRecentWindow = async () => {
-    if (!connected) return;
-    setFillingWindow(true);
-    onError(null);
-    try {
-      const window = await fetchRecentWalWindow(20);
-      setStartLsn(window.startLsn);
-      setEndLsn(window.endLsn);
-      // Fill only — do not Load
-    } catch (e) {
-      onError(e as AppError);
-    } finally {
-      setFillingWindow(false);
-    }
-  };
-
-  const onLoad = useCallback(async () => {
-    if (!connected) {
-      onError({
-        code: "NOT_CONNECTED",
-        message: "Not connected",
-        nextStep: "Connect first, then load a WAL range.",
-      });
-      return;
-    }
-    const start = startLsn.trim();
-    const end = endLsn.trim();
-    if (!start || !end) {
-      onError({
-        code: "BAD_LSN",
-        message: "start LSN and end LSN are required",
-        nextStep: "Enter both LSN values (or use Fill recent window), then press Load.",
-      });
-      setPhase("error");
-      return;
-    }
-    setPhase("loading");
-    onError(null);
-    setSelectedKey(null);
-    setExpandedFpi(new Set());
-    try {
-      const data = await fetchWalRecords(start, end);
-      setRecords(data.records);
-      setPhase("loaded");
-      onRangeMeta({ startLsn: data.startLsn, endLsn: data.endLsn, count: data.count });
-    } catch (e) {
-      setRecords([]);
-      setPhase("error");
-      onRangeMeta(null);
-      onError(e as AppError);
-    }
-  }, [connected, startLsn, endLsn, onError, onRangeMeta]);
-
-  const toggleFpi = (key: string) => {
-    setExpandedFpi((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  };
 
   const onListKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (records.length === 0) return;
@@ -110,80 +45,8 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
     }
   };
 
-  const canLoad = connected && phase !== "loading";
-
   return (
-    <div className="wal-layout">
-      <aside className="wal-nav" aria-label="WAL query">
-        <label className="control wal-field">
-          <span className="control-label">start LSN</span>
-          <input
-            className="mono"
-            value={startLsn}
-            onChange={(e) => setStartLsn(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void onLoad();
-              }
-            }}
-            placeholder="0/16B3748"
-            disabled={!connected || phase === "loading"}
-            required
-          />
-        </label>
-        <label className="control wal-field">
-          <span className="control-label">end LSN</span>
-          <input
-            className="mono"
-            value={endLsn}
-            onChange={(e) => setEndLsn(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void onLoad();
-              }
-            }}
-            placeholder="0/16B4000"
-            disabled={!connected || phase === "loading"}
-            required
-          />
-        </label>
-        <div className="wal-nav-actions">
-          <button
-            type="button"
-            disabled={!connected || fillingWindow || phase === "loading"}
-            onClick={() => void onFillRecentWindow()}
-          >
-            {fillingWindow ? (
-              <>
-                <span className="spinner" /> Filling…
-              </>
-            ) : (
-              "填入最近窗口"
-            )}
-          </button>
-          <button
-            className="primary"
-            type="button"
-            disabled={!canLoad}
-            onClick={() => void onLoad()}
-          >
-            {phase === "loading" ? (
-              <>
-                <span className="spinner" /> Load
-              </>
-            ) : (
-              "Load"
-            )}
-          </button>
-        </div>
-        <p className="muted wal-hint">
-          Enter a start/end LSN range, then Load. 「填入最近窗口」fills ~20 recent records and does not
-          auto-load.
-        </p>
-      </aside>
-
+    <div className={`wal-layout${detailOpen ? "" : " wal-layout--detail-collapsed"}`}>
       <div className="wal-main">
         <section
           className="wal-list-pane"
@@ -194,7 +57,7 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
         >
           {phase === "idle" && (
             <div className="panel muted">
-              Enter start and end LSN (or use 填入最近窗口), then press Load.
+              Recent LSN range is prefilled — press Load, or use recent 20 to refresh and load.
             </div>
           )}
           {phase === "loading" && (
@@ -208,87 +71,86 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
             </div>
           )}
           {phase === "loaded" && records.length > 0 && (
-            <ul className="wal-record-list" role="listbox" aria-label="WAL record list">
-              {records.map((r, i) => {
-                const key = recordKey(r, i);
-                const selectedRow = key === selectedKey;
-                const fpi = hasFpi(r);
-                const fpiOpen = expandedFpi.has(key);
-                return (
-                  <li key={key} role="option" aria-selected={selectedRow}>
-                    <div
-                      className={`wal-record-row${selectedRow ? " selected" : ""}`}
-                      tabIndex={0}
-                      onClick={() => setSelectedKey(key)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedKey(key);
-                        }
-                      }}
-                    >
-                      <span className="wal-col wal-lsn mono" title={r.endLsn ? `end ${r.endLsn}` : undefined}>
-                        {r.startLsn}
-                        {r.endLsn && (
-                          <span className="wal-lsn-sub muted">
-                            {` → ${r.endLsn}`}
-                          </span>
-                        )}
-                      </span>
-                      <span className="wal-col wal-xid mono">{r.xid ?? "—"}</span>
-                      <span className="wal-col wal-rm">
-                        <strong>{r.resourceManager}</strong>
-                        <span className="muted"> · {r.recordType}</span>
-                      </span>
-                      <span className="wal-col wal-len mono">
-                        len {r.recordLength}
-                        {r.mainDataLength != null ? ` · main ${r.mainDataLength}` : ""}
-                      </span>
-                      <span
-                        className="wal-col wal-desc"
-                        title={[r.description, r.blockRef].filter(Boolean).join("\n") || undefined}
+            <>
+              <div className="wal-record-header wal-record-grid" aria-hidden="true">
+                <span className="wal-col">start_lsn</span>
+                <span className="wal-col">xid</span>
+                <span className="wal-col">resource</span>
+                <span className="wal-col">type</span>
+                <span className="wal-col">len_record</span>
+                <span className="wal-col">len_main</span>
+                <span className="wal-col">len_fpi</span>
+                <span className="wal-col">description</span>
+                <span className="wal-col">block_ref</span>
+              </div>
+              <ul className="wal-record-list" role="listbox" aria-label="WAL record list">
+                {records.map((r, i) => {
+                  const key = recordKey(r, i);
+                  const selectedRow = key === selectedKey;
+                  const isNew = highlighted.has(r.startLsn);
+                  return (
+                    <li key={key} role="option" aria-selected={selectedRow}>
+                      <div
+                        className={`wal-record-row wal-record-grid${selectedRow ? " selected" : ""}${isNew ? " diff" : ""}`}
+                        tabIndex={0}
+                        title={isNew ? "New since previous Load" : undefined}
+                        onClick={() => setSelectedKey(key)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setSelectedKey(key);
+                          }
+                        }}
                       >
-                        {r.description || r.blockRef || "—"}
-                      </span>
-                      {fpi && (
-                        <button
-                          type="button"
-                          className="wal-col wal-fpi"
-                          aria-expanded={fpiOpen}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFpi(key);
-                          }}
+                        <span
+                          className="wal-col wal-lsn mono"
+                          title={r.endLsn ? `end ${r.endLsn}` : undefined}
                         >
-                          <span className="wal-fpi-chip">
-                            FPI · {r.fpiLength} bytes {fpiOpen ? "▾" : "▸"}
-                          </span>
-                          {fpiOpen && (
-                            <span className="wal-fpi-meta muted">
-                              Full page image metadata only — length {r.fpiLength}
-                              {r.blockRef ? `; ${r.blockRef}` : ""}. Raw FPI bytes are not rendered.
-                            </span>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                          {r.startLsn}
+                        </span>
+                        <span className="wal-col wal-xid mono">{r.xid ?? "—"}</span>
+                        <span className="wal-col wal-rm">{r.resourceManager}</span>
+                        <span className="wal-col wal-type">{r.recordType}</span>
+                        <span className="wal-col wal-len mono">{r.recordLength}</span>
+                        <span className="wal-col wal-main-len mono">{r.mainDataLength ?? "—"}</span>
+                        <span className="wal-col wal-fpi-len mono">{r.fpiLength}</span>
+                        <span className="wal-col wal-desc" title={r.description ?? undefined}>
+                          {r.description ?? "—"}
+                        </span>
+                        <span className="wal-col wal-block-ref mono" title={r.blockRef ?? undefined}>
+                          {r.blockRef ?? "—"}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
           )}
           {phase === "error" && (
             <div className="panel muted">WAL load failed — see the error panel above.</div>
           )}
         </section>
 
-        <section className="wal-detail-pane" aria-label="WAL record detail and hex placeholder">
-          {selected ? (
-            <>
+        {detailOpen && (
+          <section
+            id="wal-detail-panel"
+            className="wal-detail-pane"
+            aria-label="WAL record detail"
+          >
+            {selected ? (
               <div className="wal-detail-summary">
                 <div>
                   <span className="label">start LSN</span>{" "}
                   <span className="mono">{selected.startLsn}</span>
+                </div>
+                <div>
+                  <span className="label">end LSN</span>{" "}
+                  <span className="mono">{selected.endLsn ?? "—"}</span>
+                </div>
+                <div>
+                  <span className="label">prev LSN</span>{" "}
+                  <span className="mono">{selected.prevLsn ?? "—"}</span>
                 </div>
                 <div>
                   <span className="label">RM / type</span>{" "}
@@ -311,21 +173,11 @@ export function WalView({ connected, onError, onRangeMeta }: WalViewProps) {
                   </div>
                 )}
               </div>
-              <div className="wal-hex-placeholder panel">
-                <strong>Hex / raw bytes</strong>
-                <p>
-                  WAL v1 does not provide raw byte hex dumps. Records come from{" "}
-                  <code>pg_walinspect</code> structured fields only — this app will not forge a
-                  byte stream from metadata.
-                </p>
-              </div>
-            </>
-          ) : (
-            <div className="panel muted">
-              Select a record to see its summary. Hex dump is unavailable in WAL v1.
-            </div>
-          )}
-        </section>
+            ) : (
+              <div className="panel muted">Select a record to see its summary.</div>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );

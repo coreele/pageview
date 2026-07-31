@@ -58,12 +58,43 @@
 - 连接成功后仍拉 `listTables`（Page）；缺 `pageinspect` 时错误可见、会话不断开。
 - 无单条 LSN API（Design）。
 - `wal-smoke.ts` 为 L3 恢复脚本，非 CI 必跑。
-- Fill 失败时保留既有 start/end 控件值（不写假窗口）；仅 `onError` 可见。
+- Fill/预填失败时保留既有 start/end（不写假窗口）；错误经 chrome 可见。
+- UI 打磨后：侧栏「填入最近窗口」改为 chrome `recent 20`（填窗+Load）；进 WAL 预填仍不自动 Load（P1-2）。
 
-## 建议 Review
+## 建议 Review（历史 recent-window）
 
-- recent-window 启发式与取尾回填；Fill 不自动 Load；超限/已删段不假成功；README Fill 文案。
+- recent-window 启发式与取尾回填；进 WAL Fill 不自动 Load；超限/已删段不假成功；README Fill 文案。
 
-## 建议状态
+## UI 打磨增量（2026-07-31）
 
-`reviewing`（Review required；Approve 后 QA 回归重点 P1-2）
+用户目视同意继续（**非**合并授权）。基线 `5690895`。
+
+| 项 | 行为 |
+|---|---|
+| chrome 控件 | start/end LSN、Load、`recent 20` 上移顶栏；`WalView` 仅列表/详情 |
+| 进入 WAL | 已连接预填 recent ~20；**不**自动 Load |
+| `recent 20` | 一键填窗并 Load（用户已目视确认） |
+| Load diff | 相对上一批 `start_lsn` 高亮新行 + meta `#new`；首轮不高亮 |
+| Collapse detail | 折叠详情列，列表扩满 |
+| 表头/视觉 | 字段表头；圆角卡片；选中/`--wal-new` diff（含 dark） |
+
+列布局不变：列表仅 start（end 在 title）、无 prev、xid 第二列；prev 仅详情。
+
+变更：`apps/web/src/{App,WalView}.{tsx}`、`styles.css`；本文件；`docs/manager/{STATUS,wal-viewer}.md`（Manager 已改，本角色未改写）。排除：`_qa-*`、`test-results/`、`sparse.*` fixtures、`review.md`、`qa-report.md`。
+
+### 验证证据（本增量）
+
+- `pnpm --filter web typecheck` → OK
+- `pnpm --filter web test` → 20 passed（既有 layout/Infomask；无 WAL 组件单测）
+- `pnpm --filter server test` → 17 passed（回归，未改 server）
+
+### 建议复测（QA 轮次 5）
+
+- UI：表头、圆角、选中/diff、Collapse detail、`#new`
+- 不回退 P1-2：进 WAL 预填不 Load；手动 Load ≈20；`recent 20` 填+Load ≈20
+- 列布局：无 prev、xid 第二列
+- 抽查 DEF-1 tip 空批次、DEF-2 可读错误
+
+### 建议状态
+
+`reviewing` → Approve → QA 轮次 5；Pass 后再请求合并授权。

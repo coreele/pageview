@@ -14,6 +14,9 @@
   --region-tuple: #c8ebd6;
   --hex-hl: #ffe08a;
   --diff: #ea580c;
+  --wal-new: #047857;
+  --wal-new-bg: #d8f3e7;
+  --wal-selected-bg: color-mix(in srgb, var(--focus) 18%, var(--surface));
   --field-selected: #0b6bcb;
   --diagram-bg: #f1f5f8;
   --diagram-grid-line: color-mix(in srgb, #94a3b8 35%, transparent);
@@ -41,6 +44,9 @@
   --region-tuple: #163528;
   --hex-hl: #7a5a12;
   --diff: #fb923c;
+  --wal-new: #4ade80;
+  --wal-new-bg: color-mix(in srgb, #4ade80 12%, var(--surface));
+  --wal-selected-bg: color-mix(in srgb, #38bdf8 22%, var(--surface));
   --field-selected: #38bdf8;
   --diagram-bg: #101820;
   --diagram-grid-line: color-mix(in srgb, #64748b 40%, transparent);
@@ -368,27 +374,35 @@ input {
 /* Soften system scrollbars to match chrome (esp. structure pane between columns). */
 .main,
 .pane-structure,
-.hex {
+.hex,
+.wal-list-pane,
+.wal-detail-pane {
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .main::-webkit-scrollbar,
 .pane-structure::-webkit-scrollbar,
-.hex::-webkit-scrollbar {
+.hex::-webkit-scrollbar,
+.wal-list-pane::-webkit-scrollbar,
+.wal-detail-pane::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 .main::-webkit-scrollbar-track,
 .pane-structure::-webkit-scrollbar-track,
-.hex::-webkit-scrollbar-track {
+.hex::-webkit-scrollbar-track,
+.wal-list-pane::-webkit-scrollbar-track,
+.wal-detail-pane::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
 }
 
 .main::-webkit-scrollbar-thumb,
 .pane-structure::-webkit-scrollbar-thumb,
-.hex::-webkit-scrollbar-thumb {
+.hex::-webkit-scrollbar-thumb,
+.wal-list-pane::-webkit-scrollbar-thumb,
+.wal-detail-pane::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 8px;
   border: 2px solid transparent;
@@ -397,7 +411,9 @@ input {
 
 .main::-webkit-scrollbar-thumb:hover,
 .pane-structure::-webkit-scrollbar-thumb:hover,
-.hex::-webkit-scrollbar-thumb:hover {
+.hex::-webkit-scrollbar-thumb:hover,
+.wal-list-pane::-webkit-scrollbar-thumb:hover,
+.wal-detail-pane::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -405,7 +421,9 @@ input {
 
 .main::-webkit-scrollbar-corner,
 .pane-structure::-webkit-scrollbar-corner,
-.hex::-webkit-scrollbar-corner {
+.hex::-webkit-scrollbar-corner,
+.wal-list-pane::-webkit-scrollbar-corner,
+.wal-detail-pane::-webkit-scrollbar-corner {
   background: transparent;
 }
 
@@ -1365,7 +1383,7 @@ input {
   width: min(400px, 100%);
 }
 
-/* Wide viewport (Spec breakpoint 960px): structure left â€– hex right. */
+/* Wide viewport (Spec breakpoint 960px): structure left ? hex right. */
 @media (min-width: 960px) {
   .main-paged {
     overflow: hidden;
@@ -1379,7 +1397,7 @@ input {
     align-items: stretch;
   }
 
-  /* Collapsed: hex pane unmounted â€” single column, structure fills main. */
+  /* Collapsed: hex pane unmounted ? single column, structure fills main. */
   .main-paged .main-split[data-hex="collapsed"] {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1419,7 +1437,7 @@ input {
   }
 }
 
-/* ¡ª¡ª WAL mode ¡ª¡ª */
+/* WAL mode: visual alignment with Page cards; behavior unchanged */
 .main-wal {
   display: flex;
   flex-direction: column;
@@ -1428,97 +1446,166 @@ input {
 }
 
 .wal-layout {
-  display: grid;
-  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
-  gap: 0;
+  display: flex;
+  flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  border-top: 1px solid var(--border);
+  gap: 0.55rem;
 }
 
-.wal-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  padding: 0.75rem;
-  border-right: 1px solid var(--border);
-  background: var(--surface);
-  min-height: 0;
-  overflow: auto;
-}
-
-.wal-field {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.25rem;
-  white-space: normal;
-}
-
-.wal-field input {
-  width: 100%;
-  padding: 0.35rem 0.45rem;
-}
-
-.wal-nav-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.wal-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.4;
+.wal-lsn-input {
+  width: 8.5rem;
+  padding: 0.3rem 0.4rem;
 }
 
 .wal-main {
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.55rem;
   min-height: 0;
   min-width: 0;
+  flex: 1 1 auto;
+}
+
+.wal-layout--detail-collapsed .wal-main {
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .wal-list-pane {
   min-height: 0;
   overflow: auto;
-  padding: 0.35rem 0;
+  background: var(--diagram-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.45rem 0.5rem 0.55rem;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 35%, transparent);
+}
+
+[data-theme="dark"] .wal-list-pane {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 4%, transparent);
+}
+
+.wal-list-pane > .panel {
+  border-radius: 8px;
+  margin: 0.15rem 0;
 }
 
 .wal-record-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.wal-record-grid {
+  display: grid;
+  grid-template-columns:
+    6.4rem
+    2.5rem
+    4.8rem
+    9.5rem
+    4.2rem
+    6.1rem
+    3.8rem
+    minmax(10rem, 1.1fr)
+    minmax(12rem, 1.4fr);
+  gap: 0.3rem 0.32rem;
+  align-items: start;
+  width: 100%;
+  min-width: 0;
+}
+
+.wal-record-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0.48rem 0.55rem;
+  border: 1px solid color-mix(in srgb, var(--focus) 28%, var(--border));
+  border-radius: 6px 6px 0 0;
+  background: color-mix(in srgb, var(--focus) 14%, var(--surface));
+  font-size: 0.84rem;
+  font-weight: 650;
+  color: color-mix(in srgb, var(--focus) 35%, var(--text));
+  letter-spacing: 0.015em;
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--focus) 22%, transparent);
+}
+
+.wal-record-header .wal-col {
+  white-space: nowrap;
 }
 
 .wal-record-row {
-  display: grid;
-  grid-template-columns: minmax(9rem, 14rem) 4.5rem minmax(7rem, 11rem) minmax(6rem, 9rem) minmax(0, 1fr) auto;
-  gap: 0.45rem 0.65rem;
-  align-items: start;
-  width: 100%;
   text-align: left;
-  padding: 0.4rem 0.75rem;
+  padding: 0.3rem 0.55rem;
   border: none;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   border-radius: 0;
   background: transparent;
   cursor: pointer;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .wal-record-row {
+  box-shadow: none;
+}
+
+.wal-record-list > li:last-child .wal-record-row {
+  border-bottom: none;
+}
+
+.wal-record-row .wal-col {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .wal-record-row:hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-color: transparent;
 }
 
-.wal-record-row.selected {
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  box-shadow: inset 3px 0 0 var(--accent);
+.wal-record-row.selected,
+.wal-record-row.diff.selected {
+  background: var(--wal-selected-bg);
+  border-color: transparent;
+  box-shadow: inset 3px 0 0 var(--focus);
+}
+
+.wal-record-row.diff {
+  background: var(--wal-new-bg);
+  border-color: transparent;
+  box-shadow: inset 3px 0 0 var(--wal-new);
+}
+
+.wal-record-row.selected .wal-lsn,
+.wal-record-row.diff.selected .wal-lsn {
+  color: var(--focus);
+  font-weight: 700;
+}
+
+.wal-record-row.diff:not(.selected) .wal-lsn {
+  color: var(--wal-new);
+}
+
+.wal-new-count {
+  color: var(--wal-new);
+  font-weight: 600;
 }
 
 .wal-lsn-sub {
   display: block;
   font-size: 0.72rem;
   font-weight: 400;
+}
+
+.wal-lsn {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .wal-desc {
@@ -1528,6 +1615,21 @@ input {
   min-width: 0;
 }
 
+.wal-len {
+  white-space: nowrap;
+}
+
+.wal-rm,
+.wal-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wal-block-ref {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .wal-fpi {
   display: flex;
   flex-direction: column;
@@ -1535,7 +1637,7 @@ input {
   gap: 0.2rem;
   padding: 0.15rem 0.35rem;
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--surface) 80%, var(--bg));
   font-size: 0.75rem;
   max-width: 16rem;
@@ -1552,17 +1654,24 @@ input {
 }
 
 .wal-detail-pane {
-  border-top: 1px solid var(--border);
-  padding: 0.65rem 0.75rem;
-  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.85rem 1rem 1rem;
+  background: color-mix(in srgb, var(--surface) 88%, var(--diagram-bg));
   max-height: 28vh;
   overflow: auto;
+  box-sizing: border-box;
+}
+
+.wal-detail-pane > .panel {
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 
 .wal-detail-summary {
   display: grid;
-  gap: 0.35rem;
-  margin-bottom: 0.65rem;
+  gap: 0.4rem;
   font-size: 0.9rem;
 }
 
@@ -1572,37 +1681,22 @@ input {
   margin-right: 0.35rem;
 }
 
-.wal-hex-placeholder {
-  margin: 0;
-}
-
-.wal-hex-placeholder p {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted);
-}
-
 @media (max-width: 959px) {
-  .wal-layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .wal-nav {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .wal-record-row {
+  .wal-record-grid {
     grid-template-columns: 1fr 1fr;
     grid-auto-rows: auto;
+    min-width: 0;
+  }
+
+  .wal-record-header {
+    display: none;
   }
 
   .wal-desc {
     grid-column: 1 / -1;
   }
 
-  .wal-fpi {
+  .wal-block-ref {
     grid-column: 1 / -1;
-    max-width: none;
   }
 }

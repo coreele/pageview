@@ -26,7 +26,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| wal-viewer | [spec.md](../features/wal-viewer/spec.md) | required | approved | required | gui | required | developing | 合并前 UI：列表仅 start/end LSN、xid→第2列；Review→QA |
+| wal-viewer | [spec.md](../features/wal-viewer/spec.md) | required | approved | required | gui | required | developing | 用户目视确认 UI 打磨；Developer 提交 → Review → QA 轮次 5；Pass 后再请求合并授权 |
 
 阻塞原因: none
 恢复条件: N/A
@@ -94,3 +94,7 @@
 - 2026-07-30: **恢复中断工作流**。门禁核验：Plan/增量产品变更已确认；Review Approve @ `6ac260b`；源 `wal-viewer`；`qa-report.md` 尚无 recent-window 回归轮次。状态保持 `qa`，立即调度 QA 追加轮次 3（P1-2 + recent-window 契约 + P0 抽查）。Pass 后请求合并授权；不标 done、不 merge、不单独提交报告。
 - 2026-07-30: QA 轮次 3（[qa](21b76482-da9f-4f2a-b0e8-68863f1af3f6)）结论 **Pass**（`wal-viewer` @ `6ac260b`）。P1-2 recent-window API + Fill→不自动 Load→约 20 条 UI 已实锤；DEF-1/2 未回退；无新缺陷。报告已追加轮次 3（未提交；待合并授权窗口禁止单独提交）。状态保持 `qa`。**请求用户合并授权**：源 `wal-viewer` → 目标 `main`。授权前不标 `done`、不合并。
 - 2026-07-30: **产品变更（未合并前 · UI 列布局）**。用户要求 WAL 列表：仅显示 **start / end LSN**，**不显示 prev**；**xid 提前为第二列**（API 仍可透出 prev）。合并授权仍未给予。状态 `qa` → `developing`。轻改 `ui-design.md` + Web 实现 → Review → QA；Pass 后再次请求合并授权。
+- 2026-07-30: 实现列表列布局（commit `5690895`）：行内仅 start→end；xid 为第二列；`ui-design`/`spec` 已对齐。状态 `developing` → `reviewing`。调度 Reviewer；Approve 后 QA 回归（抽查列布局 + 不回退 P1-2）。
+- 2026-07-30: Reviewer（[reviewer](f52c5fca-f913-4956-93b5-3a7297d79394)）结论 **Approve**（`wal-viewer` @ `5690895`）。列布局无阻塞。报告已更新（未提交）。状态 `reviewing` → `qa`。调度 QA 轮次 4（列布局 + P1-2 抽查）。
+- 2026-07-30: QA 轮次 4（[qa](19875afd-fbfa-471d-83d6-b9b6e41ecfc1)）结论 **Pass**（`wal-viewer` @ `5690895`）。列布局实锤：列表仅 start→end、无 prev、xid 第二列；P1-2 抽查通过（Fill 不自动 Load，Load 20 条）。无新缺陷。报告已在同一 `qa-report.md` 追加轮次 4（未提交；待合并授权窗口禁止单独提交）。状态保持 `qa`。**请求用户合并授权**：`wal-viewer` → `main`；授权前不标 `done`、不合并。
+- 2026-07-31: **用户目视审阅 UI 打磨并同意继续**（「视觉效果我已审阅，同意继续」）。**非**合并授权（未给出字面 merge/合入 main）。事实：HEAD 仍为 `5690895`；其后有大量未提交 UI 增量（`App.tsx` / `WalView.tsx` / `styles.css`：表头字段表、recent 20 一键填窗+Load、Load 新旧差异高亮、Collapse detail、外框圆角卡片、表头/选中/diff 配色等）。QA Pass 后未入库实现 → **不得**直接合入。状态 `qa` → `developing`。调度 Developer：在源分支 `wal-viewer` **仅提交**上述 web UI 打磨；排除 `_qa-*`、`test-results/`、`packages/page-core/fixtures/*` 噪声；**禁止**单独提交 `review.md`/`qa-report.md`。提交后更新 `dev-notes.md` → Reviewer Approve → QA 追加轮次 5（抽查 UI + 不回退 P1-2/recent 20）→ Pass 后再请求合并授权。

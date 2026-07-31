@@ -6,7 +6,7 @@
 
 | feature-id | sub-feature-id | 路径 | 状态 | 源分支 | 目标分支 | 文档目录 | 后续步骤 |
 |---|---|---|---|---|---|---|---|
-| wal-viewer | wal-viewer | full | developing | wal-viewer | main | [docs/features/wal-viewer/](../features/wal-viewer/) | 合并前 UI：列表去 prev、xid 第二列；改完 → Review → QA |
+| wal-viewer | wal-viewer | full | developing | wal-viewer | main | [docs/features/wal-viewer/](../features/wal-viewer/) | 用户目视确认 UI 打磨；调度 Developer 提交后 → Review → QA 轮次 5 |
 
 ## 归档
 
