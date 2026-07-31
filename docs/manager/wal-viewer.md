@@ -26,7 +26,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| wal-viewer | [spec.md](../features/wal-viewer/spec.md) | required | approved | required | gui | required | developing | 用户目视确认 UI 打磨；Developer 提交 → Review → QA 轮次 5；Pass 后再请求合并授权 |
+| wal-viewer | [spec.md](../features/wal-viewer/spec.md) | required | approved | required | gui | required | done | 用户「ok」授权合并；合入 `main` 后归档 |
 
 阻塞原因: none
 恢复条件: N/A
@@ -98,3 +98,7 @@
 - 2026-07-30: Reviewer（[reviewer](f52c5fca-f913-4956-93b5-3a7297d79394)）结论 **Approve**（`wal-viewer` @ `5690895`）。列布局无阻塞。报告已更新（未提交）。状态 `reviewing` → `qa`。调度 QA 轮次 4（列布局 + P1-2 抽查）。
 - 2026-07-30: QA 轮次 4（[qa](19875afd-fbfa-471d-83d6-b9b6e41ecfc1)）结论 **Pass**（`wal-viewer` @ `5690895`）。列布局实锤：列表仅 start→end、无 prev、xid 第二列；P1-2 抽查通过（Fill 不自动 Load，Load 20 条）。无新缺陷。报告已在同一 `qa-report.md` 追加轮次 4（未提交；待合并授权窗口禁止单独提交）。状态保持 `qa`。**请求用户合并授权**：`wal-viewer` → `main`；授权前不标 `done`、不合并。
 - 2026-07-31: **用户目视审阅 UI 打磨并同意继续**（「视觉效果我已审阅，同意继续」）。**非**合并授权（未给出字面 merge/合入 main）。事实：HEAD 仍为 `5690895`；其后有大量未提交 UI 增量（`App.tsx` / `WalView.tsx` / `styles.css`：表头字段表、recent 20 一键填窗+Load、Load 新旧差异高亮、Collapse detail、外框圆角卡片、表头/选中/diff 配色等）。QA Pass 后未入库实现 → **不得**直接合入。状态 `qa` → `developing`。调度 Developer：在源分支 `wal-viewer` **仅提交**上述 web UI 打磨；排除 `_qa-*`、`test-results/`、`packages/page-core/fixtures/*` 噪声；**禁止**单独提交 `review.md`/`qa-report.md`。提交后更新 `dev-notes.md` → Reviewer Approve → QA 追加轮次 5（抽查 UI + 不回退 P1-2/recent 20）→ Pass 后再请求合并授权。
+- 2026-07-31: Developer（[developer](e21938df-80b3-4d46-b156-0f320c68bc95)）完成 UI 打磨提交 `696a8d4`（`feat(web): polish WAL viewer chrome and record list`）。含 App/WalView/styles + `dev-notes.md` + 既有 Manager 状态变更；排除 `_qa-*`/`test-results`/fixtures/`review.md`/`qa-report.md`。验证：web typecheck OK；web 20 passed；server 17 passed。状态 `developing` → `reviewing`。调度 Reviewer（`wal-viewer` @ `696a8d4`）；Approve 后 QA 轮次 5。**不**请求合并授权。
+- 2026-07-31: Reviewer（[reviewer](3d085c13-acad-4610-9df8-c8d3002274a5)）结论 **Approve**（`wal-viewer` @ `696a8d4`）。无阻塞项；Low 旁注不阻 QA。报告已更新 `review.md`（未提交）。Review 门禁 required **已满足**。状态 `reviewing` → `qa`。调度 QA 追加轮次 5：UI 抽查（表头/圆角卡片/选中/diff/Collapse/`#new`/`recent 20`）+ 不回退 P1-2/recent 20 + 列布局抽查。Pass 后再请求合并授权；**禁止**单独提交报告、**禁止**自动 merge。
+- 2026-07-31: QA 轮次 5（[qa](3f514af4-14e0-4a5a-b329-513f8a24e86b)）结论 **Pass**（`wal-viewer` @ `696a8d4`）。UI 打磨实锤；P1-2/列布局/DEF-1·2 未回退；无新缺陷。报告已追加轮次 5（未提交；待合并授权窗口禁止单独提交）。状态保持 `qa`。**请求用户合并授权**：源 `wal-viewer` → 目标 `main`；授权前不标 `done`、不合并。
+- 2026-07-31: **合并授权**。用户回复「ok」，视为明确授权 `wal-viewer` → `main`（与本会话 Plan/产品变更「ok」惯例一致）。门禁核验：源分支 `wal-viewer` @ `696a8d4`；Review Approve；QA 轮次 5 Pass。状态 `qa` → `done`。一次提交纳入 STATUS/`done`、工作项记录、`review.md`、`qa-report.md`；随后 FF 合入 `main` 并归档。
