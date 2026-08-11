@@ -4,14 +4,13 @@
 
 ## 活跃工作项
 
-| feature-id | sub-feature-id | 状态 | 目录 | 备注 |
-|---|---|---|---|---|
-| add-ci | add-ci | done | [workflow/docs/features/add-ci/](../features/add-ci/) | CI + 测试脚本修复；Review Approve；QA Pass（PR #1 两 Job 绿）；已授权合并 |
+（无）
 
 ## 归档
 
 | feature-id | 最终状态 | 归档目录 | 备注 |
 |---|---|---|---|
+| add-ci | done | [workflow/docs/archive/2026/add-ci/](../archive/2026/add-ci/) | 2026-08-11 合入 `main`（FF `e9280f2`）；PR #1 CI run `31470389230` 两 Job 绿（unit 47s/81 tests、integration 51s/两 smoke OK）；`main` 回归 run `31470618558` 亦绿；push 成功（`origin/main`） |
 | wal-viewer | done | [workflow/docs/archive/2026/wal-viewer/](../archive/2026/wal-viewer/) | 2026-07-31 合入 `main`（FF `9b5ffca`）后归档（`428851e`）；push 成功（`origin/main`；源分支 `wal-viewer` 亦已推送） |
 | detail-panel-polish | done | [workflow/docs/archive/2026/detail-panel-polish/](../archive/2026/detail-panel-polish/) | 2026-07-27 合入 `main`（FF `62792c7`）后归档（`bde8dbb`）；push 成功（`origin/main`，经 `127.0.0.1:7890`） |
 | infomask-detail | done | [workflow/docs/archive/2026/infomask-detail/](../archive/2026/infomask-detail/) | 2026-07-27 合入 `main`（FF `6caa2e5`）后归档；归档提交 `0c8448a`；push 成功（`origin/main`） |

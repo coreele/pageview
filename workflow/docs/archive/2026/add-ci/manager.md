@@ -7,7 +7,7 @@
 目标分支: main
 文档影响: 根 `README.md`（CI 章节与本地测试命令说明，若与脚本不一致则同步）；`workflow/docs/standards/quality.md`（若已声明 CI 守护则补具体命令，否则 N/A）。
 
-> 权威工作流、门禁与状态说明见 [workflow/README.md](../../README.md)。
+> 权威工作流、门禁与状态说明见 [workflow/README.md](../../../README.md)。
 > 活跃状态见 [STATUS.md](STATUS.md)。
 >
 > 文档路径：未拆分，Spec 为 `workflow/docs/features/add-ci/spec.md`（Spec 门禁 skipped，可能不产出）。

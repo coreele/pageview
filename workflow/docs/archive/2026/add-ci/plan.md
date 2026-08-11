@@ -15,10 +15,10 @@
 
 ## 适用工程规范
 
-- [文档工程](../standards/documentation.md)
-- [Git 协作](../standards/git.md)
-- [质量与验证](../standards/quality.md)
-- [安全](../standards/security.md)
+- [文档工程](../../standards/documentation.md)
+- [Git 协作](../../standards/git.md)
+- [质量与验证](../../standards/quality.md)
+- [安全](../../standards/security.md)
 
 ## 目标摘要
 
