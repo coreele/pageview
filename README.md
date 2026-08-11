@@ -74,14 +74,17 @@ Passwords stay in the server process — not in the repo or browser storage.
 ## Development
 
 ```bash
-pnpm --filter page-core test
-pnpm --filter wal-core test
-pnpm --filter server test
-pnpm --filter web test
+pnpm test                # all unit tests (page-core, wal-core, server, web)
 pnpm -r typecheck
 pnpm -r build
-pnpm test:integration   # needs .env + a table with blocks; Page path
+pnpm test:integration    # needs .env + a table with blocks; Page path L3
+pnpm test:wal            # needs .env + PG 16+ with pg_walinspect; WAL path L3
 ```
+
+CI runs both paths on push and pull_request (see `.github/workflows/ci.yml`):
+the `unit` job runs typecheck + tests + build without a database; the
+`integration` job brings up a `postgres:16` service with both extensions and
+runs the two smoke scripts.
 
 Fixture capture: see `packages/page-core/fixtures/README.md`.
 
