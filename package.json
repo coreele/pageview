@@ -6,11 +6,12 @@
   "scripts": {
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm --filter page-core test && pnpm --filter wal-core test && pnpm --filter server test",
+    "test": "pnpm -r test",
     "dev:server": "pnpm --filter server dev",
     "dev:web": "pnpm --filter web dev",
     "capture-fixtures": "pnpm --filter server exec tsx ../../scripts/capture-fixtures.ts",
-    "test:integration": "pnpm --filter server test:integration"
+    "test:integration": "pnpm --filter server test:integration",
+    "test:wal": "pnpm --filter server test:wal"
   },
   "engines": {
     "node": ">=20"

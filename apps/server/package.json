@@ -9,7 +9,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
     "test": "vitest run",
-    "test:integration": "tsx src/integration-smoke.ts"
+    "test:integration": "tsx src/integration-smoke.ts",
+    "test:wal": "tsx src/wal-smoke.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

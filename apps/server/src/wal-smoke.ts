@@ -1,5 +1,6 @@
 /**
- * One-shot WAL L3 smoke (not part of package scripts unless promoted later).
+ * One-shot WAL L3 smoke. Run via `pnpm test:wal` (requires PG 16+ with
+ * pg_walinspect; exit 2 when credentials missing, exit 1 on contract failure).
  */
 import { config } from "dotenv";
 import { resolve } from "node:path";
