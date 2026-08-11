@@ -4,7 +4,9 @@
 
 ## 活跃工作项
 
-（无）
+| feature-id | sub-feature-id | 状态 | 目录 | 备注 |
+|---|---|---|---|---|
+| add-ci | add-ci | done | [workflow/docs/features/add-ci/](../features/add-ci/) | CI + 测试脚本修复；Review Approve；QA Pass（PR #1 两 Job 绿）；已授权合并 |
 
 ## 归档
 
