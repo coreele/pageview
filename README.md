@@ -2,7 +2,7 @@
 
 English | [中文](./README.zh-CN.md)
 
-Browse PostgreSQL heap pages and WAL records in the browser. Connect locally, fetch raw blocks via [`pageinspect`](https://www.postgresql.org/docs/current/pageinspect.html), or browse structured WAL records via [`pg_walinspect`](https://www.postgresql.org/docs/current/pgwalinspect.html) (PostgreSQL 15+).
+Browse PostgreSQL heap pages and WAL records in the browser. Connect locally, fetch raw blocks via [pageinspect](https://www.postgresql.org/docs/current/pageinspect.html), or browse structured WAL records via [pg_walinspect](https://www.postgresql.org/docs/current/pgwalinspect.html) (PostgreSQL 15+).
 
 Built for developers learning or debugging — **not** intended for public deployment.
 

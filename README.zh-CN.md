@@ -2,7 +2,7 @@
 
 [English](./README.md) | 中文
 
-在浏览器中浏览 PostgreSQL heap page 与 WAL 记录。本地连接数据库，通过 [`pageinspect`](https://www.postgresql.org/docs/current/pageinspect.html) 拉取原始页面，或通过 [`pg_walinspect`](https://www.postgresql.org/docs/current/pgwalinspect.html)（PostgreSQL 15+）浏览结构化 WAL record。
+在浏览器中浏览 PostgreSQL heap page 与 WAL 记录。本地连接数据库，通过 [pageinspect](https://www.postgresql.org/docs/current/pageinspect.html) 拉取原始页面，或通过 [pg_walinspect](https://www.postgresql.org/docs/current/pgwalinspect.html)（PostgreSQL 15+）浏览结构化 WAL record。
 
 面向学习或调试的开发者 — **不适合**公开部署到公网。
 
