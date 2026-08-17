@@ -73,8 +73,25 @@ describe("deriveStructureFields", () => {
 
     const col = t.columns?.find((c) => !c.null && c.range);
     if (col?.range) {
-      expect(byId[`tuple-${t.itemIndex}.col-${col.attnum}`]?.range).toEqual(col.range);
+      const drawn = byId[`tuple-${t.itemIndex}.col-${col.attnum}`]?.range;
+      expect(drawn?.end).toBe(col.range.end);
+      expect(drawn!.start).toBeLessThanOrEqual(col.range.start);
     }
+
+    const drawnCols = fields
+      .filter((f) => f.id.startsWith(`tuple-${t.itemIndex}.col-`))
+      .map((f) => f.range)
+      .sort((a, b) => a.start - b.start);
+    for (const r of drawnCols) {
+      expect(r.start).toBeGreaterThanOrEqual(t.dataRange.start);
+    }
+    for (let i = 1; i < drawnCols.length; i++) {
+      expect(drawnCols[i]!.start).toBeGreaterThanOrEqual(drawnCols[i - 1]!.end);
+    }
+
+    expect(
+      fields.some((f) => f.id.startsWith(`tuple-${t.itemIndex}.data`)),
+    ).toBe(false);
   });
 
   it("does not mutate parsePage semantics (same ranges after derive)", () => {

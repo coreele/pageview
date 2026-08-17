@@ -6,7 +6,7 @@ export {
   STANDARD_PAGE_SIZE,
   PAGE_HEADER_SIZE,
 } from "./parse.js";
-export { decodeInfomask, decodeInfomask2, decodeItemIdFlags } from "./flags.js";
+export { decodeInfomask, decodeInfomask2, decodeItemIdFlags, decodePdFlags } from "./flags.js";
 export { decodePageTuples, decodeTupleColumns } from "./decode.js";
 export {
   buildSparsePage,

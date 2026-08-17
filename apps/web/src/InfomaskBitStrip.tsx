@@ -151,3 +151,69 @@ export function InfomaskBitPair({ infomask, infomask2, bits, bits2 }: PairProps)
     </div>
   );
 }
+
+/** One infomask-style strip (hex + bit squares + ?) with tip/ref. */
+export function FlagBitStripSolo({
+  label,
+  value,
+  bits,
+}: {
+  label: string;
+  value: number;
+  bits: FlagBit[];
+}) {
+  const tipId = useId();
+  const refId = useId();
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [refOpen, setRefOpen] = useState(false);
+  const activeBit = selectedIndex != null ? bits[selectedIndex] ?? null : null;
+
+  return (
+    <div className="infomask-bit-pair" aria-label={`${label} bits`}>
+      <div className="infomask-bit-pair__strips">
+        <InfomaskBitStrip
+          label={label}
+          value={value}
+          bits={bits}
+          selectedIndex={selectedIndex}
+          tipId={tipId}
+          onSelect={setSelectedIndex}
+          refOpen={refOpen}
+          onToggleRef={() => setRefOpen((o) => !o)}
+          refId={refId}
+        />
+      </div>
+      {activeBit && (
+        <div id={tipId} className="infomask-bit-pair__tip" aria-live="polite">
+          <div className="infomask-bit-pair__tip-main">
+            <span className="infomask-bit-strip__tip-name">{activeBit.name}</span>
+            <span className="infomask-bit-strip__tip-sep"> — </span>
+            <span className="infomask-bit-strip__tip-meaning">{activeBit.meaning}</span>
+          </div>
+          <span className={`infomask-bit-strip__tip-state${activeBit.set ? " is-set" : ""}`}>
+            {activeBit.set ? "set" : "unset"}
+          </span>
+        </div>
+      )}
+      {refOpen && (
+        <div id={refId} className="infomask-bit-pair__ref" role="region" aria-label={`${label} full bit reference`}>
+          <ul className="infomask-bit-strip__ref-list">
+            {bits.map((b) => (
+              <li key={b.name} className={b.set ? "is-set" : "is-unset"}>
+                <span className="infomask-bit-strip__ref-mark" aria-hidden="true">
+                  {b.set ? "●" : "○"}
+                </span>
+                <span className="infomask-bit-strip__ref-name">{b.name}</span>
+                <span className="infomask-bit-strip__tip-sep"> — </span>
+                <span className="infomask-bit-strip__ref-meaning">{b.meaning}</span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="infomask-bit-strip__ref-close" onClick={() => setRefOpen(false)}>
+            Close
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

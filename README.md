@@ -12,7 +12,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 
 ### Page mode
 
-- **Structure diagram** — 32 bytes/row: page header, ItemId array, free space, tuples
+- **Structure diagram** — 32 bytes/row: page header (with `pd_flags` bit strip), ItemId array, free space, tuples
 - **Hex dump** — same 32B/row layout, linked selection and scroll-to-offset
 - **Tuple decode** — column values, `t_infomask` / `t_infomask2` bit strips, HOT/ctid hints
 - **Diff highlight** — byte-level changes on Refresh

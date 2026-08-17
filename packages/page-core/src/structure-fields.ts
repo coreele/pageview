@@ -272,72 +272,41 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       );
     }
 
-    const covered = new Set<string>();
-    if (t.columns) {
-      for (const col of t.columns) {
-        if (!col.range || col.range.end <= col.range.start) continue;
-        const id = `${prefix}.col-${col.attnum}`;
-        covered.add(`${col.range.start}:${col.range.end}`);
+    const colFields = (t.columns ?? [])
+      .filter((col) => col.range && col.range.end > col.range.start)
+      .map((col) => ({ col, range: col.range! }))
+      .sort((a, b) => a.range.start - b.range.start);
+
+    if (colFields.length > 0) {
+      // Fold MAXALIGN padding into the following column. A sibling "data" cell
+      // on the same 32B row overlaps a/b in CSS grid and paints a second row
+      // of "data" under the values.
+      let cursor = t.dataRange.start;
+      for (const { col, range } of colFields) {
+        const visualStart = Math.min(range.start, Math.max(cursor, t.dataRange.start));
+        if (range.end <= visualStart) continue;
         out.push(
           field({
-            id,
+            id: `${prefix}.col-${col.attnum}`,
             label: col.name,
             fullLabel: `tuple lp[${t.itemIndex}].${col.name} (#${col.attnum} ${col.typeName})`,
-            range: col.range,
+            range: { start: visualStart, end: range.end },
             region: "tuple",
             valueText: columnValueText(col),
           }),
         );
+        cursor = Math.max(cursor, range.end);
       }
-    }
-
-    // Remaining user data not covered by column ranges
-    if (t.dataRange.end > t.dataRange.start) {
-      const dataKey = `${t.dataRange.start}:${t.dataRange.end}`;
-      if (!covered.has(dataKey) && (!t.columns || t.columns.length === 0)) {
-        out.push(
-          field({
-            id: `${prefix}.data`,
-            label: "data",
-            fullLabel: `tuple lp[${t.itemIndex}] user data`,
-            range: t.dataRange,
-            region: "tuple",
-          }),
-        );
-      } else if (t.columns && t.columns.length > 0) {
-        // Fill gaps in data range not covered by columns
-        const colRanges = t.columns
-          .filter((c) => c.range && c.range.end > c.range.start)
-          .map((c) => c.range!)
-          .sort((a, b) => a.start - b.start);
-        let cursor = t.dataRange.start;
-        let gapIndex = 0;
-        for (const r of colRanges) {
-          if (r.start > cursor) {
-            out.push(
-              field({
-                id: `${prefix}.data-gap-${gapIndex++}`,
-                label: "data",
-                fullLabel: `tuple lp[${t.itemIndex}] padding/unknown data`,
-                range: { start: cursor, end: r.start },
-                region: "tuple",
-              }),
-            );
-          }
-          cursor = Math.max(cursor, r.end);
-        }
-        if (cursor < t.dataRange.end) {
-          out.push(
-            field({
-              id: `${prefix}.data-gap-${gapIndex}`,
-              label: "data",
-              fullLabel: `tuple lp[${t.itemIndex}] trailing data`,
-              range: { start: cursor, end: t.dataRange.end },
-              region: "tuple",
-            }),
-          );
-        }
-      }
+    } else if (t.dataRange.end > t.dataRange.start) {
+      out.push(
+        field({
+          id: `${prefix}.data`,
+          label: "data",
+          fullLabel: `tuple lp[${t.itemIndex}] user data`,
+          range: t.dataRange,
+          region: "tuple",
+        }),
+      );
     }
   }
 

@@ -7,6 +7,7 @@ import {
   buildEmptyishPage,
   buildSparsePage,
   decodeInfomask,
+  decodePdFlags,
   decodePageTuples,
   PageParseError,
   parsePage,
@@ -122,6 +123,28 @@ describe("decode + flags", () => {
   it("exports infomask bit names", () => {
     const bits = decodeInfomask(0x0100 | 0x0800);
     expect(bits.find((b) => b.name === "HEAP_XMIN_COMMITTED")?.set).toBe(true);
+  });
+
+  it("decodes pd_flags including PD_ALL_VISIBLE", () => {
+    const allUnset = decodePdFlags(0x0);
+    expect(allUnset.filter((b) => b.set)).toHaveLength(0);
+    expect(allUnset.some((b) => b.name === "PD_FLAGS_UNKNOWN")).toBe(false);
+
+    const bits = decodePdFlags(0x4);
+    expect(bits.find((b) => b.name === "PD_ALL_VISIBLE")?.set).toBe(true);
+    expect(bits.find((b) => b.name === "PD_HAS_FREE_LINES")?.set).toBe(false);
+    expect(bits.find((b) => b.name === "PD_PAGE_FULL")?.set).toBe(false);
+    expect(bits.some((b) => b.name === "PD_FLAGS_UNKNOWN")).toBe(false);
+
+    const mixed = decodePdFlags(0x5);
+    expect(mixed.filter((b) => b.set).map((b) => b.name)).toEqual([
+      "PD_HAS_FREE_LINES",
+      "PD_ALL_VISIBLE",
+    ]);
+
+    const unknown = decodePdFlags(0x14);
+    expect(unknown.find((b) => b.name === "PD_ALL_VISIBLE")?.set).toBe(true);
+    expect(unknown.find((b) => b.name === "PD_FLAGS_UNKNOWN")?.set).toBe(true);
   });
 
   it("unknown type yields hex without failing page", () => {

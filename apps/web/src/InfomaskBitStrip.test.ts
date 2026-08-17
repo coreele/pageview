@@ -7,6 +7,7 @@ describe("formatInfomaskHex", () => {
     expect(formatInfomaskHex("t_infomask", 0x800)).toBe("t_infomask=0x800");
     expect(formatInfomaskHex("t_infomask2", 0x2)).toBe("t_infomask2=0x2");
     expect(formatInfomaskHex("t_infomask", 0)).toBe("t_infomask=0x0");
+    expect(formatInfomaskHex("pd_flags", 0x4)).toBe("pd_flags=0x4");
   });
 });
 

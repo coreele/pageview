@@ -5,6 +5,7 @@ import {
   decodeInfomask,
   decodeInfomask2,
   decodeItemIdFlags,
+  decodePdFlags,
   deriveStructureFields,
   selectionTargetForField,
   splitFieldIntoRowSegments,
@@ -14,7 +15,7 @@ import {
   type ParsedPage,
   type StructureField,
 } from "page-core";
-import { InfomaskBitPair } from "./InfomaskBitStrip";
+import { FlagBitStripSolo, InfomaskBitPair } from "./InfomaskBitStrip";
 import { buildHexLayout } from "./hexLayout";
 import {
   freeBreakColumns,
@@ -375,30 +376,23 @@ function StructurePresentationRows({
                 })}
               </div>
             ) : (
-              <div className="structure-row-lanes">
+              <div className="structure-row-grid">
                 {presRow.parts.map((part, partIdx) => {
                   if (part.kind !== "cells") return null;
                   const partSegments = segmentsForCellPart(segments, part.startOffset, part.length);
-                  return groupSegmentsIntoLanes(partSegments).map((lane, laneIdx) => (
-                    <div
-                      key={`${partIdx}-${laneIdx}`}
-                      className="structure-row-grid structure-row-lane"
-                    >
-                      {lane.map((seg) => (
-                        <FieldCell
-                          key={`${seg.field.id}-${seg.colStart}`}
-                          field={seg.field}
-                          colStart={seg.colStart}
-                          colEnd={seg.colEnd}
-                          selected={isFieldSelected(selectedId, seg.field)}
-                          diff={isFieldDiff(diffIds, seg.field)}
-                          onSelect={onSelect}
-                          fields={fields}
-                          metrics={metrics}
-                          renderValue={isValueSegment(seg, segments)}
-                        />
-                      ))}
-                    </div>
+                  return groupSegmentsIntoLanes(partSegments)[0]!.map((seg) => (
+                    <FieldCell
+                      key={`${partIdx}-${seg.field.id}-${seg.colStart}`}
+                      field={seg.field}
+                      colStart={seg.colStart}
+                      colEnd={seg.colEnd}
+                      selected={isFieldSelected(selectedId, seg.field)}
+                      diff={isFieldDiff(diffIds, seg.field)}
+                      onSelect={onSelect}
+                      fields={fields}
+                      metrics={metrics}
+                      renderValue={isValueSegment(seg, segments)}
+                    />
                   ));
                 })}
               </div>
@@ -527,6 +521,15 @@ export function StructureMap({
                     {b.set ? "●" : "○"} {b.name} — {b.meaning}
                   </div>
                 ))}
+              </div>
+            )}
+            {selectedField?.id === "header.pd_flags" && (
+              <div className="selection-detail__infomask">
+                <FlagBitStripSolo
+                  label="pd_flags"
+                  value={page.header.pd_flags}
+                  bits={decodePdFlags(page.header.pd_flags)}
+                />
               </div>
             )}
             {selectedTuple && (

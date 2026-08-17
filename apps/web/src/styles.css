@@ -563,6 +563,7 @@ input {
 
 .field-cell {
   position: relative;
+  grid-row: 1;
   border: none;
   border-right: none;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
@@ -806,19 +807,6 @@ input {
 
 .structure-row-grid-free {
   border-style: dashed;
-}
-
-.structure-row-lanes {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.structure-row-lane {
-  min-height: 2.08rem;
-  height: 2.08rem;
 }
 
 .selection-detail-wrap {

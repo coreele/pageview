@@ -94,3 +94,46 @@ export function decodeItemIdFlags(flags: number): FlagBit[] {
     set: flags === f,
   }));
 }
+
+/** PageHeaderData.pd_flags (bufpage.h) */
+export const PD_HAS_FREE_LINES = 0x0001;
+export const PD_PAGE_FULL = 0x0002;
+export const PD_ALL_VISIBLE = 0x0004;
+export const PD_VALID_FLAG_BITS = 0x0007;
+
+const PD_FLAGS_DEFS: Array<{ bit: number; name: string; meaning: string }> = [
+  {
+    bit: PD_HAS_FREE_LINES,
+    name: "PD_HAS_FREE_LINES",
+    meaning: "Unused line pointers exist (LP_UNUSED)",
+  },
+  {
+    bit: PD_PAGE_FULL,
+    name: "PD_PAGE_FULL",
+    meaning: "Not enough free space for a new tuple",
+  },
+  {
+    bit: PD_ALL_VISIBLE,
+    name: "PD_ALL_VISIBLE",
+    meaning: "All tuples on this page are visible to everyone (VM all-visible)",
+  },
+];
+
+export function decodePdFlags(value: number): FlagBit[] {
+  const bits = PD_FLAGS_DEFS.map((d) => ({
+    bit: d.bit,
+    name: d.name,
+    meaning: d.meaning,
+    set: (value & d.bit) !== 0,
+  }));
+  const extra = value & ~PD_VALID_FLAG_BITS;
+  if (extra !== 0) {
+    bits.push({
+      bit: extra,
+      name: "PD_FLAGS_UNKNOWN",
+      meaning: `Reserved/unknown bits set: 0x${extra.toString(16)}`,
+      set: true,
+    });
+  }
+  return bits;
+}

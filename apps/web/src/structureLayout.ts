@@ -23,38 +23,14 @@ export function segmentsForCellPart(
   });
 }
 
-function tupleLaneKey(fieldId: string): string | null {
-  const match = /^tuple-(\d+)/.exec(fieldId);
-  return match ? `tuple-${match[1]}` : null;
-}
-
-function laneSortKey(lane: LayoutSegment[]): number {
-  return Math.min(...lane.map((seg) => seg.colStart));
-}
-
-/** Split packed physical rows so each tuple gets its own lane. */
+/** One 32-column lane in physical column order. Tuples on a row do not overlap. */
 export function groupSegmentsIntoLanes(segments: LayoutSegment[]): LayoutSegment[][] {
   if (segments.length === 0) return [[]];
-
-  const nonTuple: LayoutSegment[] = [];
-  const byTuple = new Map<string, LayoutSegment[]>();
-  for (const seg of segments) {
-    const key = tupleLaneKey(seg.field.id);
-    if (!key) {
-      nonTuple.push(seg);
-      continue;
-    }
-    const lane = byTuple.get(key);
-    if (lane) lane.push(seg);
-    else byTuple.set(key, [seg]);
-  }
-
-  if (byTuple.size <= 1) return [segments];
-
-  const lanes: LayoutSegment[][] = [];
-  if (nonTuple.length > 0) lanes.push(nonTuple);
-  lanes.push(...byTuple.values());
-  return lanes.sort((a, b) => laneSortKey(a) - laneSortKey(b));
+  return [
+    [...segments].sort(
+      (a, b) => a.colStart - b.colStart || a.colEnd - b.colEnd || a.field.id.localeCompare(b.field.id),
+    ),
+  ];
 }
 
 export function freeBreakColumns(
