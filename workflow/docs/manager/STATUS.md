@@ -4,7 +4,9 @@
 
 ## 活跃工作项
 
-（无）
+| feature-id | sub-feature-id | 状态 | 目录 | 后续步骤 |
+|---|---|---|---|---|
+| pd-flags-tuple-view | pd-flags-tuple-view | done | [workflow/docs/features/pd-flags-tuple-view/](../features/pd-flags-tuple-view/) | 已授权合并（用户预先授权，QA Pass + Review Approve）；待合入 main |
 
 ## 归档
 
