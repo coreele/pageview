@@ -6,6 +6,7 @@
 
 | feature-id | sub-feature-id | 状态 | 目录 | 后续步骤 |
 |---|---|---|---|---|
+| deleted-tuple-color | deleted-tuple-color | blocked | [workflow/docs/features/deleted-tuple-color/](../features/deleted-tuple-color/) | 暂停；用户要求恢复后再确认 infomask 判定与 Plan |
 | pd-flags-tuple-view | pd-flags-tuple-view | done | [workflow/docs/features/pd-flags-tuple-view/](../features/pd-flags-tuple-view/) | 已授权合并（用户预先授权，QA Pass + Review Approve）；待合入 main |
 
 ## 归档
