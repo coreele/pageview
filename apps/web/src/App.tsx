@@ -4,18 +4,23 @@ import {
   decodePageTuples,
   PageParseError,
   parsePage,
+  parseBtreePage,
   type ByteRange,
+  type ParsedBtreePage,
   type ParsedPage,
 } from "page-core";
 import {
   connect,
+  fetchIndexPage,
   fetchPage,
   fetchRecentWalWindow,
   fetchSchema,
   fetchWalRecords,
   getSession,
+  listIndexes,
   listTables,
   type AppError,
+  type IndexRow,
   type PublicSession,
   type SchemaResponse,
   type TableRow,
@@ -25,10 +30,24 @@ import { HexDump } from "./HexDump";
 import { StructureMap } from "./StructureMap";
 import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
+import {
+  canLoadIndex,
+  formatIndexOption,
+  indexOptionTitle,
+  levelText,
+  nonBtreeHint,
+  pageTypeBadge,
+} from "./indexView";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
-type LoadState = "idle" | "connecting" | "loading-tables" | "loading-page";
+type LoadState = "idle" | "connecting" | "loading-tables" | "loading-indexes" | "loading-page";
 type AppMode = "page" | "wal";
+/** Page-mode relation kind (index-viewer): default "table" keeps the heap path untouched. */
+type RelationKind = "table" | "index";
+/** Single page-model union driving the tri-pane area (design §3). */
+type PageView =
+  | { kind: "heap"; page: ParsedPage }
+  | { kind: "btree"; page: ParsedBtreePage; index: IndexRow };
 
 export function App() {
   const [theme, setTheme] = useState<Theme>(
@@ -53,7 +72,7 @@ export function App() {
   const [selectedOid, setSelectedOid] = useState<number | null>(null);
   const [blkno, setBlkno] = useState(0);
   const [schema, setSchema] = useState<SchemaResponse | null>(null);
-  const [page, setPage] = useState<ParsedPage | null>(null);
+  const [pageView, setPageView] = useState<PageView | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [highlight, setHighlight] = useState<ByteRange | null>(null);
   const [prevRaw, setPrevRaw] = useState<Uint8Array | null>(null);
@@ -63,6 +82,12 @@ export function App() {
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
   const hexLocateNonceRef = useRef(0);
   const hexLocateHandledNonceRef = useRef(0);
+
+  // index-viewer: relation kind + index list state (design §3)
+  const [relationKind, setRelationKind] = useState<RelationKind>("table");
+  const [indexes, setIndexes] = useState<IndexRow[]>([]);
+  const [selectedIndexOid, setSelectedIndexOid] = useState<number | null>(null);
+  const [indexesFetched, setIndexesFetched] = useState(false);
 
   const [form, setForm] = useState({
     host: "127.0.0.1",
@@ -76,6 +101,12 @@ export function App() {
     () => tables.find((t) => t.oid === selectedOid) ?? null,
     [tables, selectedOid],
   );
+  const selectedIndex = useMemo(
+    () => indexes.find((i) => i.oid === selectedIndexOid) ?? null,
+    [indexes, selectedIndexOid],
+  );
+  const heapPage = pageView?.kind === "heap" ? pageView.page : null;
+  const btreePage = pageView?.kind === "btree" ? pageView.page : null;
 
   const toggleTheme = () => {
     const next: Theme = theme === "light" ? "dark" : "light";
@@ -84,12 +115,36 @@ export function App() {
     storeTheme(next);
   };
 
+  /** P0-12 clearing semantics: page / selection / highlight / diff / hex-locate. */
+  const resetPageView = useCallback(() => {
+    setPageView(null);
+    setSelectedId(null);
+    setHighlight(null);
+    setPrevRaw(null);
+    setDiffIds(new Set());
+    setHexLocate(null);
+  }, []);
+
   const refreshTables = useCallback(async () => {
     setLoadState("loading-tables");
     setError(null);
     try {
       const rows = await listTables();
       setTables(rows);
+    } catch (e) {
+      setError(e as AppError);
+    } finally {
+      setLoadState("idle");
+    }
+  }, []);
+
+  const refreshIndexes = useCallback(async () => {
+    setLoadState("loading-indexes");
+    setError(null);
+    try {
+      const rows = await listIndexes();
+      setIndexes(rows);
+      setIndexesFetched(true);
     } catch (e) {
       setError(e as AppError);
     } finally {
@@ -128,9 +183,13 @@ export function App() {
       // Clear password from React state after submit (P0-10) — never persist
       setForm((f) => ({ ...f, password: "" }));
       setSession(s);
-      setPage(null);
+      resetPageView();
       setSchema(null);
       setSelectedOid(null);
+      // New database: drop stale index-list state (index-viewer).
+      setIndexes([]);
+      setSelectedIndexOid(null);
+      setIndexesFetched(false);
       await refreshTables();
     } catch (err) {
       setError(err as AppError);
@@ -175,7 +234,7 @@ export function App() {
       } catch (pe) {
         const parseErr = pe instanceof PageParseError ? pe : null;
         if (parseErr) {
-          setPage(null);
+          setPageView(null);
           setError({
             code: "UNSUPPORTED_PAGE",
             message: parseErr.message,
@@ -193,14 +252,65 @@ export function App() {
         setDiffIds(new Set());
       }
       setPrevRaw(bytes);
-      setPage(parsed);
+      setPageView({ kind: "heap", page: parsed });
       setBlkno(block);
       setSelectedId(null);
       setHighlight(null);
       setHexLocate(null);
     } catch (err) {
       setError(err as AppError);
-      if (!opts?.refresh) setPage(null);
+      if (!opts?.refresh) setPageView(null);
+    } finally {
+      setLoadState("idle");
+    }
+  };
+
+  /**
+   * index-viewer: load one B-tree index page. Raw page only — no /schema call
+   * (Spec: index pages never fetch table column schema).
+   */
+  const loadIndexBlk = async (oid: number, block: number, opts?: { refresh?: boolean }) => {
+    const index = indexes.find((x) => x.oid === oid) ?? null;
+    if (!index) {
+      setError({
+        code: "NOT_INDEX",
+        message: "Selected index is no longer in the index list",
+        nextStep: "Switch the relation kind once to refresh the list, then pick an index again.",
+      });
+      return;
+    }
+    setLoadState("loading-page");
+    setError(null);
+    try {
+      const rawPage = await fetchIndexPage(oid, block);
+      const bytes = Uint8Array.from(atob(rawPage.pageBase64), (c) => c.charCodeAt(0));
+      let parsed: ParsedBtreePage;
+      try {
+        parsed = parseBtreePage(bytes);
+      } catch (pe) {
+        const parseErr = pe instanceof PageParseError ? pe : null;
+        if (parseErr) {
+          setPageView(null);
+          setError({
+            code: "UNSUPPORTED_PAGE",
+            message: parseErr.message,
+            nextStep: "Use a standard 8KB BLCKSZ PostgreSQL instance, or pick another relation.",
+          });
+          return;
+        }
+        throw pe;
+      }
+      // Byte diff highlight for index pages lands with the tri-pane rendering (T6).
+      setDiffIds(new Set());
+      setPrevRaw(bytes);
+      setPageView({ kind: "btree", page: parsed, index });
+      setBlkno(block);
+      setSelectedId(null);
+      setHighlight(null);
+      setHexLocate(null);
+    } catch (err) {
+      setError(err as AppError);
+      if (!opts?.refresh) setPageView(null);
     } finally {
       setLoadState("idle");
     }
@@ -208,7 +318,7 @@ export function App() {
 
   const onSelectTable = async (oid: number) => {
     setSelectedOid(oid);
-    setPage(null);
+    setPageView(null);
     setDiffIds(new Set());
     const t = tables.find((x) => x.oid === oid);
     if (t && t.blocks === 0) {
@@ -217,6 +327,21 @@ export function App() {
       return;
     }
     setBlkno(0);
+  };
+
+  /** P0-12: switching relation clears page/selection/highlight/diff; blkno resets to 0 (metapage). */
+  const onSelectIndex = (oid: number) => {
+    setSelectedIndexOid(oid);
+    resetPageView();
+    setSchema(null);
+    setBlkno(0);
+  };
+
+  const onSwitchRelationKind = (kind: RelationKind) => {
+    if (kind === relationKind) return;
+    setRelationKind(kind);
+    resetPageView();
+    setSchema(null);
   };
 
   const selectByteRange = (id: string, range: ByteRange, origin: "structure" | "hex") => {
@@ -239,8 +364,8 @@ export function App() {
   };
 
   const onHexSelect = (offset: number) => {
-    if (!page) return;
-    const hit = findStructureAt(page, offset);
+    if (!heapPage) return;
+    const hit = findStructureAt(heapPage, offset);
     if (hit) {
       selectByteRange(hit.id, hit.range, "hex");
     } else {
@@ -250,10 +375,26 @@ export function App() {
 
   const connected = Boolean(session?.connected);
   const canLoad =
-    selectedOid != null && (selectedTable?.blocks ?? 0) > 0 && loadState !== "loading-page";
+    relationKind === "table" &&
+    selectedOid != null &&
+    (selectedTable?.blocks ?? 0) > 0 &&
+    loadState !== "loading-page";
 
   const triggerLoad = () => {
     if (canLoad && selectedOid != null) void loadBlk(selectedOid, blkno);
+  };
+
+  // P0-2: non-B-tree indexes can be selected but never load (no request is sent).
+  const canLoadIndexBlk =
+    relationKind === "index" &&
+    selectedIndexOid != null &&
+    canLoadIndex(selectedIndex) &&
+    loadState !== "loading-page";
+
+  const triggerLoadIndex = () => {
+    if (canLoadIndexBlk && selectedIndexOid != null) {
+      void loadIndexBlk(selectedIndexOid, blkno);
+    }
   };
 
   const canWalLoad = connected && walPhase !== "loading" && !walFilling;
@@ -298,6 +439,13 @@ export function App() {
       cancelled = true;
     };
   }, [connected, mode]);
+
+  // index-viewer: lazily fetch the index list when the index kind is first
+  // entered on this connection (ui-design flow 2; retry on re-entry after failure).
+  useEffect(() => {
+    if (!connected || mode !== "page" || relationKind !== "index" || indexesFetched) return;
+    void refreshIndexes();
+  }, [connected, mode, relationKind, indexesFetched, refreshIndexes]);
 
   const onWalLoad = async () => {
     if (!connected) {
@@ -367,6 +515,9 @@ export function App() {
 
   const statusLabel =
     loadState === "connecting" ? "connecting…" : connected ? "connected" : "disconnected";
+
+  const indexBadge = btreePage ? pageTypeBadge(btreePage) : null;
+  const indexHint = nonBtreeHint(selectedIndex);
 
   return (
     <div className="app">
@@ -523,71 +674,183 @@ export function App() {
           ) : (
             <div className="meta-row meta-controls-row">
               <div className="chrome-controls">
-                <label className="control">
-                  <span className="control-label">table</span>
-                  <select
-                    className="table-select"
-                    value={selectedOid ?? ""}
-                    disabled={tables.length === 0 || loadState === "loading-tables"}
-                    title={selectedTable?.qualifiedName ?? undefined}
-                    onChange={(e) => {
-                      if (e.target.value !== "") void onSelectTable(Number(e.target.value));
-                    }}
-                  >
-                    <option value="" disabled={tables.length > 0}>
-                      {tables.length === 0 ? "no user heap tables" : "select a table…"}
-                    </option>
-                    {tables.map((t) => (
-                      <option key={t.oid} value={t.oid}>
-                        {t.qualifiedName} ({t.blocks} blk)
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {loadState === "loading-tables" && (
-                  <span className="muted">
-                    <span className="spinner" />
-                    tables
-                  </span>
-                )}
-                <label className="control">
-                  <span className="control-label">blkno</span>
-                  <input
-                    className="blkno-input"
-                    type="number"
-                    min={0}
-                    value={blkno}
-                    onChange={(e) => setBlkno(Number(e.target.value))}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        triggerLoad();
-                      }
-                    }}
-                    disabled={!selectedTable || selectedTable.blocks === 0}
-                  />
-                </label>
-                <button className="primary" type="button" disabled={!canLoad} onClick={triggerLoad}>
-                  {loadState === "loading-page" ? (
-                    <>
-                      <span className="spinner" /> Load
-                    </>
-                  ) : (
-                    "Load"
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={!page || loadState === "loading-page" || selectedOid == null}
-                  onClick={() =>
-                    selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })
-                  }
+                <div
+                  className="mode-switch relation-kind-switch"
+                  role="group"
+                  aria-label="Relation kind"
                 >
-                  Refresh
-                </button>
+                  <button
+                    type="button"
+                    className={relationKind === "table" ? "mode-btn active" : "mode-btn"}
+                    aria-pressed={relationKind === "table"}
+                    onClick={() => onSwitchRelationKind("table")}
+                  >
+                    表
+                  </button>
+                  <button
+                    type="button"
+                    className={relationKind === "index" ? "mode-btn active" : "mode-btn"}
+                    aria-pressed={relationKind === "index"}
+                    onClick={() => onSwitchRelationKind("index")}
+                  >
+                    索引
+                  </button>
+                </div>
+
+                {relationKind === "table" ? (
+                  <>
+                    <label className="control">
+                      <span className="control-label">table</span>
+                      <select
+                        className="table-select"
+                        value={selectedOid ?? ""}
+                        disabled={tables.length === 0 || loadState === "loading-tables"}
+                        title={selectedTable?.qualifiedName ?? undefined}
+                        onChange={(e) => {
+                          if (e.target.value !== "") void onSelectTable(Number(e.target.value));
+                        }}
+                      >
+                        <option value="" disabled={tables.length > 0}>
+                          {tables.length === 0 ? "no user heap tables" : "select a table…"}
+                        </option>
+                        {tables.map((t) => (
+                          <option key={t.oid} value={t.oid}>
+                            {t.qualifiedName} ({t.blocks} blk)
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {loadState === "loading-tables" && (
+                      <span className="muted">
+                        <span className="spinner" />
+                        tables
+                      </span>
+                    )}
+                    <label className="control">
+                      <span className="control-label">blkno</span>
+                      <input
+                        className="blkno-input"
+                        type="number"
+                        min={0}
+                        value={blkno}
+                        onChange={(e) => setBlkno(Number(e.target.value))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            triggerLoad();
+                          }
+                        }}
+                        disabled={!selectedTable || selectedTable.blocks === 0}
+                      />
+                    </label>
+                    <button className="primary" type="button" disabled={!canLoad} onClick={triggerLoad}>
+                      {loadState === "loading-page" ? (
+                        <>
+                          <span className="spinner" /> Load
+                        </>
+                      ) : (
+                        "Load"
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!heapPage || loadState === "loading-page" || selectedOid == null}
+                      onClick={() =>
+                        selectedOid != null && loadBlk(selectedOid, blkno, { refresh: true })
+                      }
+                    >
+                      Refresh
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <label className="control">
+                      <span className="control-label">index</span>
+                      <select
+                        className="index-select"
+                        value={selectedIndexOid ?? ""}
+                        disabled={
+                          indexes.length === 0 ||
+                          loadState === "loading-indexes" ||
+                          !indexesFetched
+                        }
+                        title={selectedIndex ? indexOptionTitle(selectedIndex) : undefined}
+                        onChange={(e) => {
+                          if (e.target.value !== "") onSelectIndex(Number(e.target.value));
+                        }}
+                      >
+                        <option value="" disabled={indexes.length > 0}>
+                          {loadState === "loading-indexes" || !indexesFetched
+                            ? "loading indexes…"
+                            : indexes.length === 0
+                              ? "无用户索引（系统 schema 除外）"
+                              : "select an index…"}
+                        </option>
+                        {indexes.map((i) => (
+                          <option key={i.oid} value={i.oid} title={indexOptionTitle(i)}>
+                            {formatIndexOption(i)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {loadState === "loading-indexes" && (
+                      <span className="muted">
+                        <span className="spinner" />
+                        indexes
+                      </span>
+                    )}
+                    <label className="control">
+                      <span className="control-label">blkno</span>
+                      <input
+                        className="blkno-input"
+                        type="number"
+                        min={0}
+                        value={blkno}
+                        placeholder="0=metapage"
+                        onChange={(e) => setBlkno(Number(e.target.value))}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            triggerLoadIndex();
+                          }
+                        }}
+                        disabled={!selectedIndex}
+                      />
+                    </label>
+                    <button
+                      className="primary"
+                      type="button"
+                      disabled={!canLoadIndexBlk}
+                      title={
+                        selectedIndex && !canLoadIndex(selectedIndex)
+                          ? indexOptionTitle(selectedIndex)
+                          : undefined
+                      }
+                      onClick={triggerLoadIndex}
+                    >
+                      {loadState === "loading-page" ? (
+                        <>
+                          <span className="spinner" /> Load
+                        </>
+                      ) : (
+                        "Load"
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!btreePage || loadState === "loading-page" || selectedIndexOid == null}
+                      onClick={() =>
+                        selectedIndexOid != null &&
+                        loadIndexBlk(selectedIndexOid, blkno, { refresh: true })
+                      }
+                    >
+                      Refresh
+                    </button>
+                  </>
+                )}
               </div>
 
-              {page && selectedTable && (
+              {heapPage && selectedTable && (
                 <div className="meta-stats" aria-label="Page statistics">
                   <span className="meta-item">
                     <span className="label">table</span>
@@ -605,27 +868,91 @@ export function App() {
                   </span>
                   <span className="meta-item">
                     <span className="label">page</span>
-                    <span className="value">{page.stats.pageSize}</span>
+                    <span className="value">{heapPage.stats.pageSize}</span>
                   </span>
                   <span className="meta-item">
                     <span className="label">lower/upper/free</span>
                     <span className="value">
-                      {page.stats.pd_lower}/{page.stats.pd_upper}/{page.stats.freeBytes}
+                      {heapPage.stats.pd_lower}/{heapPage.stats.pd_upper}/{heapPage.stats.freeBytes}
                     </span>
                   </span>
                   <span className="meta-item">
                     <span className="label">ItemId</span>
                     <span
                       className="value"
-                      title={`UNUSED=${page.stats.lpUnused} NORMAL=${page.stats.lpNormal} REDIRECT=${page.stats.lpRedirect} DEAD=${page.stats.lpDead}`}
+                      title={`UNUSED=${heapPage.stats.lpUnused} NORMAL=${heapPage.stats.lpNormal} REDIRECT=${heapPage.stats.lpRedirect} DEAD=${heapPage.stats.lpDead}`}
                     >
-                      {page.stats.itemIdTotal} (U{page.stats.lpUnused}/N{page.stats.lpNormal}/R
-                      {page.stats.lpRedirect}/D{page.stats.lpDead})
+                      {heapPage.stats.itemIdTotal} (U{heapPage.stats.lpUnused}/N{heapPage.stats.lpNormal}/R
+                      {heapPage.stats.lpRedirect}/D{heapPage.stats.lpDead})
                     </span>
                   </span>
                   <span className="meta-item">
                     <span className="label">#tup</span>
-                    <span className="value">{page.stats.tupleCount}</span>
+                    <span className="value">{heapPage.stats.tupleCount}</span>
+                  </span>
+                </div>
+              )}
+
+              {btreePage && pageView?.kind === "btree" && indexBadge && (
+                <div className="meta-stats" aria-label="Index page statistics">
+                  <span className="meta-item">
+                    <span className="label">index</span>
+                    <span
+                      className="value"
+                      title={`${pageView.index.qualifiedName} (oid ${pageView.index.oid})`}
+                    >
+                      {pageView.index.qualifiedName} (oid {pageView.index.oid})
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">am</span>
+                    <span className="value">{pageView.index.accessMethod}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">#blocks</span>
+                    <span className="value">{pageView.index.blocks}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">blkno</span>
+                    <span className="value">{blkno}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">page</span>
+                    <span className="value page-badge-value">
+                      <span className="page-type-badge">{indexBadge.text}</span>
+                      {indexBadge.chips.map((c) => (
+                        <span key={c} className="status-chip">
+                          {c}
+                        </span>
+                      ))}
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">level</span>
+                    <span className="value">{levelText(btreePage)}</span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">lower/upper/free</span>
+                    <span className="value">
+                      {btreePage.stats.pd_lower}/{btreePage.stats.pd_upper}/{btreePage.stats.freeBytes}
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">ItemId</span>
+                    <span
+                      className="value"
+                      title={`UNUSED=${btreePage.stats.lpUnused} NORMAL=${btreePage.stats.lpNormal} REDIRECT=${btreePage.stats.lpRedirect} DEAD=${btreePage.stats.lpDead}`}
+                    >
+                      {btreePage.stats.itemIdTotal} (U{btreePage.stats.lpUnused}/N
+                      {btreePage.stats.lpNormal}/R{btreePage.stats.lpRedirect}/D
+                      {btreePage.stats.lpDead})
+                    </span>
+                  </span>
+                  <span className="meta-item">
+                    <span className="label">#tup</span>
+                    <span className="value">
+                      {btreePage.stats.tupleCount} (posting {btreePage.stats.postingTupleCount})
+                    </span>
                   </span>
                 </div>
               )}
@@ -633,7 +960,7 @@ export function App() {
           )}
         </div>
 
-        {((mode === "page" && page) || (mode === "wal" && connected)) && (
+        {((mode === "page" && heapPage) || (mode === "wal" && connected)) && (
           <div className="chrome-actions">
             <button
               className="chrome-detail"
@@ -667,7 +994,7 @@ export function App() {
         </button>
       </header>
 
-      <main className={`main${mode === "page" && page ? " main-paged" : ""}${mode === "wal" ? " main-wal" : ""}`}>
+      <main className={`main${mode === "page" && pageView ? " main-paged" : ""}${mode === "wal" ? " main-wal" : ""}`}>
         {error && (
           <div className="panel error-panel" role="alert">
             <div>
@@ -754,21 +1081,51 @@ export function App() {
           />
         )}
 
-        {connected && mode === "page" && !page && selectedTable?.blocks === 0 && (
+        {connected && mode === "page" && relationKind === "table" && !heapPage && selectedTable?.blocks === 0 && (
           <div className="panel muted">
             Empty relation (0 blocks). Insert rows or pick another table.
           </div>
         )}
 
-        {connected && mode === "page" && !page && !error && selectedTable && selectedTable.blocks > 0 && (
+        {connected && mode === "page" && relationKind === "table" && !heapPage && !error && selectedTable && selectedTable.blocks > 0 && (
           <div className="panel muted">Select blkno and press Load to fetch a raw page.</div>
         )}
 
-        {connected && mode === "page" && !selectedTable && !error && (
+        {connected && mode === "page" && relationKind === "table" && !selectedTable && !error && (
           <div className="panel muted">Select a heap table to begin.</div>
         )}
 
-        {connected && mode === "page" && page && (
+        {connected && mode === "page" && relationKind === "index" && loadState === "loading-indexes" && (
+          <div className="panel muted">
+            <span className="spinner" /> Loading indexes…
+          </div>
+        )}
+
+        {connected && mode === "page" && relationKind === "index" &&
+          loadState !== "loading-indexes" && indexesFetched && indexes.length === 0 && !error && (
+            <div className="panel muted">无用户索引（系统 schema 除外）。</div>
+          )}
+
+        {connected && mode === "page" && relationKind === "index" &&
+          loadState !== "loading-indexes" && !selectedIndex && !btreePage && !error &&
+          indexes.length > 0 && (
+            <div className="panel muted">选择一个索引开始（blkno 0 为 metapage）。</div>
+          )}
+
+        {connected && mode === "page" && relationKind === "index" &&
+          loadState !== "loading-indexes" && selectedIndex && !btreePage && !error && (
+            <div className="panel muted">
+              输入 blkno 后 Load（0 = metapage）。
+            </div>
+          )}
+
+        {connected && mode === "page" && relationKind === "index" && indexHint && (
+          <div className="panel index-hint" role="status">
+            {indexHint}
+          </div>
+        )}
+
+        {connected && mode === "page" && heapPage && (
           <div className="main-split" data-hex={hexCollapsed ? "collapsed" : "expanded"}>
             <section className="pane pane-structure" aria-label="Page structure">
               {loadState === "loading-page" && (
@@ -777,7 +1134,7 @@ export function App() {
                 </div>
               )}
               <StructureMap
-                page={page}
+                page={heapPage}
                 currentBlkno={blkno}
                 selectedId={selectedId}
                 highlight={highlight}
@@ -796,8 +1153,8 @@ export function App() {
             {!hexCollapsed && (
               <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
                 <HexDump
-                  raw={page.raw}
-                  freeRange={page.freeSpace.range}
+                  raw={heapPage.raw}
+                  freeRange={heapPage.freeSpace.range}
                   freeDiff={diffIds.has("free")}
                   highlight={highlight}
                   locate={hexLocate}
@@ -806,6 +1163,14 @@ export function App() {
                 />
               </section>
             )}
+          </div>
+        )}
+
+        {connected && mode === "page" && btreePage && (
+          <div className="panel muted">
+            Index page loaded ({pageView?.kind === "btree" ? pageView.index.qualifiedName : ""} blk{" "}
+            {blkno}, {indexBadge?.text ?? btreePage.pageType}); tri-pane structure/hex rendering
+            arrives with the next task.
           </div>
         )}
       </main>

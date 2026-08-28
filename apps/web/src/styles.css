@@ -237,6 +237,62 @@ input {
   padding: 0.3rem 0.4rem;
 }
 
+/* index-viewer: relation-kind segmented control shares the Page|WAL switch skin */
+.relation-kind-switch {
+  align-self: center;
+}
+
+.relation-kind-switch .mode-btn {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.82rem;
+}
+
+.index-select {
+  max-width: 26rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+}
+
+/* P0-2 inline hint (danger): shown while a non-B-tree index is selected */
+.index-hint {
+  border-color: var(--danger);
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+/* Page-type badge + P1-2 status chips (secondary weight, no new strong colors) */
+.page-badge-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.page-type-badge {
+  display: inline-block;
+  padding: 0.02rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--border) 90%, var(--text-muted));
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.status-chip {
+  display: inline-block;
+  padding: 0.01rem 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+}
+
 .blkno-input {
   width: 6rem;
   padding: 0.3rem 0.4rem;

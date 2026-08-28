@@ -18,6 +18,26 @@ export type TableRow = {
   blocks: number;
 };
 
+export type IndexRow = {
+  oid: number;
+  schema: string;
+  name: string;
+  qualifiedName: string;
+  accessMethod: string;
+  blocks: number;
+  tableOid: number;
+  tableQualifiedName: string;
+  valid: boolean;
+};
+
+export type IndexPageResponse = {
+  oid: number;
+  blkno: number;
+  qualifiedName: string;
+  byteLength: number;
+  pageBase64: string;
+};
+
 export type SchemaResponse = {
   oid: number;
   schema: string;
@@ -97,6 +117,19 @@ export async function fetchPage(
   blkno: number,
 ): Promise<{ pageBase64: string; byteLength: number; qualifiedName: string; blkno: number }> {
   const res = await fetch(`/api/tables/${oid}/pages/${blkno}`);
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+export async function listIndexes(): Promise<IndexRow[]> {
+  const res = await fetch("/api/indexes");
+  if (!res.ok) throw await parseError(res);
+  const data = await res.json();
+  return data.indexes;
+}
+
+export async function fetchIndexPage(oid: number, blkno: number): Promise<IndexPageResponse> {
+  const res = await fetch(`/api/indexes/${oid}/pages/${blkno}`);
   if (!res.ok) throw await parseError(res);
   return res.json();
 }
