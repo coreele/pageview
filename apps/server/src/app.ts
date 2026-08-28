@@ -2,7 +2,9 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import pg from "pg";
 import {
+  LIST_INDEXES_SQL,
   LIST_TABLES_SQL,
+  INDEX_RELATION_SQL,
   PAGE_RELATION_SQL,
   SCHEMA_COLUMNS_SQL,
   mapSchemaColumnRow,
@@ -354,6 +356,130 @@ export async function buildApp(session: SessionState = emptySession()) {
                 "BLKNO_OUT_OF_RANGE",
                 `Block ${blkno} is out of range (relation has ${blocks} block(s))`,
                 `Choose blkno in 0..${Math.max(0, blocks - 1)} or pick another table.`,
+              ).body,
+            );
+        }
+
+        const qualified = `${cls.rows[0].nspname}.${cls.rows[0].relname}`;
+        const pageRes = await session.pool.query(`SELECT get_raw_page($1, $2::int) AS page`, [
+          qualified,
+          blkno,
+        ]);
+        const buf: Buffer = pageRes.rows[0].page;
+        if (!Buffer.isBuffer(buf)) {
+          return reply
+            .code(500)
+            .send(
+              appError(500, "BAD_PAGE", "get_raw_page returned unexpected type", "Check pageinspect installation and retry.")
+                .body,
+            );
+        }
+        return {
+          oid,
+          blkno,
+          qualifiedName: qualified,
+          byteLength: buf.length,
+          pageBase64: buf.toString("base64"),
+        };
+      } catch (e) {
+        const mapped = mapPgError(e);
+        return reply.code(mapped.statusCode).send(mapped.body);
+      }
+    },
+  );
+
+  app.get("/api/indexes", async (_req, reply) => {
+    if (!session.connected || !session.pool) {
+      return notConnectedReply(reply);
+    }
+    try {
+      await requirePageinspect(session.pool);
+      const res = await session.pool.query(LIST_INDEXES_SQL);
+      return {
+        indexes: res.rows.map((r) => ({
+          oid: Number(r.oid),
+          schema: r.schema,
+          name: r.name,
+          qualifiedName: `${r.schema}.${r.name}`,
+          accessMethod: r.access_method,
+          blocks: Number(r.blocks),
+          tableOid: Number(r.table_oid),
+          tableQualifiedName: `${r.table_schema}.${r.table_name}`,
+          valid: Boolean(r.valid),
+        })),
+      };
+    } catch (e) {
+      const mapped = mapPgError(e);
+      return reply.code(mapped.statusCode).send(mapped.body);
+    }
+  });
+
+  app.get<{ Params: { oid: string; blkno: string } }>(
+    "/api/indexes/:oid/pages/:blkno",
+    async (req, reply) => {
+      if (!session.connected || !session.pool) {
+        return notConnectedReply(reply);
+      }
+      try {
+        await requirePageinspect(session.pool);
+        const oid = Number(req.params.oid);
+
+        // ① relation must exist and be an index (404 NOT_INDEX)
+        const cls = await session.pool.query(INDEX_RELATION_SQL, [oid]);
+        if (cls.rowCount === 0 || cls.rows[0].relkind !== "i") {
+          return reply
+            .code(404)
+            .send(
+              appError(
+                404,
+                "NOT_INDEX",
+                "Relation is not an index",
+                "Pick a user index from the index list.",
+              ).body,
+            );
+        }
+
+        // ② only B-tree index pages are supported (400 INDEX_NOT_BTREE)
+        const accessMethod = String(cls.rows[0].access_method);
+        if (accessMethod !== "btree") {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "INDEX_NOT_BTREE",
+                `Index access method "${accessMethod}" is not supported; only B-tree index pages can be viewed`,
+                `Pick a B-tree index (access method btree) or switch back to tables.`,
+              ).body,
+            );
+        }
+
+        // ③ blkno must be a non-negative integer (400 BAD_BLKNO)
+        const blkno = Number(req.params.blkno);
+        if (!Number.isInteger(blkno) || blkno < 0) {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "BAD_BLKNO",
+                "Invalid block number",
+                "Enter a non-negative integer blkno within the index block count (0 is the metapage).",
+              ).body,
+            );
+        }
+
+        // ④ blkno must be within the on-disk block count (400 BLKNO_OUT_OF_RANGE)
+        const blocks = Number(cls.rows[0].blocks);
+        if (blkno >= blocks) {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "BLKNO_OUT_OF_RANGE",
+                `Block ${blkno} is out of range (index has ${blocks} block(s))`,
+                `Choose blkno in 0..${Math.max(0, blocks - 1)} or pick another index.`,
               ).body,
             );
         }

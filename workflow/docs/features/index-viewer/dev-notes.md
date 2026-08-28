@@ -61,3 +61,58 @@ pnpm --filter server exec tsx ../../scripts/capture-fixtures.ts \
 
 （注：上述 `--filter server exec` 使相对 out 落于 apps/server 下，产物已移至
 `packages/page-core/fixtures/`；README 示例为仓库根 `pnpm exec tsx scripts/…`，路径解析正确。）
+
+## T3 — page-core btree 解析（2026-08-28）
+
+- 新增 `src/btree.ts`（常量 + parseBtreePage + decodeBtpoFlags + 类型）、
+  `src/btree-structure.ts`（deriveBtreeStructureFields，special/meta region）；
+  `fixture-builder.ts` 增 `buildBtreePage`（meta v3/v4/badMagic、internal、leaf、posting、
+  越界 ItemId 告警用例）；`structure-fields.ts` Region 枚举扩展 `special|meta`（叠加式）；
+  `parse.ts` 仅对 parseHeader/readItemId 加 `export`（共享 reader，零行为变化）；
+  `index.ts` 导出 btree 面。
+- TDD：先写 `tests/btree.test.ts`（16 例）+ `tests/btree-oracle.test.ts`（4 场景）确认红灯
+  （模块缺失 20 例失败）→ 实现 → 绿灯。**oracle 抓到两处真问题**：① BTREE_MAGIC 初值
+  0x05362 少一位（应为 0x053162=340322）；② 捕获 root 为最右页，首元组无 hikey（P0-7 反例）
+  ——均已修正（实现与测试各自对应）。
+- 验证：`pnpm --filter page-core test` → 52 passed（既有 heap 32 例零改动 + 新 btree 20 例）；
+  `pnpm -r typecheck` / `pnpm -r build` 全绿（web 对 region 无穷尽检查，枚举扩展无破坏）。
+
+## T4 — server 索引端点与守卫（2026-08-28）
+
+- `catalog.ts` 增 `LIST_INDEXES_SQL`（relkind='i' + pg_am/pg_index/表 namespace join、系统/temp
+  schema 排除同表列表、pg_relation_size/8192、ORDER BY schema,name、indisvalid）与
+  `INDEX_RELATION_SQL`（oid→relkind/amname/nspname/relname/blocks）。
+- `app.ts` 增 `GET /api/indexes`、`GET /api/indexes/:oid/pages/:blkno`；校验序① NOT_INDEX(404)
+  →② INDEX_NOT_BTREE(400，message 含实测 am 名)→③ BAD_BLKNO→④ BLKNO_OUT_OF_RANGE；
+  门禁 notConnectedReply + requirePageinspect 复用；响应形状同表页端点；heap 路由零改动。
+- TDD：先写 `tests/indexes.test.ts`（stub pool + app.inject：校验序优先级、门禁、成功形状、
+  列表映射）与 `catalog.test.ts` 新增 SQL 契约四例 → 红灯（14 例失败）→ 实现绿灯。
+- 实库探针（未提交脚本，事后删除）：真库上 `/api/indexes` 列表正确（btree/hash、valid、
+  blocks、所属表）；hash 索引→400 `INDEX_NOT_BTREE`（message 含 "hash"）；不存在 oid→404
+  `NOT_INDEX`；btree blkno 0→200 且 parseBtreePage 得 meta/root=1/allequalimage=true；
+  blkno 99999→400 `BLKNO_OUT_OF_RANGE`。
+- 验证：`pnpm --filter server test` → 31 passed（既有 17 例零改动 + 新 14 例）。
+
+### 环境备注（风险，后续批次注意）
+
+本机存在双连接目标：仓库 `.env`（libpq 关键字串）指向 `postgres` 库，而进程无 env 时
+socket 默认落到 `jason` 库（T2 种子与 fixture 捕获所在地）。`readEnvCredentials()` 对
+libpq 关键字串 `new URL` 解析失败后回退 PG* 键，`pnpm test:integration` 实际连 `.env`
+目标（postgres 库，当前通过）。**T9 增 B-tree 冒烟段时须自建种子对象（现状 smoke 即如此），
+不要依赖 T2 本地种子存在**；两库均无凭据泄露风险（未打印 .env 内容）。
+
+## 本批（T1–T4）汇总验证
+
+```text
+pnpm test            → wal-core 13 · page-core 52 · web 20 · server 31，全绿
+pnpm -r typecheck    → 4 包 Done（零错误）
+pnpm -r build        → 4 包 Done
+pnpm test:integration→ L3 smoke OK（heap 段不回退；B-tree 段待 T9）
+```
+
+未解决风险/遗留：
+
+1. v3 metapage 仅 synthetic 覆盖（本地 PG16 仅产 v4）——design §4 已列为已知验证缺口，
+   T9 CI 同样只覆盖 v4；v3 路径依赖 buildBtreePage 单测。
+2. 环境双目标（见上）——T9 落地时冒烟段需自带种子。
+3. `pnpm test` 中 web 对新 region 的渲染适配属 T6，本批仅保证类型层不破坏。

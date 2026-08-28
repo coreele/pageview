@@ -46,6 +46,44 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE c.oid = $1
 `;
 
+/** User indexes (index-viewer): qualified name, access method, blocks, table, validity. */
+export const LIST_INDEXES_SQL = `
+SELECT i.oid::bigint AS oid,
+       n.nspname AS schema,
+       i.relname AS name,
+       am.amname AS access_method,
+       (pg_relation_size(i.oid) / ${HEAP_BLOCK_SIZE})::int AS blocks,
+       tbl.oid::bigint AS table_oid,
+       tn.nspname AS table_schema,
+       tbl.relname AS table_name,
+       x.indisvalid AS valid
+FROM pg_class i
+JOIN pg_namespace n ON n.oid = i.relnamespace
+JOIN pg_am am ON am.oid = i.relam
+JOIN pg_index x ON x.indexrelid = i.oid
+JOIN pg_class tbl ON tbl.oid = x.indrelid
+JOIN pg_namespace tn ON tn.oid = tbl.relnamespace
+WHERE i.relkind = 'i'
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+  AND n.nspname NOT LIKE 'pg_temp_%'
+  AND n.nspname NOT LIKE 'pg_toast_temp_%'
+ORDER BY n.nspname, i.relname
+`;
+
+/** Single lookup for the index page guard chain: relkind, am, name, blocks. */
+export const INDEX_RELATION_SQL = `
+SELECT c.oid,
+       c.relkind,
+       am.amname AS access_method,
+       n.nspname,
+       c.relname,
+       (pg_relation_size(c.oid) / ${HEAP_BLOCK_SIZE})::int AS blocks
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+JOIN pg_am am ON am.oid = c.relam
+WHERE c.oid = $1
+`;
+
 export function relationBlocksFromSize(byteLength: number, blockSize = HEAP_BLOCK_SIZE): number {
   return Math.max(0, Math.floor(Number(byteLength) / blockSize));
 }

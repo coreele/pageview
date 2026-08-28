@@ -1,12 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
+  LIST_INDEXES_SQL,
   LIST_TABLES_SQL,
+  INDEX_RELATION_SQL,
   PAGE_RELATION_SQL,
   SCHEMA_COLUMNS_SQL,
   mapSchemaColumnRow,
   relationBlocksFromSize,
 } from "../src/catalog.js";
 
+describe("index catalog SQL contracts", () => {
+  it("index list selects relkind='i' with pg_am join and indisvalid", () => {
+    const sql = LIST_INDEXES_SQL.toLowerCase();
+    expect(sql).toContain("relkind = 'i'");
+    expect(sql).toContain("join pg_am");
+    expect(sql).toContain("join pg_index");
+    expect(sql).toContain("indisvalid");
+  });
+
+  it("index list excludes system and temp schemas like the table list", () => {
+    const sql = LIST_INDEXES_SQL.toLowerCase();
+    expect(sql).toContain("'pg_catalog'");
+    expect(sql).toContain("'information_schema'");
+    expect(sql).toContain("'pg_toast'");
+    expect(sql).toContain("pg_temp_");
+    expect(sql).toContain("pg_toast_temp_");
+  });
+
+  it("index list uses on-disk pg_relation_size for blocks and orders by schema,name", () => {
+    const sql = LIST_INDEXES_SQL.toLowerCase();
+    expect(sql).toContain("pg_relation_size");
+    expect(sql).not.toContain("relpages");
+    expect(sql).toContain("order by n.nspname, i.relname");
+  });
+
+  it("index relation lookup returns relkind, access method, name and blocks", () => {
+    const sql = INDEX_RELATION_SQL.toLowerCase();
+    expect(sql).toContain("c.relkind");
+    expect(sql).toContain("join pg_am");
+    expect(sql).toContain("amname");
+    expect(sql).toContain("pg_relation_size");
+    expect(sql).not.toContain("relpages");
+    expect(sql).toContain("where c.oid = $1");
+  });
+});
 describe("catalog SQL contracts", () => {
   it("schema query LEFT JOINs pg_type so attisdropped rows are kept", () => {
     const sql = SCHEMA_COLUMNS_SQL.replace(/\s+/g, " ").toLowerCase();
