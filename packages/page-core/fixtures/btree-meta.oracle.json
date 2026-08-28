@@ -1,0 +1,20 @@
+{
+  "index": "pageview_fx.demo_uniq_k_idx",
+  "blkno": 0,
+  "btMetap": {
+    "magic": 340322,
+    "version": 4,
+    "root": "3",
+    "level": "1",
+    "fastroot": "3",
+    "fastlevel": "1",
+    "last_cleanup_num_delpages": "0",
+    "last_cleanup_num_tuples": -1,
+    "allequalimage": true
+  },
+  "btMetapError": null,
+  "btPageStats": null,
+  "btPageStatsError": "block 0 is a meta page",
+  "btPageItems": [],
+  "btPageItemsError": "block 0 is a meta page"
+}
