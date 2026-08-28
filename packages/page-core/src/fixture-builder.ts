@@ -14,6 +14,19 @@ import {
   LP_UNUSED,
 } from "./flags.js";
 import { ITEM_ID_SIZE, PAGE_HEADER_SIZE, STANDARD_PAGE_SIZE } from "./parse.js";
+import {
+  BTP_LEAF,
+  BTP_META,
+  BTP_ROOT,
+  BT_IS_POSTING,
+  BTREE_MAGIC,
+  BTREE_METAPAGE_CONTENT_OFFSET,
+  BTREE_SPECIAL_SIZE,
+  INDEX_ALT_TID_MASK,
+  INDEX_NULL_MASK,
+  INDEX_VAR_MASK,
+  P_NONE,
+} from "./btree.js";
 
 function writeU16(buf: Uint8Array, offset: number, value: number): void {
   buf[offset] = value & 0xff;
@@ -180,6 +193,154 @@ export function buildEmptyishPage(): Uint8Array {
   writeU16(page, 16, STANDARD_PAGE_SIZE);
   writeU16(page, 12, PAGE_HEADER_SIZE);
   writeU16(page, 14, STANDARD_PAGE_SIZE);
+  return page;
+}
+
+// ---------------------------------------------------------------------------
+// B-tree synthetic page builder (PG 16 nbtree layout; constants frozen vs
+// pageinspect oracle — see btree.ts and fixtures/btree-*.oracle.json)
+// ---------------------------------------------------------------------------
+
+export type BuiltBtreeTuple = {
+  tidBlock: number;
+  tidOffset: number;
+  /** key payload after the 8B IndexTupleData header (default 8 zero bytes) */
+  keyBytes?: Uint8Array;
+  nulls?: boolean;
+  vars?: boolean;
+  /** set INDEX_ALT_TID_MASK (pivot tuple, e.g. hikey/minus-inf downlink) */
+  pivot?: boolean;
+  /** posting list tuple (leaf): tidBlock/tidOffset ignored — the header encodes count + list offset */
+  posting?: Array<{ blockNumber: number; offsetNumber: number }>;
+};
+
+export type BuildBtreePageOptions = {
+  pageType?: "meta" | "internal" | "leaf";
+  btpoPrev?: number;
+  btpoNext?: number;
+  btpoLevel?: number;
+  /** replaces the computed btpo_flags (e.g. to test derived flags) */
+  btpoFlagsOverride?: number;
+  btpoCycleid?: number;
+  metaVersion?: number;
+  metaBadMagic?: boolean;
+  metaRoot?: number;
+  metaLevel?: number;
+  metaFastRoot?: number;
+  metaFastLevel?: number;
+  metaAllequalimage?: boolean;
+  tuples?: BuiltBtreeTuple[];
+  /** append one LP_NORMAL ItemId pointing outside the page (warning case) */
+  corruptLpOffset?: boolean;
+};
+
+function packIndexTuple(t: BuiltBtreeTuple): { body: Uint8Array } {
+  const key = t.keyBytes ?? new Uint8Array(8);
+  if (t.posting) {
+    const postingOffset = 8 + key.length; // MAXALIGN'd by caller via key length
+    const body = new Uint8Array(postingOffset + t.posting.length * 6);
+    // t_tid reinterpreted: ip_blkid = posting list offset within the tuple,
+    // ip_posid = TID count | BT_IS_POSTING (nbtree.h BTreeTupleSetPosting)
+    writeU16(body, 0, (postingOffset >>> 16) & 0xffff);
+    writeU16(body, 2, postingOffset & 0xffff);
+    writeU16(body, 4, (t.posting.length | BT_IS_POSTING) & 0xffff);
+    let o = postingOffset;
+    for (const tid of t.posting) {
+      writeU16(body, o, (tid.blockNumber >>> 16) & 0xffff);
+      writeU16(body, o + 2, tid.blockNumber & 0xffff);
+      writeU16(body, o + 4, tid.offsetNumber);
+      o += 6;
+    }
+    let info = body.length | INDEX_ALT_TID_MASK;
+    if (t.nulls) info |= INDEX_NULL_MASK;
+    if (t.vars) info |= INDEX_VAR_MASK;
+    writeU16(body, 6, info);
+    body.set(key, 8);
+    return { body };
+  }
+  const body = new Uint8Array(8 + key.length);
+  writeU16(body, 0, (t.tidBlock >>> 16) & 0xffff);
+  writeU16(body, 2, t.tidBlock & 0xffff);
+  writeU16(body, 4, t.tidOffset);
+  let info = body.length;
+  if (t.pivot) info |= INDEX_ALT_TID_MASK;
+  if (t.nulls) info |= INDEX_NULL_MASK;
+  if (t.vars) info |= INDEX_VAR_MASK;
+  writeU16(body, 6, info);
+  body.set(key, 8);
+  return { body };
+}
+
+export function buildBtreePage(options?: BuildBtreePageOptions): Uint8Array {
+  const o = options ?? {};
+  const pageType = o.pageType ?? "leaf";
+  const page = new Uint8Array(STANDARD_PAGE_SIZE);
+
+  const pagesizeVersion = ((STANDARD_PAGE_SIZE / 256) << 8) | 4;
+  writeU16(page, 18, pagesizeVersion);
+  writeU16(page, 16, STANDARD_PAGE_SIZE - BTREE_SPECIAL_SIZE); // pd_special
+
+  let nItems = 0;
+  let upper = STANDARD_PAGE_SIZE - BTREE_SPECIAL_SIZE;
+  const placements: Array<{ off: number; len: number }> = [];
+
+  if (pageType !== "meta") {
+    for (let i = (o.tuples ?? []).length - 1; i >= 0; i--) {
+      const { body } = packIndexTuple((o.tuples ?? [])[i]!);
+      upper -= body.length;
+      upper &= ~7; // MAXALIGN
+      page.set(body, upper);
+      placements.unshift({ off: upper, len: body.length });
+    }
+    nItems = placements.length + (o.corruptLpOffset ? 1 : 0);
+  }
+
+  const pdLower = PAGE_HEADER_SIZE + nItems * ITEM_ID_SIZE;
+  writeU16(page, 12, pdLower);
+  writeU16(page, 14, pageType === "meta" ? STANDARD_PAGE_SIZE - BTREE_SPECIAL_SIZE : upper);
+
+  let idOff = PAGE_HEADER_SIZE;
+  for (const p of placements) {
+    writeItemId(page, idOff, p.off, LP_NORMAL, p.len);
+    idOff += ITEM_ID_SIZE;
+  }
+  if (o.corruptLpOffset) {
+    writeItemId(page, idOff, 9000, LP_NORMAL, 16);
+    idOff += ITEM_ID_SIZE;
+  }
+
+  // special space at pd_special (8176)
+  const sp = STANDARD_PAGE_SIZE - BTREE_SPECIAL_SIZE;
+  writeU32(page, sp + 0, o.btpoPrev ?? P_NONE);
+  writeU32(page, sp + 4, o.btpoNext ?? P_NONE);
+  writeU32(page, sp + 8, o.btpoLevel ?? (pageType === "internal" ? 1 : 0));
+  let flags: number;
+  if (o.btpoFlagsOverride !== undefined) {
+    flags = o.btpoFlagsOverride;
+  } else if (pageType === "meta") {
+    flags = BTP_META;
+  } else if (pageType === "internal") {
+    flags = BTP_ROOT;
+  } else {
+    flags = BTP_LEAF;
+  }
+  writeU16(page, sp + 12, flags);
+  writeU16(page, sp + 14, o.btpoCycleid ?? 0);
+
+  if (pageType === "meta") {
+    const c = BTREE_METAPAGE_CONTENT_OFFSET;
+    writeU32(page, c + 0, o.metaBadMagic ? 0xdeadbeef : BTREE_MAGIC);
+    writeU32(page, c + 4, o.metaVersion ?? 4);
+    writeU32(page, c + 8, o.metaRoot ?? 3);
+    writeU32(page, c + 12, o.metaLevel ?? 1);
+    writeU32(page, c + 16, o.metaFastRoot ?? o.metaRoot ?? 3);
+    writeU32(page, c + 20, o.metaFastLevel ?? 1);
+    const version = o.metaVersion ?? 4;
+    if (version >= 4 && o.metaAllequalimage !== false) {
+      page[c + 40] = 1; // btm_allequalimage (abs 64)
+    }
+  }
+
   return page;
 }
 

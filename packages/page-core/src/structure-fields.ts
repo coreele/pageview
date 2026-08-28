@@ -3,7 +3,7 @@ import type { ByteRange, ParsedPage } from "./types.js";
 
 export const STRUCTURE_BYTES_PER_ROW = 32;
 
-export type StructureFieldRegion = "header" | "itemid" | "free" | "tuple";
+export type StructureFieldRegion = "header" | "itemid" | "free" | "tuple" | "special" | "meta";
 
 export type StructureField = {
   id: string;

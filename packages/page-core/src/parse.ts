@@ -38,7 +38,8 @@ function readU32(view: DataView, offset: number): number {
   return view.getUint32(offset, true);
 }
 
-function readItemId(view: DataView, offset: number, index: number): ItemId {
+/** Shared reader: decode one 4B ItemIdData word (used by heap and btree modules). */
+export function readItemId(view: DataView, offset: number, index: number): ItemId {
   const word = view.getUint32(offset, true);
   const lp_off = word & 0x7fff;
   const lp_flags = (word >> 15) & 0x3;
@@ -58,7 +59,8 @@ function readItemId(view: DataView, offset: number, index: number): ItemId {
   return item;
 }
 
-function parseHeader(bytes: Uint8Array): PageHeader {
+/** Shared reader: parse the 24B PageHeaderData (used by heap and btree modules). */
+export function parseHeader(bytes: Uint8Array): PageHeader {
   if (bytes.length !== STANDARD_PAGE_SIZE) {
     throw new PageParseError(
       `Unsupported page size ${bytes.length}; only standard ${STANDARD_PAGE_SIZE}-byte pages are supported.`,
