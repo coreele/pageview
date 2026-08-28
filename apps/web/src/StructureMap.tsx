@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } 
 import {
   cellCapacityChars,
   chooseCellContent,
+  decodeBtpoFlags,
   decodeInfomask,
   decodeInfomask2,
   decodeItemIdFlags,
@@ -12,10 +13,13 @@ import {
   type ByteRange,
   type CellMetrics,
   type ItemId,
+  type ParsedBtreePage,
   type ParsedPage,
   type StructureField,
 } from "page-core";
 import { FlagBitStripSolo, InfomaskBitPair } from "./InfomaskBitStrip";
+import { findTupleBySelection, metapageRows } from "./indexDetail";
+import { IndexTupleDetail } from "./IndexTupleDetail";
 import { buildHexLayout } from "./hexLayout";
 import {
   freeBreakColumns,
@@ -570,6 +574,139 @@ export function HeapDetail({
       )}
     </>
   );
+}
+
+/**
+ * B-tree selection-detail body (index-viewer T7): special / metapage / tuple
+ * branches. Navigation buttons (T8) are injected via optional callbacks.
+ */
+export function BtreeStructureDetail({
+  page,
+  fields,
+  selectedId,
+  onSelect,
+  onLoadIndexBlock,
+  onJumpToHeap,
+}: {
+  page: ParsedBtreePage;
+  fields: StructureField[];
+  selectedId: string | null;
+  onSelect: (id: string, range: ByteRange) => void;
+  onLoadIndexBlock?: (blkno: number) => void;
+  onJumpToHeap?: (blkno: number) => void;
+}) {
+  if (selectedId?.startsWith("itemid-")) {
+    const item = page.itemIds.find(
+      (i) =>
+        selectedId === `itemid-${i.index}` || selectedId.startsWith(`itemid-${i.index}.`),
+    );
+    return item ? <ItemIdFlagDetail item={item} /> : null;
+  }
+
+  if (selectedId?.startsWith("special.")) {
+    const sp = page.special;
+    if (!sp) {
+      return <div className="parse-warning-inline">⚠ special space 不可读（pd_special 异常）</div>;
+    }
+    const rows = [
+      { id: "special.btpo_prev", key: "btpo_prev", value: String(sp.btpo_prev) },
+      { id: "special.btpo_next", key: "btpo_next", value: String(sp.btpo_next) },
+      { id: "special.btpo_level", key: "btpo_level", value: String(sp.btpo_level) },
+      { id: "special.btpo_flags", key: "btpo_flags", value: `0x${sp.btpo_flags.toString(16)}` },
+      { id: "special.btpo_cycleid", key: "btpo_cycleid", value: String(sp.btpo_cycleid) },
+    ];
+    return (
+      <div className="btree-field-section">
+        <div className="btree-field-rows">
+          {rows.map((r) => {
+            const f = fields.find((x) => x.id === r.id);
+            return (
+              <button
+                key={r.id}
+                type="button"
+                className={`btree-field-row mono${selectedId === r.id ? " selected" : ""}`}
+                onClick={f ? () => onSelect(f.id, f.range) : undefined}
+                aria-current={selectedId === r.id || undefined}
+              >
+                <span className="btree-field-row__key">{r.key}</span>
+                <span className="btree-field-row__value">{r.value}</span>
+                {f && (
+                  <span className="btree-field-row__range">
+                    [{f.range.start}..{f.range.end})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {selectedId === "special.btpo_flags" && (
+          <div className="selection-detail__infomask">
+            <FlagBitStripSolo
+              label="btpo_flags"
+              value={sp.btpo_flags}
+              bits={decodeBtpoFlags(sp.btpo_flags)}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (selectedId?.startsWith("meta.")) {
+    const meta = page.meta;
+    if (!meta) return null;
+    const magicWarn = page.warnings.some((w) => w.includes("magic"));
+    return (
+      <div className="btree-field-section">
+        <div className="muted btree-field-section__hint">
+          metapage（PageGetContents @24）· v{meta.btm_version}
+        </div>
+        <div className="btree-field-rows">
+          {metapageRows(meta).map((r) => {
+            const f = fields.find((x) => x.id === `meta.${r.key}`);
+            return (
+              <button
+                key={r.key}
+                type="button"
+                className={`btree-field-row mono${selectedId === `meta.${r.key}` ? " selected" : ""}`}
+                onClick={f ? () => onSelect(f.id, f.range) : undefined}
+                aria-current={selectedId === `meta.${r.key}` || undefined}
+              >
+                <span className="btree-field-row__key">{r.key}</span>
+                <span className="btree-field-row__value">{r.value}</span>
+                {f && (
+                  <span className="btree-field-row__range">
+                    [{f.range.start}..{f.range.end})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        {magicWarn && (
+          <div className="parse-warning-inline">
+            ⚠ btm_magic 与 0x53162 不符 — 元数据可能不可信，可解析部分照常展示
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (selectedId?.startsWith("tuple-")) {
+    const t = findTupleBySelection(page, selectedId);
+    if (!t) return null;
+    return (
+      <IndexTupleDetail
+        page={page}
+        tuple={t}
+        onSelectRange={onSelect}
+        onLoadChildBlock={onLoadIndexBlock}
+        onJumpHeapBlock={onJumpToHeap}
+      />
+    );
+  }
+
+  return null;
 }
 
 export function StructureMap({

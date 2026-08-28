@@ -8,6 +8,7 @@
   --accent: #0f766e;
   --danger: #b91c1c;
   --focus: #0369a1;
+  --warning: #b45309;
   --region-header: #cfe3f5;
   --region-itemid: #f3e0a8;
   --region-free: #d9e1e8;
@@ -41,6 +42,7 @@
   --accent: #2dd4bf;
   --danger: #f87171;
   --focus: #38bdf8;
+  --warning: #fbbf24;
   --region-header: #1a3550;
   --region-itemid: #4a3a12;
   --region-free: #1c252e;
@@ -1436,6 +1438,153 @@ input {
 .growth {
   color: var(--text-muted);
   font-size: 0.8rem;
+}
+
+/* index-viewer: parse-warning banner (partial-failure state, ui-design) */
+.parse-warnings {
+  border-color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 8%, var(--surface));
+}
+
+.parse-warnings strong {
+  color: var(--warning);
+}
+
+.parse-warning-inline {
+  color: var(--warning);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+/* index-viewer: special / metapage detail field rows */
+.btree-field-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.btree-field-section__hint {
+  font-size: 0.78rem;
+}
+
+.btree-field-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.btree-field-row {
+  display: grid;
+  grid-template-columns: minmax(7rem, auto) minmax(4rem, auto) 1fr;
+  align-items: baseline;
+  gap: 0.6rem;
+  text-align: left;
+  padding: 0.18rem 0.5rem;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 0.84rem;
+}
+
+.btree-field-row:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.btree-field-row.selected {
+  border-color: color-mix(in srgb, var(--field-selected) 55%, transparent);
+  background: color-mix(in srgb, var(--field-selected) 10%, transparent);
+}
+
+.btree-field-row__key {
+  color: var(--text-muted);
+}
+
+.btree-field-row__value {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.btree-field-row__range {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  justify-self: end;
+}
+
+/* index-viewer: index tuple detail (IndexTupleDetail) */
+.index-tuple-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.86rem;
+}
+
+.index-tuple-detail__line {
+  line-height: 1.6;
+}
+
+.detail-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.01rem 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--border) 85%, var(--text-muted));
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface) 70%, var(--bg));
+  vertical-align: 1px;
+}
+
+.index-tuple-detail__key .key-bytes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.key-bytes__label {
+  color: var(--text-muted);
+}
+
+.key-bytes__hex {
+  word-break: break-all;
+  font-variant-numeric: tabular-nums;
+}
+
+.key-bytes__count {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.index-tuple-detail__posting {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.posting-tid-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0.4rem;
+  max-height: 160px;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 75%, var(--diagram-bg));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(5.5rem, 1fr));
+  gap: 0.1rem 0.6rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.posting-tid-list li {
+  white-space: nowrap;
 }
 
 .spinner {

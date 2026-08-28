@@ -30,7 +30,7 @@ import {
   type WalRecordDto,
 } from "./api";
 import { HexDump } from "./HexDump";
-import { HeapDetail, ItemIdFlagDetail, StructureMap } from "./StructureMap";
+import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
 import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
@@ -1201,6 +1201,11 @@ export function App() {
                   <span className="spinner" /> Loading page…
                 </div>
               )}
+              {btreePage.warnings.length > 0 && (
+                <div className="panel parse-warnings" role="status">
+                  <strong>页数据异常</strong>：{btreePage.warnings.join("；")}；可解析部分照常展示。
+                </div>
+              )}
               <StructureMap
                 raw={btreePage.raw}
                 freeRange={btreePage.freeSpace.range}
@@ -1217,14 +1222,14 @@ export function App() {
                       ? "空页：无 index tuple；无键数据，结构仍可浏览。"
                       : null
                 }
-                renderDetail={() => {
-                  const item = btreePage.itemIds.find(
-                    (i) =>
-                      selectedId === `itemid-${i.index}` ||
-                      selectedId?.startsWith(`itemid-${i.index}.`),
-                  );
-                  return item ? <ItemIdFlagDetail item={item} /> : null;
-                }}
+                renderDetail={() => (
+                  <BtreeStructureDetail
+                    page={btreePage}
+                    fields={fields ?? []}
+                    selectedId={selectedId}
+                    onSelect={onSelectStructure}
+                  />
+                )}
               />
             </section>
 
