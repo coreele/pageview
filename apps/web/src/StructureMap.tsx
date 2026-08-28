@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   cellCapacityChars,
   chooseCellContent,
@@ -6,12 +6,12 @@ import {
   decodeInfomask2,
   decodeItemIdFlags,
   decodePdFlags,
-  deriveStructureFields,
   selectionTargetForField,
   splitFieldIntoRowSegments,
   STRUCTURE_BYTES_PER_ROW,
   type ByteRange,
   type CellMetrics,
+  type ItemId,
   type ParsedPage,
   type StructureField,
 } from "page-core";
@@ -24,14 +24,21 @@ import {
 } from "./structureLayout";
 
 type Props = {
-  page: ParsedPage;
-  currentBlkno: number;
+  /** Raw 8KB page bytes (heap or B-tree). */
+  raw: Uint8Array;
+  /** Free space [pd_lower, pd_upper) — collapsed band in both panes. */
+  freeRange: ByteRange;
+  /** Pre-derived structure fields (deriveStructureFields / deriveBtreeStructureFields). */
+  fields: StructureField[];
   selectedId: string | null;
   highlight: ByteRange | null;
   diffIds: Set<string>;
   detailOpen?: boolean;
   onSelect: (id: string, range: ByteRange) => void;
-  onLoadCrossBlock: (blkno: number) => void;
+  /** Bottom empty-state note; null hides the panel (heap default text is passed by the caller). */
+  emptyStateText?: string | null;
+  /** Selection-driven detail body (heap / B-tree specific), rendered inside the shared detail panel. */
+  renderDetail: (selectedField: StructureField) => ReactNode;
 };
 
 type LayoutSegment = {
@@ -71,6 +78,13 @@ function abbreviateLabel(label: string, spanBytes: number): string {
     ctid: ["ctid", "ct"],
     xmin: ["xmin", "xn"],
     xmax: ["xmax", "xm"],
+    btpo_prev: ["prev", "pv"],
+    btpo_next: ["next", "nx"],
+    btpo_level: ["level", "lv"],
+    btpo_flags: ["flg", "fl"],
+    btpo_cycleid: ["cycle", "cy"],
+    t_tid: ["tid", "td"],
+    t_info: ["info", "in"],
   };
   const item = /^ItemId\[(\d+)\]$/.exec(label);
   if (item) return spanBytes >= 3 ? `#${item[1]}` : item[1]!;
@@ -297,14 +311,16 @@ function FieldCell({
 }
 
 function StructurePresentationRows({
-  page,
+  raw,
+  freeRange,
   fields,
   selectedId,
   diffIds,
   onSelect,
   metrics,
 }: {
-  page: ParsedPage;
+  raw: Uint8Array;
+  freeRange: ByteRange;
   fields: StructureField[];
   selectedId: string | null;
   diffIds: Set<string>;
@@ -315,11 +331,11 @@ function StructurePresentationRows({
   const layout = useMemo(
     () =>
       buildHexLayout({
-        rawLength: page.raw.length,
-        freeRange: page.freeSpace.range,
+        rawLength: raw.length,
+        freeRange,
         bytesPerRow: STRUCTURE_BYTES_PER_ROW,
       }),
-    [page.raw.length, page.freeSpace.range.start, page.freeSpace.range.end],
+    [raw.length, freeRange.start, freeRange.end],
   );
 
   if (layout.rows.length === 0) return null;
@@ -449,31 +465,136 @@ function useStructureCellMetrics(rootRef: RefObject<HTMLElement | null>): CellMe
   return metrics;
 }
 
-export function StructureMap({
-  page,
-  currentBlkno,
-  selectedId,
-  highlight,
-  diffIds,
-  detailOpen = true,
-  onSelect,
-  onLoadCrossBlock,
-}: Props) {
-  const rootRef = useRef<HTMLDivElement>(null);
-  const metrics = useStructureCellMetrics(rootRef);
-  const fields = useMemo(() => deriveStructureFields(page), [page]);
-  const diagramFields = useMemo(
-    () => fields.filter((f) => !f.visualOnly && f.region !== "free"),
-    [fields],
+/** Shared ItemId flag list (heap and B-tree pages have identical ItemId arrays). */
+export function ItemIdFlagDetail({ item }: { item: ItemId }) {
+  return (
+    <div className="flag-list" aria-label="ItemId flags">
+      {decodeItemIdFlags(item.flags).map((b) => (
+        <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
+          {b.set ? "●" : "○"} {b.name} — {b.meaning}
+        </div>
+      ))}
+    </div>
   );
+}
 
+/** Heap selection-detail body: ItemId flags, pd_flags strip, tuple infomask/ctid/columns. */
+export function HeapDetail({
+  page,
+  selectedId,
+  currentBlkno,
+  onLoadCrossBlock,
+}: {
+  page: ParsedPage;
+  selectedId: string | null;
+  currentBlkno: number;
+  onLoadCrossBlock: (blkno: number) => void;
+}) {
   const selectedItem = page.itemIds.find(
     (i) => selectedId === `itemid-${i.index}` || selectedId?.startsWith(`itemid-${i.index}.`),
   );
   const selectedTuple = page.tuples.find(
     (t) => selectedId === `tuple-${t.itemIndex}` || selectedId?.startsWith(`tuple-${t.itemIndex}.`),
   );
-  const selectedField = fields.find((f) => f.id === selectedId && !f.visualOnly);
+
+  return (
+    <>
+      {selectedItem && <ItemIdFlagDetail item={selectedItem} />}
+      {selectedId === "header.pd_flags" && (
+        <div className="selection-detail__infomask">
+          <FlagBitStripSolo
+            label="pd_flags"
+            value={page.header.pd_flags}
+            bits={decodePdFlags(page.header.pd_flags)}
+          />
+        </div>
+      )}
+      {selectedTuple && (
+        <>
+          <div className="selection-detail__infomask">
+            <InfomaskBitPair
+              infomask={selectedTuple.header.t_infomask}
+              infomask2={selectedTuple.header.t_infomask2}
+              bits={decodeInfomask(selectedTuple.header.t_infomask)}
+              bits2={decodeInfomask2(selectedTuple.header.t_infomask2)}
+            />
+          </div>
+          <div className="selection-detail__section selection-meta">
+            {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
+              <div className="muted">
+                HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
+                {selectedTuple.heapOnlyTuple ? "HEAP_ONLY_TUPLE" : ""}
+              </div>
+            )}
+            <div className="selection-ctid">
+              ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
+              {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
+                  >
+                    Load block {selectedTuple.header.t_ctid.blockNumber}
+                  </button>
+                  <span className="muted"> (cross-block; no prefetch)</span>
+                </>
+              ) : (
+                <span className="muted"> (same page)</span>
+              )}
+            </div>
+          </div>
+          {selectedTuple.columns && (
+            <div className="selection-detail__section selection-detail__columns">
+              <strong>Columns</strong>
+              <ul>
+                {selectedTuple.columns.map((c) => (
+                  <li key={c.attnum} className="mono">
+                    {c.dropped ? (
+                      <span className="muted">
+                        #{c.attnum} {c.name}: (dropped)
+                      </span>
+                    ) : (
+                      <>
+                        #{c.attnum} {c.name} ({c.typeName}): {c.null ? "NULL" : c.display}
+                        {c.toasted ? " [TOASTed]" : ""}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+export function StructureMap({
+  raw,
+  freeRange,
+  fields,
+  selectedId,
+  highlight,
+  diffIds,
+  detailOpen = true,
+  onSelect,
+  emptyStateText = null,
+  renderDetail,
+}: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const metrics = useStructureCellMetrics(rootRef);
+  const diagramFields = useMemo(
+    () => fields.filter((f) => !f.visualOnly && f.region !== "free"),
+    [fields],
+  );
+  const regions = useMemo(() => new Set(fields.map((f) => f.region)), [fields]);
+  const selectedField = useMemo(
+    () => fields.find((f) => f.id === selectedId && !f.visualOnly) ?? null,
+    [fields, selectedId],
+  );
 
   return (
     <div className="structure structure-diagram" ref={rootRef}>
@@ -485,12 +606,15 @@ export function StructureMap({
         <span className="legend-chip region-itemid">ItemId</span>
         <span className="legend-chip region-free">free</span>
         <span className="legend-chip region-tuple">tuple</span>
+        {regions.has("special") && <span className="legend-chip region-special">special</span>}
+        {regions.has("meta") && <span className="legend-chip region-meta">meta</span>}
         <span className="legend-meta muted">32 B / row · low offset ↑ · linked with hex</span>
       </div>
 
       <div className="structure-flow" aria-label="Page structure flow">
         <StructurePresentationRows
-          page={page}
+          raw={raw}
+          freeRange={freeRange}
           fields={diagramFields}
           selectedId={selectedId}
           diffIds={diffIds}
@@ -499,98 +623,21 @@ export function StructureMap({
         />
       </div>
 
-      {detailOpen && (selectedItem || selectedTuple || selectedField) && (
+      {detailOpen && selectedField && (
         <div className="selection-detail-wrap">
           <div className="selection-detail__title">detail</div>
           <div id="selection-detail-panel" className="panel selection-detail">
             <div className="selection-detail__header">
-              {selectedField && (
-                <div className="selection-detail__field mono">
-                  <div className="selection-detail__label">{selectedField.fullLabel}</div>
-                  {selectedField.valueText != null && (
-                    <div className="selection-value">{selectedField.valueText}</div>
-                  )}
-                </div>
-              )}
+              <div className="selection-detail__field mono">
+                <div className="selection-detail__label">{selectedField.fullLabel}</div>
+                {selectedField.valueText != null && (
+                  <div className="selection-value">{selectedField.valueText}</div>
+                )}
+              </div>
             </div>
 
-            {selectedItem && (
-              <div className="flag-list" aria-label="ItemId flags">
-                {decodeItemIdFlags(selectedItem.flags).map((b) => (
-                  <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
-                    {b.set ? "●" : "○"} {b.name} — {b.meaning}
-                  </div>
-                ))}
-              </div>
-            )}
-            {selectedField?.id === "header.pd_flags" && (
-              <div className="selection-detail__infomask">
-                <FlagBitStripSolo
-                  label="pd_flags"
-                  value={page.header.pd_flags}
-                  bits={decodePdFlags(page.header.pd_flags)}
-                />
-              </div>
-            )}
-            {selectedTuple && (
-              <>
-                <div className="selection-detail__infomask">
-                  <InfomaskBitPair
-                    infomask={selectedTuple.header.t_infomask}
-                    infomask2={selectedTuple.header.t_infomask2}
-                    bits={decodeInfomask(selectedTuple.header.t_infomask)}
-                    bits2={decodeInfomask2(selectedTuple.header.t_infomask2)}
-                  />
-                </div>
-                <div className="selection-detail__section selection-meta">
-                  {(selectedTuple.hotUpdated || selectedTuple.heapOnlyTuple) && (
-                    <div className="muted">
-                      HOT flags: {selectedTuple.hotUpdated ? "HOT_UPDATED " : ""}
-                      {selectedTuple.heapOnlyTuple ? "HEAP_ONLY_TUPLE" : ""}
-                    </div>
-                  )}
-                  <div className="selection-ctid">
-                    ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
-                    {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
-                      <>
-                        {" "}
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
-                        >
-                          Load block {selectedTuple.header.t_ctid.blockNumber}
-                        </button>
-                        <span className="muted"> (cross-block; no prefetch)</span>
-                      </>
-                    ) : (
-                      <span className="muted"> (same page)</span>
-                    )}
-                  </div>
-                </div>
-                {selectedTuple.columns && (
-                  <div className="selection-detail__section selection-detail__columns">
-                    <strong>Columns</strong>
-                    <ul>
-                      {selectedTuple.columns.map((c) => (
-                        <li key={c.attnum} className="mono">
-                          {c.dropped ? (
-                            <span className="muted">
-                              #{c.attnum} {c.name}: (dropped)
-                            </span>
-                          ) : (
-                            <>
-                              #{c.attnum} {c.name} ({c.typeName}): {c.null ? "NULL" : c.display}
-                              {c.toasted ? " [TOASTed]" : ""}
-                            </>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </>
-            )}
+            {renderDetail(selectedField)}
+
             {highlight && (
               <div className="selection-detail__highlight muted mono">
                 highlight bytes [{highlight.start}..{highlight.end})
@@ -600,11 +647,7 @@ export function StructureMap({
         </div>
       )}
 
-      {page.tuples.length === 0 && (
-        <div className="panel muted">
-          No NORMAL tuples on this page. Free space dominates; structure is still browsable.
-        </div>
-      )}
+      {emptyStateText != null && <div className="panel muted">{emptyStateText}</div>}
     </div>
   );
 }

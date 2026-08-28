@@ -1,20 +1,31 @@
-import type { ByteRange, ParsedPage } from "page-core";
-import { deriveStructureFields, resolveFieldAt } from "page-core";
+import type { ByteRange, StructureField } from "page-core";
 
 export function rangesOverlap(a: ByteRange, b: ByteRange): boolean {
   return a.start < b.end && b.start < a.end;
 }
 
-/** Field-level hit at offset; falls back to single-byte when unmapped. */
+/**
+ * Field-level hit at offset over a pre-derived field list (heap or B-tree).
+ * Most specific (smallest-span) non-visual field wins; null when unmapped.
+ */
 export function findStructureAt(
-  page: ParsedPage,
+  fields: StructureField[],
   offset: number,
-): { kind: string; id: string; range: ByteRange } | null {
-  const hit = resolveFieldAt(page, offset);
-  if (hit) {
-    return { kind: hit.region, id: hit.id, range: hit.range };
+): { kind: StructureField["region"]; id: string; range: ByteRange } | null {
+  let best: StructureField | null = null;
+  let bestSpan = Number.POSITIVE_INFINITY;
+  for (const f of fields) {
+    if (f.visualOnly) continue;
+    if (offset >= f.range.start && offset < f.range.end) {
+      const span = f.range.end - f.range.start;
+      if (span < bestSpan) {
+        best = f;
+        bestSpan = span;
+      }
+    }
   }
-  return null;
+  if (!best) return null;
+  return { kind: best.region, id: best.id, range: best.range };
 }
 
 /** Byte-level diff between two pages of equal length. */
@@ -34,22 +45,23 @@ export function diffByteRanges(prev: Uint8Array, next: Uint8Array): ByteRange[] 
   return ranges;
 }
 
+/**
+ * Field ids whose ranges overlap any diff range. Region-coarse compat ids
+ * ("header", "free") are emitted alongside field ids so existing consumers
+ * (HexDump freeDiff, structure-map region shading) keep working for both
+ * heap and B-tree field lists.
+ */
 export function structureAffectedByDiff(
-  page: ParsedPage,
+  fields: StructureField[],
   diffs: ByteRange[],
 ): Set<string> {
   const ids = new Set<string>();
-  const check = (id: string, range: ByteRange) => {
-    if (diffs.some((d) => rangesOverlap(d, range))) ids.add(id);
-  };
-  // Coarse ids (compat) + field-level ids for diagram cells
-  check("header", page.header.range);
-  check("free", page.freeSpace.range);
-  for (const item of page.itemIds) check(`itemid-${item.index}`, item.range);
-  for (const t of page.tuples) check(`tuple-${t.itemIndex}`, t.range);
-  for (const f of deriveStructureFields(page)) {
+  for (const f of fields) {
     if (f.visualOnly) continue;
-    check(f.id, f.range);
+    if (diffs.some((d) => rangesOverlap(d, f.range))) {
+      ids.add(f.id);
+      if (f.region === "header") ids.add("header");
+    }
   }
   return ids;
 }

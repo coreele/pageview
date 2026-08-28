@@ -12,6 +12,9 @@
   --region-itemid: #f3e0a8;
   --region-free: #d9e1e8;
   --region-tuple: #c8ebd6;
+  /* index-viewer (ui-design): derived special/meta region tokens */
+  --region-special: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  --region-meta: color-mix(in srgb, var(--region-header) 60%, var(--region-free));
   --hex-hl: #ffe08a;
   --diff: #ea580c;
   --wal-new: #047857;
@@ -42,6 +45,9 @@
   --region-itemid: #4a3a12;
   --region-free: #1c252e;
   --region-tuple: #163528;
+  /* index-viewer (ui-design): derived special/meta region tokens */
+  --region-special: color-mix(in srgb, var(--accent) 20%, var(--surface));
+  --region-meta: color-mix(in srgb, var(--region-header) 60%, var(--region-free));
   --hex-hl: #7a5a12;
   --diff: #fb923c;
   --wal-new: #4ade80;
@@ -574,6 +580,12 @@ input {
 .legend-chip.region-tuple {
   background: var(--region-tuple);
 }
+.legend-chip.region-special {
+  background: var(--region-special);
+}
+.legend-chip.region-meta {
+  background: var(--region-meta);
+}
 
 .legend-meta {
   font-size: 0.72rem;
@@ -745,6 +757,22 @@ input {
 .field-cell.region-tuple.has-left-stripe {
   box-shadow: inset 1px 0 0 #16a34a;
 }
+.field-cell.region-special {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--region-special) 88%, #fff),
+    var(--region-special)
+  );
+}
+.field-cell.region-special.has-left-stripe {
+  box-shadow: inset 1px 0 0 var(--accent);
+}
+.field-cell.region-meta {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--region-meta) 88%, #fff), var(--region-meta));
+}
+.field-cell.region-meta.has-left-stripe {
+  box-shadow: inset 1px 0 0 var(--focus);
+}
 
 [data-theme="dark"] .field-cell.region-header,
 [data-theme="dark"] .field-cell.region-itemid,
@@ -756,6 +784,12 @@ input {
 }
 [data-theme="dark"] .field-cell.region-tuple {
   background: var(--region-tuple);
+}
+[data-theme="dark"] .field-cell.region-special {
+  background: var(--region-special);
+}
+[data-theme="dark"] .field-cell.region-meta {
+  background: var(--region-meta);
 }
 
 .field-cell.selected,

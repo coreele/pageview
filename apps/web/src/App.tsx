@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import {
   annotateCtidBlocks,
   decodePageTuples,
+  deriveBtreeStructureFields,
+  deriveStructureFields,
   PageParseError,
   parsePage,
   parseBtreePage,
   type ByteRange,
   type ParsedBtreePage,
   type ParsedPage,
+  type StructureField,
 } from "page-core";
 import {
   connect,
@@ -27,7 +30,7 @@ import {
   type WalRecordDto,
 } from "./api";
 import { HexDump } from "./HexDump";
-import { StructureMap } from "./StructureMap";
+import { HeapDetail, ItemIdFlagDetail, StructureMap } from "./StructureMap";
 import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
@@ -107,6 +110,13 @@ export function App() {
   );
   const heapPage = pageView?.kind === "heap" ? pageView.page : null;
   const btreePage = pageView?.kind === "btree" ? pageView.page : null;
+  // Structure fields for the loaded page (selection/hex linkage/diff consumers).
+  const fields = useMemo<StructureField[] | null>(() => {
+    if (!pageView) return null;
+    return pageView.kind === "heap"
+      ? deriveStructureFields(pageView.page)
+      : deriveBtreeStructureFields(pageView.page);
+  }, [pageView]);
 
   const toggleTheme = () => {
     const next: Theme = theme === "light" ? "dark" : "light";
@@ -247,7 +257,7 @@ export function App() {
 
       if (opts?.refresh && prevRaw && prevRaw.length === bytes.length) {
         const diffs = diffByteRanges(prevRaw, bytes);
-        setDiffIds(structureAffectedByDiff(parsed, diffs));
+        setDiffIds(structureAffectedByDiff(deriveStructureFields(parsed), diffs));
       } else {
         setDiffIds(new Set());
       }
@@ -300,8 +310,12 @@ export function App() {
         }
         throw pe;
       }
-      // Byte diff highlight for index pages lands with the tri-pane rendering (T6).
-      setDiffIds(new Set());
+      if (opts?.refresh && prevRaw && prevRaw.length === bytes.length) {
+        const diffs = diffByteRanges(prevRaw, bytes);
+        setDiffIds(structureAffectedByDiff(deriveBtreeStructureFields(parsed), diffs));
+      } else {
+        setDiffIds(new Set());
+      }
       setPrevRaw(bytes);
       setPageView({ kind: "btree", page: parsed, index });
       setBlkno(block);
@@ -364,8 +378,8 @@ export function App() {
   };
 
   const onHexSelect = (offset: number) => {
-    if (!heapPage) return;
-    const hit = findStructureAt(heapPage, offset);
+    if (!fields) return;
+    const hit = findStructureAt(fields, offset);
     if (hit) {
       selectByteRange(hit.id, hit.range, "hex");
     } else {
@@ -960,7 +974,7 @@ export function App() {
           )}
         </div>
 
-        {((mode === "page" && heapPage) || (mode === "wal" && connected)) && (
+        {((mode === "page" && pageView) || (mode === "wal" && connected)) && (
           <div className="chrome-actions">
             <button
               className="chrome-detail"
@@ -1134,19 +1148,32 @@ export function App() {
                 </div>
               )}
               <StructureMap
-                page={heapPage}
-                currentBlkno={blkno}
+                raw={heapPage.raw}
+                freeRange={heapPage.freeSpace.range}
+                fields={fields ?? []}
                 selectedId={selectedId}
                 highlight={highlight}
                 diffIds={diffIds}
                 detailOpen={!detailCollapsed}
                 onSelect={onSelectStructure}
-                onLoadCrossBlock={(target) => {
-                  if (selectedOid != null) {
-                    setBlkno(target);
-                    void loadBlk(selectedOid, target);
-                  }
-                }}
+                emptyStateText={
+                  heapPage.tuples.length === 0
+                    ? "No NORMAL tuples on this page. Free space dominates; structure is still browsable."
+                    : null
+                }
+                renderDetail={() => (
+                  <HeapDetail
+                    page={heapPage}
+                    selectedId={selectedId}
+                    currentBlkno={blkno}
+                    onLoadCrossBlock={(target) => {
+                      if (selectedOid != null) {
+                        setBlkno(target);
+                        void loadBlk(selectedOid, target);
+                      }
+                    }}
+                  />
+                )}
               />
             </section>
 
@@ -1166,11 +1193,54 @@ export function App() {
           </div>
         )}
 
-        {connected && mode === "page" && btreePage && (
-          <div className="panel muted">
-            Index page loaded ({pageView?.kind === "btree" ? pageView.index.qualifiedName : ""} blk{" "}
-            {blkno}, {indexBadge?.text ?? btreePage.pageType}); tri-pane structure/hex rendering
-            arrives with the next task.
+        {connected && mode === "page" && btreePage && pageView?.kind === "btree" && (
+          <div className="main-split" data-hex={hexCollapsed ? "collapsed" : "expanded"}>
+            <section className="pane pane-structure" aria-label="Index page structure">
+              {loadState === "loading-page" && (
+                <div className="muted">
+                  <span className="spinner" /> Loading page…
+                </div>
+              )}
+              <StructureMap
+                raw={btreePage.raw}
+                freeRange={btreePage.freeSpace.range}
+                fields={fields ?? []}
+                selectedId={selectedId}
+                highlight={highlight}
+                diffIds={diffIds}
+                detailOpen={!detailCollapsed}
+                onSelect={onSelectStructure}
+                emptyStateText={
+                  btreePage.pageType === "meta"
+                    ? "metapage：无 ItemId / 元组；内容为 BTMetaPageData 元数据"
+                    : btreePage.tuples.length === 0
+                      ? "空页：无 index tuple；无键数据，结构仍可浏览。"
+                      : null
+                }
+                renderDetail={() => {
+                  const item = btreePage.itemIds.find(
+                    (i) =>
+                      selectedId === `itemid-${i.index}` ||
+                      selectedId?.startsWith(`itemid-${i.index}.`),
+                  );
+                  return item ? <ItemIdFlagDetail item={item} /> : null;
+                }}
+              />
+            </section>
+
+            {!hexCollapsed && (
+              <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
+                <HexDump
+                  raw={btreePage.raw}
+                  freeRange={btreePage.freeSpace.range}
+                  freeDiff={diffIds.has("free")}
+                  highlight={highlight}
+                  locate={hexLocate}
+                  locateHandledNonceRef={hexLocateHandledNonceRef}
+                  onSelectOffset={onHexSelect}
+                />
+              </section>
+            )}
           </div>
         )}
       </main>
