@@ -116,3 +116,175 @@ pnpm test:integration→ L3 smoke OK（heap 段不回退；B-tree 段待 T9）
    T9 CI 同样只覆盖 v4；v3 路径依赖 buildBtreePage 单测。
 2. 环境双目标（见上）——T9 落地时冒烟段需自带种子。
 3. `pnpm test` 中 web 对新 region 的渲染适配属 T6，本批仅保证类型层不破坏。
+
+---
+
+## T5 — web API 层与输入侧状态机（2026-08-28）
+
+提交 `0cbf811`。触碰：`api.ts`、`indexView.ts`（新）、`App.tsx`、`styles.css`、
+`api.test.ts`/`indexView.test.ts`（新）。
+
+- api.ts：`IndexRow`/`IndexPageResponse` 类型 + `listIndexes()`/`fetchIndexPage(oid, blkno)`；
+  复用既有 `parseError`（错误形状 `{code,message,nextStep}` 原样透传）。
+- indexView.ts（纯函数，可测）：option 四要素文案 `qualifiedName (am · N blk · → table)`、
+  非 B-tree「✕」前缀、invalid「· invalid」后缀、title（hash：仅支持 B-tree 索引页解析 /
+  indisvalid=false，可加载，仅供检视）、P0-2 hint 文案（含 am 名）、`canLoadIndex`
+  （非 B-tree 永 false；invalid B-tree 可加载）、页类型徽标 meta / internal·LN / leaf +
+  P1-2 芯片（root/deleted/half-dead/garbage/split-unfinished）、level 文本（meta=—）。
+- App.tsx：`relationKind` 分段控件（表|索引，复用 Page|WAL 的 mode-switch 皮肤）；kind=索引
+  分支：index select（全局平铺、超长截断+title）· blkno（默认 0、placeholder 0=metapage）·
+  Load（非 B-tree 时 disabled+title，triggerLoadIndex 双重守卫不发请求）· Refresh ·
+  loading-indexes spinner；`resetPageView()`（page/selectedId/highlight/prevRaw/diffIds/
+  hexLocate，P0-12）；`loadIndexBlk`（仅 fetchIndexPage+parseBtreePage，无 /schema 调用）；
+  `pageView: {kind:heap|btree}` union 驱动；btree 元信息条（index/oid·am·#blocks·blkno·页类型
+  徽标+芯片·level·lower/upper/free·ItemId 分解·#tup(posting N)）。kind=表控件层级与渲染
+  分支零改动（仅结构等价适配 pageView union）。
+
+### 与 ui-design 对应（T5 范围）
+
+| ui-design 条目 | 实现 |
+|---|---|
+| 控件层级（分段→select→blkno→Load→Refresh→spinner） | App.tsx chrome-controls，同槽不新增纵向层级 |
+| option 四要素/✕前缀/·invalid 徽标/title | indexView.formatIndexOption/indexOptionTitle |
+| inline hint（danger 色、含 am 名与下一步） | `nonBtreeHint` → chrome 内 `index-hint-inline` |
+| Load 禁用不发请求 | `canLoadIndexBlk`（state 门控 + trigger 守卫） |
+| 元信息条两行式内容与徽标/level/统计/posting 计数 | btree meta-stats 分支 |
+| 空态文案（选择一个索引开始… / 无用户索引…） | 主区 muted panel |
+
+### 验证（T5）
+
+```bash
+pnpm --filter web test        # 40 passed（+20：api 5 · indexView 15）
+pnpm --filter web typecheck   # 零错误
+pnpm --filter web build       # 通过
+```
+
+App.tsx 的 React 接线（分段控件交互、重连重置、列表懒加载 effect）无 React 渲染测试基建
+（仓库 web 测试均为纯逻辑 .test.ts，无 jsdom/@testing-library），按 developer.md 记录：
+不可自动化的行为以纯函数抽取覆盖 + dev-notes 手测清单替代；风险低（状态逻辑简单），
+恢复条件=引入组件测试基建（超出本项范围）。
+
+## T6 — 三联区 btree 渲染（2026-08-28）
+
+提交 `8cd6a64`。触碰：`diff.ts`、`StructureMap.tsx`、`App.tsx`、`styles.css`、
+`diff.test.ts`（新）。
+
+- diff.ts：`findStructureAt(fields, offset)` / `structureAffectedByDiff(fields, diffs)` 改为
+  `StructureField[]` 消费者（纯签名扩展）；保留 header/free 粗粒度兼容 id；
+  `diffByteRanges` 不变 → 索引页 Refresh diff 天然生效。
+- StructureMap：props `page` → `{raw, freeRange, fields}`；heap 详情抽出为 `HeapDetail`
+  （渲染等价，DOM 序不变）；共享 `ItemIdFlagDetail`；legend 增 special/meta 色签（仅当
+  fields 含该 region，heap 输出不变）；空态文案由调用方 `emptyStateText` 控制；
+  选中/hex 联动/32B 网格逻辑零改动。
+- App.tsx：`fields` memo 按 pageView.kind 派生；btree 三联区接入（结构图+hex+双向高亮）；
+  metapage/空叶页空态说明（非错误）；索引 Refresh 计算字节 diff。
+- styles.css：`--region-special = color-mix(accent 20%, surface)`、
+  `--region-meta = color-mix(region-header 60%, region-free)`，light/dark 各定义一次；
+  cell 渐变/左条纹与 legend 同构。
+- HexDump.tsx：零改动（`git diff` 为空验证；free 折叠对 btree 同样适用，special 区
+  8176..8192 属 cells 正常渲染）。
+
+### 验证（T6）
+
+```bash
+pnpm --filter web test        # 52 passed（+12 diff.test.ts）
+pnpm -r typecheck / -r build  # 全绿
+pnpm test                     # 全仓回归：13/52/31/52 全绿（既有 web 测试零改动）
+```
+
+diff.test.ts 以 page-core `resolveFieldAt`/旧粗粒度 id 语义为 parity oracle（heap 0..4095
+逐字节对照），另覆盖 btree special/meta/tuple 命中与 diff。
+
+## T7 — 详情面板 special/meta/tuple（2026-08-28）
+
+提交 `64da04b`。触碰：`indexDetail.ts`（新）、`IndexTupleDetail.tsx`（新）、
+`StructureMap.tsx`（BtreeStructureDetail 分支）、`App.tsx`、`styles.css`、
+`indexDetail.test.ts`（新）。
+
+- indexDetail.ts（纯函数）：`formatBytesPreview`（64B 截断+全长计数）；`tInfoRows`
+  （size=低13位；ALT 0x2000 按D3 区分 posting/pivot；VAR 0x4000；NULL 0x8000 独立【D2】）；
+  `tidRole`（internal→child、leaf→heap、posting/pivot/deleted/half-dead→none+替代说明，
+  ui-design「t_tid 语义被覆盖不跳转」）；`metapageRows`（六字段；btm_allequalimage 仅
+  v4+【D1 偏移 64 由 parser 冻结】）；`findTupleBySelection`。
+- IndexTupleDetail：`lp[N] index tuple · itemoffset M` + hikey/pivot/posting×N 低饱和徽标；
+  t_tid 语义行（按钮位 T8 接线）；itemlen+t_info hex；t_info 位「值+语义行」列表（不造
+  第二套位格条）；键字节按钮（点击→选中→hex 高亮）；posting TID 滚动列表
+  （max-height 160px，计数完整；解析失败时 ⚠ 且计数保留）。
+- BtreeStructureDetail：special 五字段行（值+range，可点选→hex 联动）；选中 btpo_flags 时
+  复用 `FlagBitStripSolo` 位格条（hover/聚焦 tip + `?` 全量参考，合同同 pd_flags 基线）；
+  metapage 字段行 + magic 不符 ⚠；ItemId 复用 ItemIdFlagDetail；header 字段走面板头。
+- App.tsx：解析警示条（结构区上方，warning 色，非 error-panel，文案
+  「页数据异常：…；可解析部分照常展示」）；--warning token 双主题定义。
+
+### 验证（T7）
+
+```bash
+pnpm --filter web test        # 67 passed（+15 indexDetail.test.ts）
+pnpm -r typecheck / -r build  # 全绿
+pnpm test                     # 13/52/31/67 全绿
+```
+
+## T8 — 块导航与 heap TID 跳表（2026-08-28）
+
+提交 `00be322` + hint 位置修正 `f0ad576`。触碰：`blockNav.ts`（新）、
+`StructureMap.tsx`、`IndexTupleDetail.tsx`、`App.tsx`、`styles.css`、
+`blockNav.test.ts`（新）。
+
+- blockNav.ts（纯函数）：`siblingNav`（btpo_prev/next；P_NONE=0 → null +
+  leftmost/rightmost 标注）；`resolveJumpTable`（目标表可见性）；`heapJumpError`
+  （TABLE_NOT_LISTED 可读反馈：含 oid 与所属表名 + 下一步）。
+- BtreeStructureDetail：btpo_prev 行旁「← Load blk N」、btpo_next 行旁「Load blk N →」
+  （P_NONE 时禁用并显示 ← leftmost / rightmost →）；meta 行「→ Load root」/
+  「→ Load fastroot」。
+- IndexTupleDetail：internal t_tid「Load child blk N」；leaf t_tid「在所属表打开 blk N」；
+  posting TID 行可点（title=在所属表打开该块 P1-3）。
+- App.tsx：`loadIndexBlock`（同索引导航，保留输入侧上下文）；`jumpToHeap(tableOid, blkno)`
+  （kind 切表 + 选中表 + resetPageView + 加载；表不在列表→TABLE_NOT_LISTED，不静默失败）。
+
+### 验证（T8）
+
+```bash
+pnpm --filter web test        # 74 passed（+7 blockNav.test.ts）
+pnpm -r typecheck / -r build  # 全绿
+pnpm test                     # 13/52/31/74 全绿
+```
+
+## 本批（T5–T8）汇总验证
+
+```text
+pnpm test            → wal-core 13 · page-core 52 · server 31 · web 74，全绿
+pnpm -r typecheck    → 4 包 Done（零错误）
+pnpm -r build        → 4 包 Done
+```
+
+HexDump 零改动、heap 解析语义与 /api/tables/* 合同零触碰（git diff 范围仅 web/src 新增与
+App/StructureMap/diff/styles；StructureMap/diff 泛化属纯签名扩展，既有 web 测试零改动、
+断言语义不变）。
+
+## 手测清单（T5–T8，供 QA/浏览器联调；均「待浏览器手测」）
+
+前置：`pnpm dev:server` + `pnpm dev:web`，连接 PG16（含 pageview_fx.demo_dup_k_idx /
+demo_uniq_k_idx 种子或任意 btree/hash 索引）。
+
+1. 待浏览器手测｜选择：切「索引」→ 列表 spinner → 四要素 option；切回「表」→ 现状路径不变。
+2. 待浏览器手测｜非 B-tree 拦截（P0-2）：选中 hash 索引 → inline hint（danger、含 am 名）
+   + Load 禁用；DevTools Network 无 /api/indexes/:oid/pages/* 请求。
+3. 待浏览器手测｜meta/leaf/internal 加载：blkno 0 → meta 徽标 + ItemId 空态说明；
+   root/leaf 页 → internal·LN/leaf 徽标 + special 色签 + legend。
+4. 待浏览器手测｜选中/hex 联动（P0-9）：点 btm_root/btpo_prev/任一 tuple 字段 → hex 高亮
+   + 滚动定位；hex 点击 → 反向选中详情。
+5. 待浏览器手测｜详情：btpo_flags 位格条（hover/聚焦 tip、? 参考）；metapage 六/七字段
+   （v4 含 allequalimage）；tuple 的 t_tid 语义/t_info 位/键字节截断/posting 列表滚动计数。
+6. 待浏览器手测｜导航/跳表（P1-1/P1-3）：←/→ Load blk（P_NONE 禁用+leftmost/rightmost）；
+   Load root/fastroot；internal 子页 Load child；leaf TID/posting 行点击切表加载。
+7. 待浏览器手测｜Refresh diff（P1-4）：加载索引页 → 改表数据（INSERT/UPDATE）→ Refresh →
+   字节 diff 高亮（同 heap 形态）。
+8. 待浏览器手测｜切换清除（P0-12）：索引↔表↔另一索引 → 旧页/选中/高亮/diff 清除，
+   元信息条随新关系刷新。
+9. 待浏览器手测｜light/dark（P1-5）：special/meta 区、徽标/芯片、警示条两主题可辨读。
+10. 待浏览器手测｜invalid 索引：列出且带 · invalid 徽标，Load 可用。
+
+补充说明（无法自动化项的处置）：React 接线、视觉呈现（配色/徽标/位格条/空态/主题）
+无组件测试基建，均归入上表手测；可纯逻辑化的部分（文案、门控、位语义、导航目标）
+已全部抽取为 .test.ts 覆盖（本批 +54 例）。option 的 title tooltip 在 Chromium 下不
+显示（浏览器限制，Firefox 可见）——四要素文案本体在 option 文本内，信息不丢失。
