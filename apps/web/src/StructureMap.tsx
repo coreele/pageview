@@ -18,6 +18,7 @@ import {
   type StructureField,
 } from "page-core";
 import { FlagBitStripSolo, InfomaskBitPair } from "./InfomaskBitStrip";
+import { siblingNav } from "./blockNav";
 import { findTupleBySelection, metapageRows } from "./indexDetail";
 import { IndexTupleDetail } from "./IndexTupleDetail";
 import { buildHexLayout } from "./hexLayout";
@@ -608,6 +609,7 @@ export function BtreeStructureDetail({
     if (!sp) {
       return <div className="parse-warning-inline">⚠ special space 不可读（pd_special 异常）</div>;
     }
+    const nav = siblingNav(sp);
     const rows = [
       { id: "special.btpo_prev", key: "btpo_prev", value: String(sp.btpo_prev) },
       { id: "special.btpo_next", key: "btpo_next", value: String(sp.btpo_next) },
@@ -635,6 +637,38 @@ export function BtreeStructureDetail({
                     [{f.range.start}..{f.range.end})
                   </span>
                 )}
+                {r.id === "special.btpo_prev" &&
+                  (nav.prev != null ? (
+                    onLoadIndexBlock && (
+                      <button
+                        type="button"
+                        className="btree-nav-btn"
+                        onClick={() => onLoadIndexBlock(nav.prev!)}
+                      >
+                        ← Load blk {nav.prev}
+                      </button>
+                    )
+                  ) : (
+                    <button type="button" className="btree-nav-btn" disabled title="P_NONE">
+                      ← {nav.prevNote}
+                    </button>
+                  ))}
+                {r.id === "special.btpo_next" &&
+                  (nav.next != null ? (
+                    onLoadIndexBlock && (
+                      <button
+                        type="button"
+                        className="btree-nav-btn"
+                        onClick={() => onLoadIndexBlock(nav.next!)}
+                      >
+                        Load blk {nav.next} →
+                      </button>
+                    )
+                  ) : (
+                    <button type="button" className="btree-nav-btn" disabled title="P_NONE">
+                      {nav.nextNote} →
+                    </button>
+                  ))}
               </button>
             );
           })}
@@ -678,6 +712,24 @@ export function BtreeStructureDetail({
                   <span className="btree-field-row__range">
                     [{f.range.start}..{f.range.end})
                   </span>
+                )}
+                {r.key === "btm_root" && onLoadIndexBlock && (
+                  <button
+                    type="button"
+                    className="btree-nav-btn"
+                    onClick={() => onLoadIndexBlock(meta.btm_root)}
+                  >
+                    → Load root
+                  </button>
+                )}
+                {r.key === "btm_fastroot" && onLoadIndexBlock && (
+                  <button
+                    type="button"
+                    className="btree-nav-btn"
+                    onClick={() => onLoadIndexBlock(meta.btm_fastroot)}
+                  >
+                    → Load fastroot
+                  </button>
                 )}
               </button>
             );

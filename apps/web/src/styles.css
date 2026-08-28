@@ -1475,7 +1475,7 @@ input {
 
 .btree-field-row {
   display: grid;
-  grid-template-columns: minmax(7rem, auto) minmax(4rem, auto) 1fr;
+  grid-template-columns: minmax(7rem, auto) minmax(4rem, auto) 1fr auto;
   align-items: baseline;
   gap: 0.6rem;
   text-align: left;
@@ -1508,6 +1508,30 @@ input {
   color: var(--text-muted);
   font-size: 0.78rem;
   justify-self: end;
+}
+
+/* index-viewer: inline block-navigation buttons (P1-1 / P1-3) */
+.btree-nav-btn {
+  justify-self: end;
+  padding: 0.05rem 0.5rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.posting-tid {
+  margin: 0;
+  padding: 0 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.posting-tid:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 /* index-viewer: index tuple detail (IndexTupleDetail) */

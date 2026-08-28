@@ -31,6 +31,7 @@ import {
 } from "./api";
 import { HexDump } from "./HexDump";
 import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
+import { heapJumpError, resolveJumpTable } from "./blockNav";
 import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
@@ -349,6 +350,33 @@ export function App() {
     resetPageView();
     setSchema(null);
     setBlkno(0);
+  };
+
+  /** P1-1: same-index block navigation (btpo_prev/next, child t_tid, root/fastroot). */
+  const loadIndexBlock = (target: number) => {
+    if (selectedIndexOid == null) return;
+    setBlkno(target);
+    void loadIndexBlk(selectedIndexOid, target);
+  };
+
+  /**
+   * P1-3: jump from a leaf/posting heap TID to the owning table page — switches
+   * relationKind to table, selects the table, clears state and loads the block.
+   * Hidden target tables (system schema / dropped) get readable feedback.
+   */
+  const jumpToHeap = async (tableOid: number, block: number) => {
+    const target = resolveJumpTable(tables, tableOid);
+    if (!target) {
+      const owner = pageView?.kind === "btree" ? pageView.index.tableQualifiedName : undefined;
+      setError(heapJumpError(tableOid, owner));
+      return;
+    }
+    setRelationKind("table");
+    setSelectedOid(tableOid);
+    resetPageView();
+    setSchema(null);
+    setBlkno(block);
+    await loadBlk(tableOid, block);
   };
 
   const onSwitchRelationKind = (kind: RelationKind) => {
@@ -1228,6 +1256,12 @@ export function App() {
                     fields={fields ?? []}
                     selectedId={selectedId}
                     onSelect={onSelectStructure}
+                    onLoadIndexBlock={loadIndexBlock}
+                    onJumpToHeap={
+                      pageView?.kind === "btree"
+                        ? (block) => void jumpToHeap(pageView.index.tableOid, block)
+                        : undefined
+                    }
                   />
                 )}
               />

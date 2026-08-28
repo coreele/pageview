@@ -119,9 +119,22 @@ export function IndexTupleDetail({
           </div>
           {tuple.postingTids ? (
             <ul className="posting-tid-list mono" aria-label="posting TID list">
-              {tuple.postingTids.map((tid, i) => (
-                <li key={`${tid.blockNumber}-${tid.offsetNumber}-${i}`}>{tidText(tid)}</li>
-              ))}
+              {tuple.postingTids.map((tid, i) =>
+                onJumpHeapBlock ? (
+                  <li key={`${tid.blockNumber}-${tid.offsetNumber}-${i}`}>
+                    <button
+                      type="button"
+                      className="posting-tid"
+                      title="在所属表打开该块（P1-3）"
+                      onClick={() => onJumpHeapBlock(tid.blockNumber)}
+                    >
+                      {tidText(tid)}
+                    </button>
+                  </li>
+                ) : (
+                  <li key={`${tid.blockNumber}-${tid.offsetNumber}-${i}`}>{tidText(tid)}</li>
+                ),
+              )}
             </ul>
           ) : (
             <div className="parse-warning-inline">⚠ posting TID 列表解析失败（越界），计数保留</div>
