@@ -263,11 +263,12 @@ input {
   padding: 0.3rem 0.4rem;
 }
 
-/* P0-2 inline hint (danger): shown while a non-B-tree index is selected */
-.index-hint {
-  border-color: var(--danger);
+/* P0-2 inline hint (danger): shown beside the index select while a non-B-tree index is selected */
+.index-hint-inline {
   color: var(--danger);
-  font-size: 0.85rem;
+  font-size: 0.8rem;
+  flex: 1 1 100%;
+  line-height: 1.45;
 }
 
 /* Page-type badge + P1-2 status chips (secondary weight, no new strong colors) */

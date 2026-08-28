@@ -841,6 +841,11 @@ export function App() {
                         indexes
                       </span>
                     )}
+                    {indexHint && (
+                      <span className="index-hint-inline" role="status">
+                        {indexHint}
+                      </span>
+                    )}
                     <label className="control">
                       <span className="control-label">blkno</span>
                       <input
@@ -1160,12 +1165,6 @@ export function App() {
               输入 blkno 后 Load（0 = metapage）。
             </div>
           )}
-
-        {connected && mode === "page" && relationKind === "index" && indexHint && (
-          <div className="panel index-hint" role="status">
-            {indexHint}
-          </div>
-        )}
 
         {connected && mode === "page" && heapPage && (
           <div className="main-split" data-hex={hexCollapsed ? "collapsed" : "expanded"}>
