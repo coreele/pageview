@@ -386,3 +386,51 @@ PG 无 `CREATE INDEX … INVALID` 语法，`REINDEX`/`UPDATE pg_index` 属 catal
 
 heap 零回退硬约束的全局证据：`parse.ts` 仅加 export、heap 测试文件零改动、
 HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。
+
+---
+
+## QA 轮次 1 缺陷修复回执（2026-08-31）
+
+依据 qa-report.md 轮次 1 结论 Fail（DEF-1 Open 退回 Developer；DEF-2 已确认·建议后续小项）。
+
+### DEF-1（Medium）metapage 伪 ItemId — 已修复
+
+- **处理结果**：已修复（单提交，Conventional Commits：
+  `fix(page-core): treat metapage as zero items per nbtree semantics`）。
+- **修复摘要**：实现层选在 **`parseBtreePage`（packages/page-core/src/btree.ts）**：
+  ItemId 数组读取移到页分类之后，`pageType === "meta"` 时按 nbtree 语义置 0 ItemId
+  （真实 PG16 metapage pd_lower 越过 BTMetaPageData 内容，v4=72，泛型读取器会把
+  [24..72) 误读为 12 个伪 ItemIdData）。选解析层的理由：ItemId 数组属页字节语义
+  （该区间在 meta 页是 BTMetaPageData 而非 ItemIdData[]），在此单点修复可同时保证
+  ParsedBtreePage（itemIds、stats.itemIdTotal/lp* 计数）与结构字段派生、web 元信息条
+  （读 `stats.itemIdTotal`）三者一致，web 端零代码改动（空态文案 App.tsx 对 meta 页
+  无条件提供，ItemId 计数随 stats 归零）。附带消除 QA 指出的 synthetic 盲区：
+  `fixture-builder.ts` 的 buildBtreePage meta 页 pd_lower 改为真实布局
+  （v4=24+48=72 / v3=64，与实捕 fixture 一致），synthetic meta 测试不再能隐藏同类缺陷。
+- **TDD 证据（先红后绿）**：先用实捕 fixture
+  `packages/page-core/fixtures/btree-meta.base64.txt`（真实 pd_lower=72）新增 4 例回归：
+  - 红（修复前）：page-core `tests/btree.test.ts` →
+    `× treats the metapage as zero ItemIds … → expected [ …(12) ] to have a length of +0 but got 12`；
+    web `apps/web/src/diff.test.ts`（反向选中）→
+    `× … itemIdTotal → expected 12 to be +0`、`× offset 24: expected 'itemid' to be 'meta'`
+    （即 DEF-1 特征：offset 32 命中伪 itemid-2 而非 btm_root）；
+  - 绿（修复后）：上 4 例全过（六字段+allequalimage 反向选中命中、无 itemid 字段、
+    stats 归零、[48..64) cleanup 区不再命中伪 itemid——该区未建模为可点字段，null 为
+    预期非缺陷）。
+- **验证证据**：
+  - `pnpm test` → wal-core 13 · page-core 54（52+2）· server 31 · web 76（74+2）
+    共 **174 全绿**（既有 170 零回退）；
+  - `pnpm -r typecheck` → 4 包 Done；`pnpm -r build` → 4 包 Done；
+  - `pnpm test:integration` → **退出 0**（B-tree 段六组断言全过含 metapage oracle）。
+- **建议复测范围**：P0-4（metapage 展示：元信息条 ItemId=0/空态文案/六+1 字段）、
+  P0-9（metapage hex 双向联动：实捕或真实页 [24..48) 反选 btm_magic/version/root/
+  level/fastroot/fastlevel、64 反选 allequalimage）、DEF-1b/c（结构图无伪 ItemId 段）、
+  实捕 fixture 反向选中回归（本轮已自动化）；浏览器补证归入轮次 2 手测清单项 3/4。
+
+### DEF-2（Low）非数字 oid → 400 BAD_LSN — 不修复（已确认处置）
+
+- **处理结果**：不修复。理由：QA/Reviewer 均已确认非本项回归——与既有
+  `/api/tables/abc` 同型行为，而「修改 `/api/tables/*` 既有合同」属本项 spec 明确
+  非目标；单独为 /api/indexes 加守卫会造成两端行为分叉。风险：低（错误仍为 400
+  形状，仅 code/nextStep 误导）。恢复条件/后续建议：另立独立小工作项，为两组端点
+  统一加 `Number.isFinite(Number(oid))` 守卫（即 Reviewer F1）。

@@ -239,18 +239,6 @@ export function parseBtreePage(raw: Uint8Array): ParsedBtreePage {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const warnings: string[] = [];
 
-  // ItemId array (same physical layout as heap pages)
-  const itemIds: ItemId[] = [];
-  {
-    let offset = PAGE_HEADER_SIZE;
-    let index = 0;
-    while (offset + ITEM_ID_SIZE <= header.pd_lower) {
-      itemIds.push(readItemId(view, offset, index));
-      offset += ITEM_ID_SIZE;
-      index += 1;
-    }
-  }
-
   const freeBytes = Math.max(0, header.pd_upper - header.pd_lower);
 
   // Special space (BTPageOpaqueData)
@@ -278,6 +266,22 @@ export function parseBtreePage(raw: Uint8Array): ParsedBtreePage {
     pageType = "internal";
   } else {
     pageType = "leaf";
+  }
+
+  // ItemId array (same physical layout as heap pages) — read AFTER
+  // classification: a metapage carries ZERO line pointers per nbtree
+  // semantics. Real PG 16 metapages set pd_lower past the BTMetaPageData
+  // content (e.g. 72 for v4), so the generic reader would otherwise
+  // reinterpret the metadata bytes as pseudo ItemIds (DEF-1).
+  const itemIds: ItemId[] = [];
+  if (pageType !== "meta") {
+    let offset = PAGE_HEADER_SIZE;
+    let index = 0;
+    while (offset + ITEM_ID_SIZE <= header.pd_lower) {
+      itemIds.push(readItemId(view, offset, index));
+      offset += ITEM_ID_SIZE;
+      index += 1;
+    }
   }
 
   // Metapage content (BTMetaPageData at PageGetContents)

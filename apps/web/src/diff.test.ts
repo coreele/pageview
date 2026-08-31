@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   buildSparsePage,
   buildBtreePage,
@@ -136,5 +139,53 @@ describe("structureAffectedByDiff on B-tree pages (P1-4)", () => {
       { start: tuple.range.start, end: tuple.range.start + 6 },
     ]);
     expect(Array.from(ids).some((id) => id.endsWith(".t_tid"))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DEF-1 regression (QA round 1): reverse selection on the REAL PG 16.11
+// metapage capture (pd_lower=72). Synthetic buildBtreePage metapages never
+// produced pseudo ItemIds, which is why this slipped through — every byte in
+// [24..64) must reverse-select a btm_* field, never a pseudo itemid.
+// ---------------------------------------------------------------------------
+
+const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "../../../packages/page-core/fixtures");
+const btreeMetaRealRaw = new Uint8Array(
+  Buffer.from(
+    readFileSync(join(fixturesDir, "btree-meta.base64.txt"), "utf8").trim(),
+    "base64",
+  ),
+);
+const btreeMetaReal = parseBtreePage(btreeMetaRealRaw);
+const btreeMetaRealFields = deriveBtreeStructureFields(btreeMetaReal);
+
+describe("findStructureAt on the real metapage capture (DEF-1 regression)", () => {
+  it("reverse-selects btm_magic/version/root/level/fastroot/fastlevel in [24..64) and allequalimage at 64", () => {
+    expect(btreeMetaReal.header.pd_lower).toBe(72); // real-capture guard
+    expect(btreeMetaReal.stats.itemIdTotal).toBe(0); // 元信息条 ItemId=0
+    expect(findStructureAt(btreeMetaRealFields, 24)?.id).toBe("meta.btm_magic");
+    expect(findStructureAt(btreeMetaRealFields, 28)?.id).toBe("meta.btm_version");
+    expect(findStructureAt(btreeMetaRealFields, 32)?.id).toBe("meta.btm_root");
+    expect(findStructureAt(btreeMetaRealFields, 36)?.id).toBe("meta.btm_level");
+    expect(findStructureAt(btreeMetaRealFields, 40)?.id).toBe("meta.btm_fastroot");
+    expect(findStructureAt(btreeMetaRealFields, 44)?.id).toBe("meta.btm_fastlevel");
+    expect(findStructureAt(btreeMetaRealFields, 64)?.id).toBe("meta.btm_allequalimage");
+  });
+
+  it("never resolves a pseudo itemid anywhere in the BTMetaPageData span [24..64)", () => {
+    // Every byte of the six modeled btm_* fields [24..48) reverse-selects meta
+    for (let offset = 24; offset < 48; offset++) {
+      const hit = findStructureAt(btreeMetaRealFields, offset);
+      expect(hit, `offset ${offset}`).not.toBeNull();
+      expect(hit!.kind, `offset ${offset}`).toBe("meta");
+    }
+    // [48..64) holds v3+ cleanup fields (delpages / float8) that are not
+    // modeled as clickable fields — unmapped (null) is correct, a pseudo
+    // itemid (the DEF-1 symptom) is not
+    for (let offset = 48; offset < 64; offset++) {
+      const hit = findStructureAt(btreeMetaRealFields, offset);
+      expect(hit == null || hit.kind === "meta", `offset ${offset}`).toBe(true);
+    }
+    expect(btreeMetaRealFields.some((f) => f.region === "itemid")).toBe(false);
   });
 });

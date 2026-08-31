@@ -295,7 +295,14 @@ export function buildBtreePage(options?: BuildBtreePageOptions): Uint8Array {
     nItems = placements.length + (o.corruptLpOffset ? 1 : 0);
   }
 
-  const pdLower = PAGE_HEADER_SIZE + nItems * ITEM_ID_SIZE;
+  const pdLower =
+    pageType === "meta"
+      ? // Real PG 16 metapages set pd_lower past the BTMetaPageData content
+        // (v4 sizeof incl. padding = 48 → pd_lower = 24+48 = 72, oracle-frozen
+        // from fixtures/btree-meta; v3 struct is 40 bytes → 64). This mirrors
+        // the real layout so synthetic tests cannot hide DEF-1-style bugs.
+        PAGE_HEADER_SIZE + (o.metaVersion && o.metaVersion < 4 ? 40 : 48)
+      : PAGE_HEADER_SIZE + nItems * ITEM_ID_SIZE;
   writeU16(page, 12, pdLower);
   writeU16(page, 14, pageType === "meta" ? STANDARD_PAGE_SIZE - BTREE_SPECIAL_SIZE : upper);
 

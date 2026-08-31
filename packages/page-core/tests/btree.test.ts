@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   BTP_DELETED,
   BTP_HALF_DEAD,
@@ -312,5 +315,54 @@ describe("deriveBtreeStructureFields", () => {
     const page = parseBtreePage(buildBtreePage({ pageType: "meta", metaVersion: 3 }));
     const fields = deriveBtreeStructureFields(page);
     expect(fields.some((f) => f.id === "meta.btm_allequalimage")).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DEF-1 regression (QA round 1): real PG 16.11 metapage capture.
+// A real metapage has pd_lower past the BTMetaPageData content (72 for v4),
+// and the generic ItemId reader must NOT reinterpret [24..pd_lower) as
+// ItemIdData[] — nbtree metapages carry zero line pointers.
+// ---------------------------------------------------------------------------
+
+describe("parseBtreePage — DEF-1 regression (real metapage capture)", () => {
+  const fixtureDir = join(dirname(fileURLToPath(import.meta.url)), "../fixtures");
+  const raw = new Uint8Array(
+    Buffer.from(
+      readFileSync(join(fixtureDir, "btree-meta.base64.txt"), "utf8").trim(),
+      "base64",
+    ),
+  );
+
+  it("treats the metapage as zero ItemIds ([24..pd_lower) is BTMetaPageData, not ItemIdData[])", () => {
+    const page = parseBtreePage(raw);
+    expect(page.pageType).toBe("meta");
+    // guard: this is the real capture with pd_lower=72 (12 pseudo 4B slots)
+    expect(page.header.pd_lower).toBe(72);
+    expect(page.itemIds).toHaveLength(0);
+    expect(page.stats.itemIdTotal).toBe(0);
+    expect(page.stats.lpUnused).toBe(0);
+    expect(page.stats.lpNormal).toBe(0);
+    expect(page.stats.lpRedirect).toBe(0);
+    expect(page.stats.lpDead).toBe(0);
+    expect(page.warnings).toHaveLength(0);
+  });
+
+  it("derives no itemid structure fields for the metapage while meta fields stay clickable", () => {
+    const page = parseBtreePage(raw);
+    const fields = deriveBtreeStructureFields(page);
+    expect(fields.some((f) => f.region === "itemid")).toBe(false);
+    const byId = new Map(fields.map((f) => [f.id, f]));
+    for (const id of [
+      "meta.btm_magic",
+      "meta.btm_version",
+      "meta.btm_root",
+      "meta.btm_level",
+      "meta.btm_fastroot",
+      "meta.btm_fastlevel",
+      "meta.btm_allequalimage",
+    ]) {
+      expect(byId.get(id)).toBeDefined();
+    }
   });
 });
