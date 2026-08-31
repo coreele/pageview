@@ -1,6 +1,6 @@
 # Dev Notes: index-viewer
 
-> Developer 实施记录（T1–T10 逐任务追加；本批 T1–T4）。
+> Developer 实施记录（T1–T10 逐任务追加；T1–T10 已全部完成）。
 > 依据：spec.md（行为合同）· design.md §4（预期常量，**以 oracle/PG16 头文件实测为准**）· plan.md。
 
 ## T1 — 分支与基线（2026-08-28）
@@ -288,3 +288,101 @@ demo_uniq_k_idx 种子或任意 btree/hash 索引）。
 无组件测试基建，均归入上表手测；可纯逻辑化的部分（文案、门控、位语义、导航目标）
 已全部抽取为 .test.ts 覆盖（本批 +54 例）。option 的 title tooltip 在 Chromium 下不
 显示（浏览器限制，Firefox 可见）——四要素文案本体在 option 文本内，信息不丢失。
+
+## T9 — 集成冒烟与 CI（2026-08-28）
+
+提交 `2b35e8e`（含 T4 后遗留的未提交接线：server devDep `page-core` + lockfile +
+parseBtreePage import）。触碰：`apps/server/src/integration-smoke.ts`、
+`apps/server/package.json`、`pnpm-lock.yaml`；**`.github/workflows/ci.yml` 零改动**
+（B-tree 段种子自包含，integration job postgres:16 + 超级用户 + 双扩展已具备全部前置）。
+
+### 种子策略（自建、幂等、自清理）
+
+- 专用 schema `pageview_smoke_ix`：入口 `DROP SCHEMA IF EXISTS … CASCADE` 保幂等，
+  finally 块内再 DROP（验证连跑两次退出 0，事后探针确认无残留 schema）；不依赖库中
+  任何既有对象（规避 T4 记录的「连接目标可能是 postgres 或 jason 库」双目标风险）。
+- `uq`（50000 唯一 int 键）→ `uq_k_idx`（btree，多层树：root=3 level=1 内页）+
+  `uq_k_hash`（hash，守卫 oracle）；`dup`（30000 行重复键）→ `dup_k_idx`，重复度
+  [50,10,2] 逐级重试直到产生 posting（实跑首轮 g%50 即命中 blk26：11 posting/1272 TIDs）。
+- PG13+ 版本门控（dedup 前置）：低于 13 退出 2（blocked 语义沿既有：环境缺失=2，
+  断言失败=1）。
+
+### B-tree 段断言与实跑输出（`pnpm test:integration` 退出 0）
+
+```text
+B-tree list OK: 68 indexes; seeds btree x2 (valid=true) + hash x1
+B-tree metapage OK: pageview_smoke_ix.uq_k_idx blk0 (v4 root=3 level=1 allequalimage=true)
+B-tree internal OK: pageview_smoke_ix.uq_k_idx blk3 (level=1, 137 downlinks)
+B-tree leaf OK: pageview_smoke_ix.uq_k_idx blk1 (367 tuples, hikey first)
+B-tree posting OK: pageview_smoke_ix.dup_k_idx blk26 (11 posting tuples, 1272 TIDs)
+hash guard OK: 400 INDEX_NOT_BTREE (message mentions "hash")
+B-tree smoke seed cleaned up (schema dropped)
+L3 smoke OK: public.items blk 0 length=8192        ← heap 段不回退
+R1 schema placeholders OK (1 dropped)
+B-tree segment OK: list/metapage/internal/leaf/posting oracle + hash guard
+```
+
+断言明细：①列表每项含 boolean `valid` 且种子 btree 项 valid=true、am/tableQualifiedName/
+blocks 正确；②metapage 六字段+allequalimage 与 `bt_metap` 逐字段相等且无解析警示；
+③内页（btm_root 导航）：special 五字段==`bt_page_stats`、逐元组 itemoffset/ctid/
+itemlen/nulls/vars==`bt_page_items`、全部 pivot 且子页块号>0；④普通叶页（非最右）：
+同上逐字段+首元组 hikey（P0-7）、postingTupleCount=0；⑤posting 叶页：逐元组比对+
+每 posting count>1 且 TID 列表与 oracle tids 逐项相等、全页 TID 总数==oracle 总和
+（P0-8）；⑥hash 索引经 API 取页→400 `INDEX_NOT_BTREE`、message 含 "hash"、
+nextStep 非空（P0-3）。
+
+### 无效索引断言的简化（偏离 plan T9 原文，已授权的推荐做法）
+
+Plan 原文「无效索引断言列表 `valid=false`」无法在不变更目录/不越权的前提下实现：
+PG 无 `CREATE INDEX … INVALID` 语法，`REINDEX`/`UPDATE pg_index` 属 catalog 写入
+（spec 禁止 server 端预判 SQL 改动；smoke 亦不应改系统目录）。采用任务指示的简化：
+断言列表响应的 `valid` 字段契约（每项必有 boolean）+ 种子索引 valid=true，
+`valid=false` 的渲染路径（`· invalid` 徽标，T5 indexView.canLoadIndex 允许加载）
+由 L2 单测覆盖。风险：低（字段映射直通 `indisvalid`，T4 catalog 契约测试已锁 SQL）。
+
+## T10 — 文档与交接（2026-08-28）
+
+- `README.md` / `README.zh-CN.md` 双语同步：Features 新增「Index pages (B-tree)」/
+  「索引页（B-tree）」小节（索引浏览/页面类型/高键与 posting/块导航/拦截）；Scope 改写
+  「No (non-B-tree) indexes, FSM/VM, or system catalogs」；Requirements 标注索引浏览仅
+  B-tree（建议 PG13+）；Quick start「table or index + blkno」；Development 的
+  test:integration 注释更新；Troubleshooting 增 `INDEX_NOT_BTREE`。双语逐节对应。
+- `packages/page-core/fixtures/README.md`：T2 已完整覆盖（--index 捕获步骤、四场景表、
+  种子草图、PG13+ dedup 说明），本轮仅核对，零改动。
+- 本 dev-notes 收尾（本节）。
+
+## T1–T10 汇总：三层证据状态
+
+| 层 | 状态 | 证据 |
+|---|---|---|
+| L2 | 全绿 | `pnpm test` 13/52/31/74（共 170）；`pnpm -r typecheck` 4 包零错误；`pnpm -r build` 4 包 Done（末批复跑见上） |
+| L3 | 退出 0 | `pnpm test:integration`：heap 段不回退 + B-tree 段六组断言全过（本节输出）；CI integration job 同口径自动执行（种子自包含） |
+| 手测 | 待浏览器手测 | 上文「手测清单（T5–T8）」10 项均未执行（无浏览器联调环境）；前置 `pnpm dev:server` + `pnpm dev:web` |
+
+### 遗留风险（全量）
+
+1. **v3 metapage 仅 synthetic 覆盖**：本地 PG16 与 CI 均只产 v4；v3（无 allequalimage）
+   路径依赖 `buildBtreePage` v3 单测（design §4 已列为已知缺口，spec 裁决 5 明确支持
+   但验收以现役环境为准）。
+2. **手测 10 项未执行**：UI 呈现（徽标/位格条/空态/主题/导航点击/跳表/diff）待
+   QA 或用户浏览器补测；恢复条件与清单见上表。
+3. **环境双连接目标**：smoke 已自建种子规避（本批）；不影响其他路径。
+4. option title tooltip 在 Chromium 不显示（T5 记录，浏览器限制非缺陷）。
+
+### 给 Reviewer 的建议阅读顺序
+
+1. `spec.md` 验收 P0-1..P0-12 / P1-1..P1-5 对照 `design.md` §1–§4（方案 A 导出面约束、
+   路由守卫序、布局常量表 + D1–D4 偏差）与 `ui-design.md`；
+2. 提交序列（5b71d55→2b35e8e，每任务一提交）按 T3→T4→T5→T6→T7→T8→T9 浏览；
+3. 数据层：`packages/page-core/src/btree.ts`（常量区头部注释含 oracle 冻结依据）→
+   `tests/btree-oracle.test.ts`（四场景实捕 oracle）→ `src/btree-structure.ts`；
+4. 服务层：`apps/server/src/catalog.ts`（两条 SQL）→ `app.ts` /api/indexes*
+   （校验序①→④）→ `tests/indexes.test.ts`；
+5. web 层：`api.ts`/`indexView.ts` → `App.tsx`（pageView union/resetPageView/
+   loadIndexBlk/jumpToHeap）→ `StructureMap.tsx`+`diff.ts` 泛化（heap 等价性）→
+   `IndexTupleDetail.tsx`/`indexDetail.ts`/`blockNav.ts`；
+6. L3：`apps/server/src/integration-smoke.ts` B-tree 段（本节输出为实跑证据）；
+7. 文档：双语 README 与本 dev-notes 的 D1–D4 偏差表。
+
+heap 零回退硬约束的全局证据：`parse.ts` 仅加 export、heap 测试文件零改动、
+HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。

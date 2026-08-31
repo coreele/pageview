@@ -2,7 +2,7 @@
 
 English | [中文](./README.zh-CN.md)
 
-Browse PostgreSQL heap pages and WAL records in the browser. Connect locally, fetch raw blocks via [pageinspect](https://www.postgresql.org/docs/current/pageinspect.html), or browse structured WAL records via [pg_walinspect](https://www.postgresql.org/docs/current/pgwalinspect.html) (PostgreSQL 15+).
+Browse PostgreSQL heap pages, B-tree index pages, and WAL records in the browser. Connect locally, fetch raw blocks via [pageinspect](https://www.postgresql.org/docs/current/pageinspect.html), or browse structured WAL records via [pg_walinspect](https://www.postgresql.org/docs/current/pgwalinspect.html) (PostgreSQL 15+).
 
 Built for developers learning or debugging — **not** intended for public deployment.
 
@@ -16,6 +16,14 @@ Built for developers learning or debugging — **not** intended for public deplo
 - **Hex dump** — same 32B/row layout, linked selection and scroll-to-offset
 - **Tuple decode** — column values, `t_infomask` / `t_infomask2` bit strips, HOT/ctid hints
 - **Diff highlight** — byte-level changes on Refresh
+
+### Index pages (B-tree)
+
+- **Index browsing** — table | index switch; the index list shows access method, block count, and owning table; non-B-tree indexes are listed but marked unloadable; invalid indexes flagged (still loadable)
+- **Page types** — metapage (`btm_*` incl. `allequalimage` on v4+), internal (child downlinks + level), leaf (heap TIDs); special space `btpo_*` with a `btpo_flags` bit strip
+- **Hikey & posting lists** — high-key mark on the first tuple of non-rightmost pages; dedup posting tuples (PG13+) with TID count and full scrollable list
+- **Block navigation** — load siblings (`btpo_prev`/`btpo_next`), root/fastroot, and child pages with one click; leaf heap TIDs jump straight to the owning table's block
+- **Guards** — non-B-tree access methods (hash/gist/spgist/brin/gin) blocked in the UI and by the server (`INDEX_NOT_BTREE`)
 
 ### WAL mode
 
@@ -32,7 +40,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 ## Requirements
 
 - Node.js 20+, pnpm 9+
-- **Page mode:** PostgreSQL with `pageinspect` enabled; a role that can call `get_raw_page` (often superuser)
+- **Page mode:** PostgreSQL with `pageinspect` enabled; a role that can call `get_raw_page` (often superuser). Index browsing is B-tree only (PG13+ recommended for dedup posting lists)
 - **WAL mode:** PostgreSQL **15+** with `pg_walinspect` enabled; a role that can call `pg_get_wal_records_info` / `pg_current_wal_lsn` (often superuser)
 
 ```sql
@@ -51,7 +59,7 @@ pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
 ```
 
-Open the web UI, connect (or rely on `.env`), then use **Page** (table + blkno + Load) or **WAL** (start/end LSN + Load).
+Open the web UI, connect (or rely on `.env`), then use **Page** (table or index + blkno + Load) or **WAL** (start/end LSN + Load).
 
 ## Environment
 
@@ -77,7 +85,7 @@ Passwords stay in the server process — not in the repo or browser storage.
 pnpm test                # all unit tests (page-core, wal-core, server, web)
 pnpm -r typecheck
 pnpm -r build
-pnpm test:integration    # needs .env + a table with blocks; Page path L3
+pnpm test:integration    # needs .env; Page path L3 (heap + self-seeded B-tree oracle smoke)
 pnpm test:wal            # needs .env + PG 16+ with pg_walinspect; WAL path L3
 ```
 
@@ -90,10 +98,10 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 
 ## Scope
 
-- Heap user tables only (`relkind = r`) for Page mode
+- Page mode: heap user tables (`relkind = r`) and B-tree indexes only
 - Standard 8 KB pages
 - TOAST pointers shown; external toast pages not fetched
-- No indexes, FSM/VM, or system catalogs
+- No non-B-tree indexes, FSM/VM, or system catalogs
 - WAL v1: structured records only; no raw WAL hex; no PG17+ block-info APIs
 
 ## Troubleshooting
@@ -106,4 +114,5 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 | `WAL_BATCH_TOO_LARGE` | Narrow the LSN range (≤2000 records / ≤2 MiB JSON / ≤16 MiB span) |
 | Connection refused | Check host/port/credentials; Postgres listening on localhost |
 | `BLKNO_OUT_OF_RANGE` | Use `blkno` in `0 .. relpages-1` |
+| `INDEX_NOT_BTREE` | Index pages support B-tree only; pick an index with access method `btree`, or browse its owning table |
 | `get_raw_page` / walinspect denied | Use a privileged role |
