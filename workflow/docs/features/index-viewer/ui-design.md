@@ -172,3 +172,124 @@ N/A（`UI 表面=gui`）。
 | 日期 | 摘要 |
 |---|---|
 | 2026-08-28 | 初稿：控件层级、三联区复用、状态表、验收映射 |
+| 2026-08-31 | 用户需求变更（合并授权前）：**UI 可见文案一律英文**（见 spec.md 修订记录）。本文此前冻结的中文文案作废，以下英文文案表为唯一权威；布局/层级/状态不变 |
+
+## 修订附页：英文文案表（2026-08-31，权威）
+
+所有用户可见字符串必须为英文。对应关系（旧中文 → 新英文）：
+
+| 位置 | 英文文案 |
+|---|---|
+| 分段控件 | `Table` / `Index` |
+| 非 B-tree option title | `{am}: only B-tree index pages are supported` |
+| invalid option title | `indisvalid=false; loadable for inspection only` |
+| 非 B-tree inline hint（danger） | `{am} index page parsing is not supported — B-tree only. Pick a B-tree index or switch back to a table.` |
+| 空索引列表（option + panel） | `No user indexes (system schemas excluded)` |
+| 索引初始空态 | `Pick an index to start (blkno 0 is the metapage).` |
+| 索引加载提示 | `Enter a blkno and Load (0 = metapage).` |
+| 页数据异常警示 | `Page data anomalies: {warnings joined by "; "}. Parseable parts are shown as-is.` |
+| metapage 空态（结构图） | `metapage: no ItemIds / tuples; content is BTMetaPageData` |
+| metapage 字段区 hint | `metapage (PageGetContents @24) · v{n}`（复审 F6 补录） |
+| 空叶页空态（结构图） | `empty page: no index tuples; no key data, structure still browsable` |
+| internal t_tid 说明 | `internal: child page pointer` |
+| leaf t_tid 说明 | `leaf: heap TID`（复审 F5 补录） |
+| 键字节 title | `Key bytes [{start}..{end}) — click to highlight in hex` |
+| 键字节空值 | `(empty)` |
+| 键字节截断计数 | `… {total} bytes total (showing first 64)` / `{total} bytes total` |
+| posting TIDs 标题 | `posting TIDs ({count}, count complete)` |
+| TID 行 title | `Open this block in the owning table` |
+| 跳表按钮 | `Open blk {n} in owning table` |
+| posting 解析失败警示 | `⚠ posting TID list parse failed (out of range); count preserved` |
+| special 不可读警示 | `⚠ special space unreadable (invalid pd_special)` |
+| magic 不符警示 | `⚠ btm_magic does not match 0x053162 — metadata may be untrustworthy; parseable parts are shown as-is` |
+| 跳表失败 message | `Target table not in table list: oid {oid} (owning table {name}); it may be in a system schema or dropped` |
+| 跳表失败 nextStep | `Switch to Table and select the target table manually.` |
+| t_info ALT 位说明 | `set — posting list: t_tid reinterpreted as TID count + list offset` / `set — pivot tuple: t_tid reinterpreted as pivot metadata (heap TID + attribute bits)` / `unset — t_tid is a plain pointer` |
+| t_info VAR/NULL 位 meaning | `variable-length key columns present (vars)` / `key contains NULLs (nulls bitmap present)` |
+| t_tid 角色 note（deleted/half-dead） | `deleted / half-dead page: t_tid bytes are reused (non-pointer); jump disabled` |
+| t_tid 角色 note（posting） | `posting tuple: t_tid encodes TID count and list offset; use the TID list rows below to jump` |
+| t_tid 角色 note（pivot/hikey） | `pivot tuple (e.g. hikey): t_tid is pivot metadata, not a jumpable pointer` |
+| metapage 无 tuple note | `no index tuples on metapage` |
+| main 既有未连接文案 | `Not connected`（用户授权一并英文化） |
+
+实现注：测试断言随文案同步更新（属需求变更，非测试弱化）；代码注释中文可顺手英文化但不强制。
+
+## 修订附页 2：Index 模式选择交互（2026-08-31，权威，取代初稿「输入侧控件层级」中 kind=索引分支）
+
+Table 模式分支不变（现状零改动）。Index 模式 chrome 控件层级：
+
+```text
+[ Table | Index ]                    ← 分段控件（不变）
+  └─ kind=Index:
+       table select（过滤器，含默认项 "All tables"；复用表列表数据源；选择仅过滤，不加载页面）
+       index select（下拉）
+         未选 table（All tables）：列全部用户索引；option 文本保留所属表后缀
+           schema.name (btree · 12 blk · → public.orders)
+         已选 table：仅列该表索引；option 文本去除所属表后缀
+           schema.name (btree · 12 blk)
+         非 B-tree / invalid 标记、hint、Load 门控、Refresh、spinner 均沿修订附页 1 合同
+       blkno · Load · Refresh（不变）
+```
+
+交互规则：
+
+1. 过滤器或分段控件切换后：若当前所选 index 不在新列表中 → 重置 index 选择与页面视图（page/selected/highlight/diff，同 P0-12 语义）；仍在列表中则保留 index 选择但清除未加载状态不强制（页面视图仍按 P0-12 清除）。
+2. 过滤后该表无索引：index select 显示禁用项 `No indexes for this table`；Load 禁用。
+3. Table select 在 Index 模式下的选择仅为过滤输入；切回 Table 模式时该选择保留为普通表选择（输入态，不自动加载）。
+4. 空态/文案补充（英文文案表增补）：
+
+| 位置 | 英文文案 |
+|---|---|
+| table 过滤器默认项 | `All tables` |
+| 过滤后无索引 option（禁用） | `No indexes for this table` |
+| table 过滤器 title（Index 模式） | `Filter indexes by table` |
+
+5. 选项文本简化裁决（Manager，2026-08-31）：过滤态去后缀、浏览全部态保留——保持 P0-1 可辨识目的；如用户要求全部去除，仅改 indexView 文案拼接一处。
+
+| 位置（Index 模式） | 英文文案（F7 补录；DEF-4 澄清后定稿，与实现 indexView.ts 逐字一致） |
+|---|---|
+| index option 文本（浏览全部态） | `schema.name (am · N blk · → owner)`；✕ 前缀 / ` · invalid` 后缀沿附页 1 |
+| index option 文本（过滤态） | `schema.name (am · N blk)`（去所属表段） |
+| index option title（btree 有效，浏览全部态） | `qualifiedName · → tableQualifiedName` |
+| index option title（btree 有效，过滤态） | `qualifiedName`（裸限定名） |
+| index option title（非 B-tree / invalid） | 沿附页 1，不受过滤影响 |
+
+## 修订附页 3：Index 模式选择交互细化（2026-08-31，权威，取代附页 2 与 F7 补录中与之冲突处）
+
+1. **table 过滤器**：无「All tables」文本项；**默认为空选项**（空=不过滤=全部索引）；选项**仅列出拥有索引的表**（含仅非 B-tree 索引的表；client 从 indexes 派生 tableOid 去重）；title 沿 `Filter indexes by table`。
+2. **index option 文本**：全量与过滤态**均无归属段**——`schema.name (am · N blk)`；✕ 前缀 / ` · invalid` 后缀沿附页 1。
+3. **index option title**：btree 有效——全量与过滤态均为 `qualifiedName`；非 B-tree / invalid 沿附页 1，不受过滤影响。
+4. 「No indexes for this table」空态保留为防御路径（如列表刷新后索引消失的瞬态）。
+5. 其余交互规则（重置/存活、过滤不加载、Table 模式零改动）沿附页 2。
+
+## 修订附页 4：Heap 页检视浮层（2026-08-31，权威）
+
+**触发**：Index 模式下 leaf tuple TID 行 / posting TID 列表行的既有可点元素（文案 `Open blk N in owning table` 不变）；点击打开浮层（不再就地跳转）。
+
+**结构**：
+
+```text
+┌ 遮罩（backdrop，半透明 dim，点击关闭）────────────────────┐
+│ ┌ 浮层（近全屏：四周留 --space 边距，max 尺寸受视口约束）──┐ │
+│ │ 标题栏: {tableQualifiedName} · blk {N}        [✕ Close] │ │
+│ │ 内容区（内部滚动）: 三联区（结构图 | hex | 详情）堆页渲染  │ │
+│ │  - loading: spinner + `Loading blk {N}…`                 │ │
+│ │  - error:   `{code}: {message}` + `Next: {nextStep}` 面板 │ │
+│ └──────────────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**交互规则**：
+1. Esc / ✕ / 遮罩点击三种方式等价关闭；关闭仅销毁浮层状态，主视图不动。
+2. 打开时 body 滚动锁定；初始焦点置 ✕；关闭后焦点返还触发元素。
+3. 浮层内堆页为只读检视：无 Load/blkno 输入/Refresh/diff/二级跳转（含其中 ctid 点击不导航，标注 title 即可或不渲染跳转按钮——实现择一，保持只读）。
+4. 样式沿既有 token（surface/border/shadow/dim），light/dark 各定义一次；z-index 高于 chrome。
+
+**文案表增补（英文）**：
+
+| 位置 | 英文文案 |
+|---|---|
+| 浮层标题 | `{tableQualifiedName} · blk {N}` |
+| 关闭按钮（aria-label/title） | `Close` |
+| 加载态 | `Loading blk {N}…` |
+| 错误态 | 沿既有错误呈现合同（`{code}: {message}` + `Next: …`） |

@@ -179,3 +179,14 @@
 3. **键值按列类型解码：另立项**（本项仅展示键字节 hex，非目标不变）。
 4. **无效索引：列出并标记**（不隐藏；与非 B-tree 同样可见便于发现）。
 5. **PG 版本下限：btm_version 3 与 4 均支持解析**（v3 不显示 allequalimage，v4+ 显示）；运维/验收以现有 CI 环境为准。
+
+## 修订记录
+
+| 日期 | 摘要 |
+|---|---|
+| 2026-08-31 | 用户需求变更（合并授权前）：**所有 UI 可见文案一律英文**（分段控件按钮、option title、inline hint、flag/位格说明、详情面板、空态、警告、tooltip 等）。范围含 main 既有一处中文「未连接」→ `Not connected`（用户直接授权的微扩）。文案表见 ui-design.md 修订节；验收（P0-2 等）语义不变，仅语言要求英文。 |
+| 2026-08-31 | 用户需求变更 2（合并授权前）：**Index 模式选择交互重构**。①Index 模式 chrome 为 `[table 下拉（过滤器）] [index 下拉] blkno Load`；table 下拉含「All tables」默认项；②选中 table → index 仅列该表索引；未选 → 列全部；③选项文本简化：过滤态去除「→所属表」后缀，浏览全部时保留（可辨识）；④切换过滤器或所选 index 不在过滤结果内 → 重置 index 选择与页面视图（同 P0-12 语义）；⑤Table 模式交互与合同不变；⑥P0-1 验收相应修订：索引列表可通过「全部」或按表过滤呈现，过滤态 option 可不含所属表后缀。实现为 client 侧过滤，API 合同不变。 |
+| 2026-08-31 | 用户需求变更 3（合并授权前，细化变更 2）：①table 过滤器**去除「All tables」项，默认为空**（空选项=不过滤=全部索引）；②选项归属展示**全部去除**：全量与过滤态文本均为 `schema.name (am · N blk)`，btree 有效 title 均为 `qualifiedName`；③Index 模式 table 过滤器选项**仅列出拥有索引的表**（含仅非 B-tree 索引；client 从 /api/indexes 派生，API 不变）；④「No indexes for this table」空态保留为防御路径。P0-1 验收再修订：归属信息仅经由过滤器交互表达，option 文本不含归属。 |
+
+
+| 2026-08-31 | 用户需求变更 4（合并授权前）：**P1-3 heap TID 跳转改为页内浮层**。①点击 `Open blk N in owning table`（leaf tuple TID / posting TID 行）不再就地切换关系，而是在当前页打开**近全屏浮层**展示该堆页；②浮层标题 `{tableQualifiedName} · blk {N}`，关闭方式：✕ / Esc / 点击遮罩；③浮层内容复用三联区组件（结构图/hex/详情）渲染堆页，独立状态切片，**主视图 index 页上下文（页/选中/高亮/diff）零影响**，关闭即原样返回；④浮层直接按 tableOid+blkno 取页（schema+page 两调用），端点错误在浮层内呈现（`{code}: {message}` + `Next: …`）；**移除 TABLE_NOT_LISTED 前置守卫**（其为就地切换选择列表的产物）；⑤浮层为只读检视：无 blkno 输入、无 Refresh/diff、无二级跳转（非目标，后续可扩展）；⑥就地 jumpToHeap 语义整体废止；⑦Table 模式与主视图其余交互不变。P1-3 验收相应修订：点击 → 浮层呈现对应堆页与详情，关闭后 index 上下文不变。 |
