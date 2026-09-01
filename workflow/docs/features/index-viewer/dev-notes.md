@@ -478,3 +478,48 @@ HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。
 - **建议复测范围**：StructureMap metapage hint 显示（选中 metapage 顶部提示行，
   两主题）；全角字符扫描复测（同上 grep 命令）；L2 回归（index-viewer 结构面板
   其余 hint/字段行显示不受影响）。
+
+## 变更 2 回执：Index 模式选择交互重构（2026-08-31，QA 轮次 4 Pass 后、合并授权前）
+
+依据：spec.md 修订记录变更 2 + ui-design.md「修订附页 2：Index 模式选择交互（权威）」。
+纯 client 过滤，API/server/page-core 零改动。
+
+- **触碰文件（3）**：
+  - `apps/web/src/indexView.ts` — `IndexRowLike` 增 `oid/tableOid`；新增纯函数
+    `filterIndexesByTable`（null=All tables → 全列；否则 tableOid 匹配）、
+    `indexSelectionSurvives`（规则 1 重置判定）；`formatIndexOption`/`indexOptionTitle`
+    增可选 `omitTableSuffix` 模式（过滤态去 `· → 所属表` 后缀，title 同步）；
+  - `apps/web/src/App.tsx` — Index 模式 chrome 增 table 过滤器 select（置于 index
+    select 前，默认项 `All tables`，title=`Filter indexes by table`，复用 tables
+    数据源）；index select 改列 `filteredIndexes`；`onSelectIndexFilter`（仅过滤不
+    加载）；`onSwitchRelationKind` 增过滤存活复核；主区空态按过滤结果门控并补
+    `No indexes for this table` 面板；
+  - `apps/web/src/indexView.test.ts` — 增 11 用例（过滤集合 ×3、存活判定 ×3、
+    过滤态 option 文案 ×3、过滤态 title ×2）；既有断言零改动。
+- **修订附页 2 五条规则逐条落实**：
+  1. 过滤器/分段控件切换重置 — `onSelectIndexFilter` 与 `onSwitchRelationKind`
+     均先 `resetPageView()`（page/selected/highlight/diff，P0-12 同语义）；
+     `indexSelectionSurvives`=false 时再 `setSelectedIndexOid(null)`；存活则保留
+     index 选择；
+  2. 过滤后无索引 — placeholder 禁用项 `No indexes for this table` + index select
+     整体禁用 + Load 因 `selectedIndex==null` 禁用（不发请求）；
+  3. 过滤选择复用 `selectedOid`（与 Table 模式同一状态）：Index 模式仅作过滤输入
+     不加载；切回 Table 模式自然保留为普通表选择（输入态，不自动加载）；
+  4. 文案表增补三项落地 — `All tables`（默认项）、`No indexes for this table`
+     （option+主区面板）、`Filter indexes by table`（过滤器 title）；
+  5. 选项文本简化 — 浏览全部态保留 `· → 所属表` 后缀（P0-1 四要素）；过滤态
+     `omitTableSuffix` 去后缀（仅改 indexView 文案拼接一处 + 接线传参）。
+- **Table 模式零改动**：kind=table 分支 JSX/handler 未动；`onSelectTable`/`loadBlk`
+  原样；既有 heap 测试断言零改动全绿。
+- **TDD 证据**：先写 11 用例 → 红（9 failed/17 passed）→ 实现 → 绿（26/26）。
+- **验证证据**：`pnpm test` → wal-core 13 · page-core 54 · server 31 · web **87**
+  （76+11）共 **185 全绿**；`pnpm -r typecheck` 4 包 Done exit 0；`pnpm -r build`
+  4 包 Done（web dist 产出）；`pnpm test:integration` → **退出 0**（B-tree 段 +
+  hash guard + L3 smoke 全过，不受影响已确认）；CJK/全角扫描
+  `grep -rPn '[\x{4e00}-\x{9fff}]'` 与 `[\x{ff01}-\x{ff5e}\x{3000}\x{2018}-\x{201d}]`
+  （apps/web/src + apps/web/*.html）→ **0 命中**。
+- **建议复测范围（QA 轮次 5）**：P0-1（All tables 平铺四要素 vs 过滤态去后缀 +
+  title）；过滤器切换重置语义（所选 index 被滤掉→重置；仍在→保留但页视图清除）；
+  无索引表（`No indexes for this table` option + Load 禁用）；Index→Table 切回
+  过滤选择保留为输入态不自动加载；Table 模式回归（chrome/加载/hex/diff 零变化）；
+  两主题下新控件渲染。

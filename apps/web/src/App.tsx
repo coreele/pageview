@@ -36,8 +36,10 @@ import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
   canLoadIndex,
+  filterIndexesByTable,
   formatIndexOption,
   indexOptionTitle,
+  indexSelectionSurvives,
   levelText,
   nonBtreeHint,
   pageTypeBadge,
@@ -108,6 +110,12 @@ export function App() {
   const selectedIndex = useMemo(
     () => indexes.find((i) => i.oid === selectedIndexOid) ?? null,
     [indexes, selectedIndexOid],
+  );
+  // Change-2 annex 2: Index-mode table filter is client-side (selectedOid doubles as
+  // the filter value; null = "All tables"). Table-mode loading is untouched.
+  const filteredIndexes = useMemo(
+    () => filterIndexesByTable(indexes, selectedOid),
+    [indexes, selectedOid],
   );
   const heapPage = pageView?.kind === "heap" ? pageView.page : null;
   const btreePage = pageView?.kind === "btree" ? pageView.page : null;
@@ -379,11 +387,31 @@ export function App() {
     await loadBlk(tableOid, block);
   };
 
+  /**
+   * Change-2 annex 2 rule 1/3: the Index-mode table select is a filter only — no page
+   * load. Its selection is retained as the normal Table-mode selection (input state).
+   * The page view always clears (P0-12); the index selection resets only when the
+   * filter drops it.
+   */
+  const onSelectIndexFilter = (tableOid: number | null) => {
+    setSelectedOid(tableOid);
+    resetPageView();
+    setSchema(null);
+    if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, tableOid))) {
+      setSelectedIndexOid(null);
+    }
+  };
+
   const onSwitchRelationKind = (kind: RelationKind) => {
     if (kind === relationKind) return;
     setRelationKind(kind);
     resetPageView();
     setSchema(null);
+    // Change-2 annex 2 rule 1: the filter (selectedOid) may have changed while in
+    // Table mode — drop the index selection if it no longer survives the filter.
+    if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, selectedOid))) {
+      setSelectedIndexOid(null);
+    }
   };
 
   const selectByteRange = (id: string, range: ByteRange, origin: "structure" | "hex") => {
@@ -807,6 +835,25 @@ export function App() {
                 ) : (
                   <>
                     <label className="control">
+                      <span className="control-label">table</span>
+                      <select
+                        className="table-select"
+                        value={selectedOid ?? ""}
+                        disabled={tables.length === 0 || loadState === "loading-tables"}
+                        title="Filter indexes by table"
+                        onChange={(e) => {
+                          onSelectIndexFilter(e.target.value === "" ? null : Number(e.target.value));
+                        }}
+                      >
+                        <option value="">All tables</option>
+                        {tables.map((t) => (
+                          <option key={t.oid} value={t.oid}>
+                            {t.qualifiedName} ({t.blocks} blk)
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="control">
                       <span className="control-label">index</span>
                       <select
                         className="index-select"
@@ -814,23 +861,36 @@ export function App() {
                         disabled={
                           indexes.length === 0 ||
                           loadState === "loading-indexes" ||
-                          !indexesFetched
+                          !indexesFetched ||
+                          filteredIndexes.length === 0
                         }
-                        title={selectedIndex ? indexOptionTitle(selectedIndex) : undefined}
+                        title={
+                          selectedIndex
+                            ? indexOptionTitle(selectedIndex, {
+                                omitTableSuffix: selectedOid != null,
+                              })
+                            : undefined
+                        }
                         onChange={(e) => {
                           if (e.target.value !== "") onSelectIndex(Number(e.target.value));
                         }}
                       >
-                        <option value="" disabled={indexes.length > 0}>
+                        <option value="" disabled={filteredIndexes.length > 0}>
                           {loadState === "loading-indexes" || !indexesFetched
                             ? "loading indexes…"
                             : indexes.length === 0
                               ? "No user indexes (system schemas excluded)"
-                              : "select an index…"}
+                              : filteredIndexes.length === 0
+                                ? "No indexes for this table"
+                                : "select an index…"}
                         </option>
-                        {indexes.map((i) => (
-                          <option key={i.oid} value={i.oid} title={indexOptionTitle(i)}>
-                            {formatIndexOption(i)}
+                        {filteredIndexes.map((i) => (
+                          <option
+                            key={i.oid}
+                            value={i.oid}
+                            title={indexOptionTitle(i, { omitTableSuffix: selectedOid != null })}
+                          >
+                            {formatIndexOption(i, { omitTableSuffix: selectedOid != null })}
                           </option>
                         ))}
                       </select>
@@ -870,7 +930,9 @@ export function App() {
                       disabled={!canLoadIndexBlk}
                       title={
                         selectedIndex && !canLoadIndex(selectedIndex)
-                          ? indexOptionTitle(selectedIndex)
+                          ? indexOptionTitle(selectedIndex, {
+                              omitTableSuffix: selectedOid != null,
+                            })
                           : undefined
                       }
                       onClick={triggerLoadIndex}
@@ -1154,8 +1216,14 @@ export function App() {
           )}
 
         {connected && mode === "page" && relationKind === "index" &&
+          loadState !== "loading-indexes" && indexesFetched && indexes.length > 0 &&
+          filteredIndexes.length === 0 && !error && (
+            <div className="panel muted">No indexes for this table</div>
+          )}
+
+        {connected && mode === "page" && relationKind === "index" &&
           loadState !== "loading-indexes" && !selectedIndex && !btreePage && !error &&
-          indexes.length > 0 && (
+          filteredIndexes.length > 0 && (
             <div className="panel muted">Pick an index to start (blkno 0 is the metapage).</div>
           )}
 

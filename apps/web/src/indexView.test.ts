@@ -3,8 +3,10 @@ import { buildBtreePage, parseBtreePage, BTP_HAS_GARBAGE, BTP_INCOMPLETE_SPLIT, 
 import type { IndexRow } from "./api";
 import {
   canLoadIndex,
+  filterIndexesByTable,
   formatIndexOption,
   indexOptionTitle,
+  indexSelectionSurvives,
   levelText,
   nonBtreeHint,
   pageTypeBadge,
@@ -94,6 +96,90 @@ describe("load gating (P0-2: selectable but never loadable)", () => {
     );
     expect(nonBtreeHint(null)).toBeNull();
     expect(nonBtreeHint(idx())).toBeNull();
+  });
+});
+
+describe("table filter (change-2 annex 2: All tables vs tableOid match)", () => {
+  const others = idx({
+    oid: 24577,
+    name: "customers_pkey",
+    qualifiedName: "public.customers_pkey",
+    blocks: 5,
+    tableOid: 16400,
+    tableQualifiedName: "public.customers",
+  });
+
+  it("returns the full list when no table is selected (All tables)", () => {
+    expect(filterIndexesByTable([idx(), others], null)).toEqual([idx(), others]);
+  });
+
+  it("keeps only indexes of the selected table (tableOid match)", () => {
+    expect(filterIndexesByTable([idx(), others], 16384)).toEqual([idx()]);
+    expect(filterIndexesByTable([idx(), others], 16400)).toEqual([others]);
+  });
+
+  it("yields an empty list when the table has no indexes", () => {
+    expect(filterIndexesByTable([idx(), others], 99999)).toEqual([]);
+  });
+});
+
+describe("selection survival (change-2 annex 2 rule 1 reset predicate)", () => {
+  it("null selection always survives (nothing to reset)", () => {
+    expect(indexSelectionSurvives(null, [])).toBe(true);
+    expect(indexSelectionSurvives(null, [idx()])).toBe(true);
+  });
+
+  it("survives when the selected index stays in the filtered list", () => {
+    expect(indexSelectionSurvives(24576, [idx()])).toBe(true);
+  });
+
+  it("does not survive when the filter drops the selected index", () => {
+    expect(indexSelectionSurvives(24576, [])).toBe(false);
+    expect(
+      indexSelectionSurvives(
+        24576,
+        [idx({ oid: 24577, tableOid: 16400, tableQualifiedName: "public.customers" })],
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("filtered option text drops the owning-table suffix", () => {
+  it("keeps the suffix by default (browse-all state, P0-1)", () => {
+    expect(formatIndexOption(idx())).toBe(
+      "public.orders_oid_idx (btree · 12 blk · → public.orders)",
+    );
+  });
+
+  it("drops the suffix in the filtered state", () => {
+    expect(formatIndexOption(idx(), { omitTableSuffix: true })).toBe(
+      "public.orders_oid_idx (btree · 12 blk)",
+    );
+  });
+
+  it("keeps the ✕ prefix and invalid suffix in the filtered state", () => {
+    expect(
+      formatIndexOption(idx({ accessMethod: "hash", valid: false, blocks: 1 }), {
+        omitTableSuffix: true,
+      }),
+    ).toBe("✕ public.orders_oid_idx (hash · 1 blk) · invalid");
+  });
+});
+
+describe("filtered option title drops the owning-table suffix", () => {
+  it("keeps a neutral title without the suffix in the filtered state", () => {
+    expect(indexOptionTitle(idx(), { omitTableSuffix: true })).toBe(
+      "public.orders_oid_idx",
+    );
+  });
+
+  it("keeps non-B-tree / invalid titles unchanged in the filtered state", () => {
+    expect(indexOptionTitle(idx({ accessMethod: "hash" }), { omitTableSuffix: true })).toBe(
+      "hash: only B-tree index pages are supported",
+    );
+    expect(indexOptionTitle(idx({ valid: false }), { omitTableSuffix: true })).toBe(
+      "indisvalid=false; loadable for inspection only",
+    );
   });
 });
 

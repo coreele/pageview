@@ -6,9 +6,11 @@ import type { ParsedBtreePage } from "page-core";
 
 /** Structural subset of api.IndexRow (keeps helpers unit-testable). */
 export type IndexRowLike = {
+  oid: number;
   qualifiedName: string;
   accessMethod: string;
   blocks: number;
+  tableOid: number;
   tableQualifiedName: string;
   valid: boolean;
 };
@@ -22,17 +24,44 @@ export function canLoadIndex(idx: IndexRowLike | null): boolean {
   return isBtreeIndex(idx);
 }
 
-export function formatIndexOption(idx: IndexRowLike): string {
-  const tail = `${idx.qualifiedName} (${idx.accessMethod} · ${idx.blocks} blk · → ${idx.tableQualifiedName})`;
+/** Change-2 annex 2: null ("All tables") keeps the full list; otherwise tableOid match. */
+export function filterIndexesByTable(
+  indexes: IndexRowLike[],
+  tableOid: number | null,
+): IndexRowLike[] {
+  if (tableOid == null) return indexes;
+  return indexes.filter((i) => i.tableOid === tableOid);
+}
+
+/**
+ * Change-2 annex 2 rule 1: does the current index selection survive the new
+ * (filtered) list? false => reset the selection along with the page view.
+ */
+export function indexSelectionSurvives(
+  selectedIndexOid: number | null,
+  filtered: IndexRowLike[],
+): boolean {
+  if (selectedIndexOid == null) return true;
+  return filtered.some((i) => i.oid === selectedIndexOid);
+}
+
+/** Options drop the "→ owning table" suffix while filtering by one table (annex 2 rule 5). */
+export type IndexOptionMode = { omitTableSuffix?: boolean };
+
+export function formatIndexOption(idx: IndexRowLike, mode?: IndexOptionMode): string {
+  const table = mode?.omitTableSuffix ? "" : ` · → ${idx.tableQualifiedName}`;
+  const tail = `${idx.qualifiedName} (${idx.accessMethod} · ${idx.blocks} blk${table})`;
   const prefix = isBtreeIndex(idx) ? "" : "✕ ";
   const suffix = idx.valid ? "" : " · invalid";
   return `${prefix}${tail}${suffix}`;
 }
 
-export function indexOptionTitle(idx: IndexRowLike): string {
+export function indexOptionTitle(idx: IndexRowLike, mode?: IndexOptionMode): string {
   if (!isBtreeIndex(idx)) return `${idx.accessMethod}: only B-tree index pages are supported`;
   if (!idx.valid) return "indisvalid=false; loadable for inspection only";
-  return `${idx.qualifiedName} · → ${idx.tableQualifiedName}`;
+  return mode?.omitTableSuffix
+    ? idx.qualifiedName
+    : `${idx.qualifiedName} · → ${idx.tableQualifiedName}`;
 }
 
 export function nonBtreeHint(idx: IndexRowLike | null): string | null {
