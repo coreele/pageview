@@ -14,7 +14,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| auto-install-extensions | [spec.md](../features/auto-install-extensions/spec.md) | required（错误约定与可见行为合同变更） | approved（2026-08-31 裁决开放问题后通过） | skipped（无模块边界/分层/选型决策——沿现有守卫层加安装步骤） | gui（仅连接表单一行文案，已裁决纳入） | required | planning | Planner 编写 plan.md |
+| auto-install-extensions | [spec.md](../features/auto-install-extensions/spec.md) | required（错误约定与可见行为合同变更） | approved（2026-08-31 裁决开放问题后通过） | skipped（无模块边界/分层/选型决策——沿现有守卫层加安装步骤） | gui（仅连接表单一行文案，已裁决纳入） | required | done | 已授权合并；QA 轮次 1 Pass + Review Approve |
 
 阻塞原因: none
 恢复条件: none
@@ -23,3 +23,7 @@
 ## 进度笔记
 
 - 2026-08-31 Manager 登记。来源：用户使用 WAL 模式遇到 `WALINSPECT_MISSING`（需手动 `CREATE EXTENSION pg_walinspect`），指示改为自动安装、失败再报错（含 pageinspect）。注意：此举推翻 pg-page-viewer/wal-viewer 以来「app 不执行 CREATE EXTENSION」的既有合同（README 明文），spec 需正式修订该合同并让 Reviewer 关注安全面（DDL 写操作、权限语义）。main 当前领先 origin 21 提交未 push（用户指示），本项自本地 main 分支。
+
+- 2026-08-31 Developer T1–T5 完成（3cef61a/7765709/cc83e51/8cd503e/b1e0314；226 tests、integration 退出 0 含自动安装段）；Manager 独立核验通过。Reviewer 审阅 **Approve**（4 项 Info 非阻塞：F1 SQL 参数化风格、F2 L3 失败路径环境不可达、F3 防御性 42701、F4 smoke finally 信号弱；白名单 DDL 无注入面）。QA 轮次 1 **Pass**（零缺陷；P0 8/8——实库 DROP→自动装回取证、临时受限角色真实 42501 证据、README/web 文案 0 残留；P0-6 无 PG14 实例如实标注）。**等待用户合并授权**（授权后：置 done + review.md/qa-report.md 一次提交于源分支 → FF 合入 main；按惯例不 push）。
+
+- 2026-08-31 **用户授权合并**。Manager 置 done 并与未入库的 review.md/qa-report.md 一次提交于源分支；随后 FF 合入 main（不 push）。工作流关闭。遗留（均非阻塞）：F1 SQL 参数化风格、F4 smoke finally 信号（Info 建议）；P0-6 无 PG14 实例仅 stub 断言。
