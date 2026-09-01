@@ -607,7 +607,7 @@ export function BtreeStructureDetail({
   if (selectedId?.startsWith("special.")) {
     const sp = page.special;
     if (!sp) {
-      return <div className="parse-warning-inline">⚠ special space 不可读（pd_special 异常）</div>;
+      return <div className="parse-warning-inline">⚠ special space unreadable (invalid pd_special)</div>;
     }
     const nav = siblingNav(sp);
     const rows = [
@@ -737,7 +737,8 @@ export function BtreeStructureDetail({
         </div>
         {magicWarn && (
           <div className="parse-warning-inline">
-            ⚠ btm_magic 与 0x53162 不符 — 元数据可能不可信，可解析部分照常展示
+            ⚠ btm_magic does not match 0x053162 — metadata may be untrustworthy;
+            parseable parts are shown as-is
           </div>
         )}
       </div>

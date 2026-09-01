@@ -434,3 +434,30 @@ HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。
   非目标；单独为 /api/indexes 加守卫会造成两端行为分叉。风险：低（错误仍为 400
   形状，仅 code/nextStep 误导）。恢复条件/后续建议：另立独立小工作项，为两组端点
   统一加 `Number.isFinite(Number(oid))` 守卫（即 Reviewer F1）。
+
+## UI 文案英文化变更回执（2026-08-31，需求变更：QA Pass 后、合并授权前）
+
+依据：spec.md 修订记录 2026-08-31 + ui-design.md「修订附页：英文文案表（权威）」。
+仅替换用户可见字符串（含 main 既有「未连接」→ `Not connected`，用户直接授权微扩），
+不改逻辑/结构/样式；文案逐条取自英文文案表。
+
+- **变更范围（8 文件）**：
+  - `apps/web/src/indexView.ts` — 非 B-tree option title ×2、inline hint；
+  - `apps/web/src/indexView.test.ts` — 3 处断言期望文案同步（结构不变，非弱化）；
+  - `apps/web/src/blockNav.ts` — 跳表失败 message/nextStep（`（所属表 X）`→` (owning table X)`）；
+  - `apps/web/src/indexDetail.ts` — t_info ALT/VAR/NULL 位说明 ×4、t_tid 角色 note ×4；
+  - `apps/web/src/IndexTupleDetail.tsx` — internal/leaf 角色、跳表按钮、键字节
+    title/label/(empty)/截断计数、posting 标题、TID 行 title、解析失败警示；
+  - `apps/web/src/StructureMap.tsx` — special 不可读、btm_magic 警示（0x053162）；
+  - `apps/web/src/App.tsx` — Table/Index 分段、空索引 option+panel、初始空态、
+    加载提示、页数据异常警示、metapage/空叶页空态、Not connected；
+  - `apps/web/src/diff.test.ts` — 注释英文化（顺手）。
+- **grep 残留结论**：`grep -rPn '[\x{4e00}-\x{9fff}]' apps/web/src --include='*.ts'
+  --include='*.tsx'` → **0 命中**（用户可见=0，注释亦清零）；全角标点复查亦 0。
+- **验证证据**：`pnpm test` → wal-core 13 · page-core 54 · server 31 · web 76 共
+  **174 全绿**；`pnpm -r typecheck` exit 0（4 包）；`pnpm -r build` 成功（web dist 产物）；
+  `pnpm test:integration` → **退出 0**（B-tree 段 + hash guard + L3 smoke 全过）。
+- **建议复测范围（QA 轮次 3）**：文案断言核对（对照 ui-design 英文文案表逐条）；
+  P0-2 hint 语言（含 option title / Load 禁用 title）；空态/警告语言（空索引列表、
+  初始空态、metapage/空叶页空态、页数据异常/special/magic/posting 警示、TABLE_NOT_LISTED
+  跳表失败）；Not connected；既有回归（heap 路径、hex/diff、两主题）。

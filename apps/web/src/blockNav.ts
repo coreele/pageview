@@ -33,10 +33,10 @@ export function resolveJumpTable(tables: TableRow[], tableOid: number): TableRow
 
 /** Readable feedback when the jump target table is not listed (never silent). */
 export function heapJumpError(tableOid: number, tableQualifiedName?: string): AppError {
-  const where = tableQualifiedName ? `（所属表 ${tableQualifiedName}）` : "";
+  const where = tableQualifiedName ? ` (owning table ${tableQualifiedName})` : "";
   return {
     code: "TABLE_NOT_LISTED",
-    message: `目标表不在表列表中：oid ${tableOid}${where}；可能位于系统 schema 或已被删除`,
-    nextStep: "请切换到表并手动选择目标表。",
+    message: `Target table not in table list: oid ${tableOid}${where}; it may be in a system schema or dropped`,
+    nextStep: "Switch to Table and select the target table manually.",
   };
 }

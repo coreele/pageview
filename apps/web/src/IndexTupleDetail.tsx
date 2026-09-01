@@ -17,7 +17,7 @@ function tidText(t: { blockNumber: number; offsetNumber: number }): string {
 }
 
 /**
- * Detail body for one selected index tuple (ui-design "index tuple 详情"):
+ * Detail body for one selected index tuple (ui-design "index tuple detail"):
  * t_tid semantics by page type, itemlen, t_info bit rows (D2/D3), hikey/posting
  * badges, truncated key-byte hex, scrollable posting TID list.
  */
@@ -33,9 +33,9 @@ export function IndexTupleDetail({
   const keyId = `tuple-${tuple.lpIndex}.key`;
   const roleText =
     role.role === "child"
-      ? "internal：子页指针"
+      ? "internal: child page pointer"
       : role.role === "heap"
-        ? "leaf：heap TID"
+        ? "leaf: heap TID"
         : role.note;
 
   return (
@@ -73,7 +73,7 @@ export function IndexTupleDetail({
                 className="primary"
                 onClick={() => onJumpHeapBlock(tuple.t_tid.blockNumber)}
               >
-                在所属表打开 blk {tuple.t_tid.blockNumber}
+                Open blk {tuple.t_tid.blockNumber} in owning table
               </button>
             </>
           ) : null)}
@@ -97,16 +97,16 @@ export function IndexTupleDetail({
             type="button"
             className="key-bytes mono"
             onClick={() => onSelectRange(keyId, tuple.keyRange)}
-            title={`键字节 [${tuple.keyRange.start}..${tuple.keyRange.end}) — 点击在 hex 中高亮`}
+            title={`Key bytes [${tuple.keyRange.start}..${tuple.keyRange.end}) — click to highlight in hex`}
           >
             <span className="key-bytes__label">
-              键字节 [{tuple.keyRange.start}..{tuple.keyRange.end})
+              Key bytes [{tuple.keyRange.start}..{tuple.keyRange.end})
             </span>
-            <span className="key-bytes__hex">{keyPreview.hex || "(空)"}</span>
+            <span className="key-bytes__hex">{keyPreview.hex || "(empty)"}</span>
             <span className="key-bytes__count">
               {keyPreview.truncated
-                ? `… 共 ${keyPreview.total} 字节（显示前 64）`
-                : `共 ${keyPreview.total} 字节`}
+                ? `… ${keyPreview.total} bytes total (showing first 64)`
+                : `${keyPreview.total} bytes total`}
             </span>
           </button>
         </div>
@@ -115,7 +115,7 @@ export function IndexTupleDetail({
       {tuple.isPosting && (
         <div className="index-tuple-detail__posting">
           <div className="index-tuple-detail__line">
-            posting TIDs（{tuple.postingCount ?? "?"} 条，计数完整）
+            posting TIDs ({tuple.postingCount ?? "?"}, count complete)
           </div>
           {tuple.postingTids ? (
             <ul className="posting-tid-list mono" aria-label="posting TID list">
@@ -125,7 +125,7 @@ export function IndexTupleDetail({
                     <button
                       type="button"
                       className="posting-tid"
-                      title="在所属表打开该块（P1-3）"
+                      title="Open this block in the owning table"
                       onClick={() => onJumpHeapBlock(tid.blockNumber)}
                     >
                       {tidText(tid)}
@@ -137,7 +137,7 @@ export function IndexTupleDetail({
               )}
             </ul>
           ) : (
-            <div className="parse-warning-inline">⚠ posting TID 列表解析失败（越界），计数保留</div>
+            <div className="parse-warning-inline">⚠ posting TID list parse failed (out of range); count preserved</div>
           )}
         </div>
       )}

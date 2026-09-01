@@ -610,7 +610,7 @@ export function App() {
         <div className="chrome-meta" aria-label="Context strip">
           {!connected ? (
             <div className="meta-row">
-              <span className="muted">未连接</span>
+              <span className="muted">Not connected</span>
             </div>
           ) : mode === "wal" ? (
             <div className="meta-row meta-controls-row">
@@ -727,7 +727,7 @@ export function App() {
                     aria-pressed={relationKind === "table"}
                     onClick={() => onSwitchRelationKind("table")}
                   >
-                    表
+                    Table
                   </button>
                   <button
                     type="button"
@@ -735,7 +735,7 @@ export function App() {
                     aria-pressed={relationKind === "index"}
                     onClick={() => onSwitchRelationKind("index")}
                   >
-                    索引
+                    Index
                   </button>
                 </div>
 
@@ -825,7 +825,7 @@ export function App() {
                           {loadState === "loading-indexes" || !indexesFetched
                             ? "loading indexes…"
                             : indexes.length === 0
-                              ? "无用户索引（系统 schema 除外）"
+                              ? "No user indexes (system schemas excluded)"
                               : "select an index…"}
                         </option>
                         {indexes.map((i) => (
@@ -1150,19 +1150,19 @@ export function App() {
 
         {connected && mode === "page" && relationKind === "index" &&
           loadState !== "loading-indexes" && indexesFetched && indexes.length === 0 && !error && (
-            <div className="panel muted">无用户索引（系统 schema 除外）。</div>
+            <div className="panel muted">No user indexes (system schemas excluded)</div>
           )}
 
         {connected && mode === "page" && relationKind === "index" &&
           loadState !== "loading-indexes" && !selectedIndex && !btreePage && !error &&
           indexes.length > 0 && (
-            <div className="panel muted">选择一个索引开始（blkno 0 为 metapage）。</div>
+            <div className="panel muted">Pick an index to start (blkno 0 is the metapage).</div>
           )}
 
         {connected && mode === "page" && relationKind === "index" &&
           loadState !== "loading-indexes" && selectedIndex && !btreePage && !error && (
             <div className="panel muted">
-              输入 blkno 后 Load（0 = metapage）。
+              Enter a blkno and Load (0 = metapage).
             </div>
           )}
 
@@ -1230,7 +1230,8 @@ export function App() {
               )}
               {btreePage.warnings.length > 0 && (
                 <div className="panel parse-warnings" role="status">
-                  <strong>页数据异常</strong>：{btreePage.warnings.join("；")}；可解析部分照常展示。
+                  <strong>Page data anomalies</strong>: {btreePage.warnings.join("; ")}. Parseable
+                  parts are shown as-is.
                 </div>
               )}
               <StructureMap
@@ -1244,9 +1245,9 @@ export function App() {
                 onSelect={onSelectStructure}
                 emptyStateText={
                   btreePage.pageType === "meta"
-                    ? "metapage：无 ItemId / 元组；内容为 BTMetaPageData 元数据"
+                    ? "metapage: no ItemIds / tuples; content is BTMetaPageData"
                     : btreePage.tuples.length === 0
-                      ? "空页：无 index tuple；无键数据，结构仍可浏览。"
+                      ? "empty page: no index tuples; no key data, structure still browsable"
                       : null
                 }
                 renderDetail={() => (

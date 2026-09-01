@@ -47,20 +47,20 @@ export function tInfoRows(t: BtreeIndexTuple): TInfoRow[] {
       name: "INDEX_ALT_TID_MASK",
       set: (t.t_info & INDEX_ALT_TID_MASK) !== 0,
       meaning: t.isPosting
-        ? "set — posting list：t_tid 重释为 TID 数 + 列表偏移（D3）"
+        ? "set — posting list: t_tid reinterpreted as TID count + list offset"
         : t.isPivot
-          ? "set — pivot 元组：t_tid 重释为 pivot 元数据（heap TID + 属性位）"
-          : "unset — t_tid 为普通指针",
+          ? "set — pivot tuple: t_tid reinterpreted as pivot metadata (heap TID + attribute bits)"
+          : "unset — t_tid is a plain pointer",
     },
     {
       name: "INDEX_VAR_MASK",
       set: (t.t_info & INDEX_VAR_MASK) !== 0 || t.hasVars,
-      meaning: "可变长度键列存在（vars）",
+      meaning: "variable-length key columns present (vars)",
     },
     {
       name: "INDEX_NULL_MASK",
       set: (t.t_info & INDEX_NULL_MASK) !== 0 || t.hasNulls,
-      meaning: "键含 NULL（nulls 位图存在）",
+      meaning: "key contains NULLs (nulls bitmap present)",
     },
   ];
 }
@@ -75,24 +75,24 @@ export function tidRole(page: ParsedBtreePage, t: BtreeIndexTuple): TidRole {
   if (page.flags.deleted || page.flags.halfDead) {
     return {
       role: "none",
-      note: "deleted / half-dead 页：t_tid 字段被复用（非指针语义），不可跳转",
+      note: "deleted / half-dead page: t_tid bytes are reused (non-pointer); jump disabled",
     };
   }
   if (t.isPosting) {
     return {
       role: "none",
-      note: "posting 元组：t_tid 编码 TID 数与列表偏移，跳转请使用下方 TID 列表行",
+      note: "posting tuple: t_tid encodes TID count and list offset; use the TID list rows below to jump",
     };
   }
   if (t.isPivot) {
     return {
       role: "none",
-      note: "pivot 元组（如 hikey）：t_tid 为 pivot 元数据，非可跳转指针",
+      note: "pivot tuple (e.g. hikey): t_tid is pivot metadata, not a jumpable pointer",
     };
   }
   if (page.pageType === "internal") return { role: "child" };
   if (page.pageType === "leaf") return { role: "heap" };
-  return { role: "none", note: "metapage 无 index tuple" };
+  return { role: "none", note: "no index tuples on metapage" };
 }
 
 export type MetapageRow = { key: string; value: string };

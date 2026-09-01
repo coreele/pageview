@@ -162,7 +162,7 @@ const btreeMetaRealFields = deriveBtreeStructureFields(btreeMetaReal);
 describe("findStructureAt on the real metapage capture (DEF-1 regression)", () => {
   it("reverse-selects btm_magic/version/root/level/fastroot/fastlevel in [24..64) and allequalimage at 64", () => {
     expect(btreeMetaReal.header.pd_lower).toBe(72); // real-capture guard
-    expect(btreeMetaReal.stats.itemIdTotal).toBe(0); // 元信息条 ItemId=0
+    expect(btreeMetaReal.stats.itemIdTotal).toBe(0); // meta-bar ItemId=0
     expect(findStructureAt(btreeMetaRealFields, 24)?.id).toBe("meta.btm_magic");
     expect(findStructureAt(btreeMetaRealFields, 28)?.id).toBe("meta.btm_version");
     expect(findStructureAt(btreeMetaRealFields, 32)?.id).toBe("meta.btm_root");

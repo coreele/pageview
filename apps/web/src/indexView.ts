@@ -30,14 +30,14 @@ export function formatIndexOption(idx: IndexRowLike): string {
 }
 
 export function indexOptionTitle(idx: IndexRowLike): string {
-  if (!isBtreeIndex(idx)) return `${idx.accessMethod}：仅支持 B-tree 索引页解析`;
-  if (!idx.valid) return "indisvalid=false，可加载，仅供检视";
+  if (!isBtreeIndex(idx)) return `${idx.accessMethod}: only B-tree index pages are supported`;
+  if (!idx.valid) return "indisvalid=false; loadable for inspection only";
   return `${idx.qualifiedName} · → ${idx.tableQualifiedName}`;
 }
 
 export function nonBtreeHint(idx: IndexRowLike | null): string | null {
   if (idx == null || isBtreeIndex(idx)) return null;
-  return `${idx.accessMethod} 索引暂不支持页解析 — 仅支持 B-tree。请改选 B-tree 索引或切回表。`;
+  return `${idx.accessMethod} index page parsing is not supported — B-tree only. Pick a B-tree index or switch back to a table.`;
 }
 
 /** Page-type badge text + P1-2 status chips derived from btpo_flags. */

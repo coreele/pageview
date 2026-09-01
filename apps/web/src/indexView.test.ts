@@ -61,13 +61,13 @@ describe("index option text (four elements: qualifiedName, am, blocks, table)", 
 describe("index option titles", () => {
   it("explains the B-tree-only restriction with the access method name", () => {
     expect(indexOptionTitle(idx({ accessMethod: "hash" }))).toBe(
-      "hash：仅支持 B-tree 索引页解析",
+      "hash: only B-tree index pages are supported",
     );
   });
 
   it("explains indisvalid=false is still loadable", () => {
     expect(indexOptionTitle(idx({ valid: false }))).toBe(
-      "indisvalid=false，可加载，仅供检视",
+      "indisvalid=false; loadable for inspection only",
     );
   });
 
@@ -90,7 +90,7 @@ describe("load gating (P0-2: selectable but never loadable)", () => {
 
   it("renders the inline hint with the access method name and next step", () => {
     expect(nonBtreeHint(idx({ accessMethod: "hash" }))).toBe(
-      "hash 索引暂不支持页解析 — 仅支持 B-tree。请改选 B-tree 索引或切回表。",
+      "hash index page parsing is not supported — B-tree only. Pick a B-tree index or switch back to a table.",
     );
     expect(nonBtreeHint(null)).toBeNull();
     expect(nonBtreeHint(idx())).toBeNull();
