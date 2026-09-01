@@ -1266,9 +1266,10 @@ export function App() {
               </button>
             </form>
             <p className="muted">
-              Or set env credentials so the server auto-connects on start. Password is never stored
-              in the browser. Enable <code>pageinspect</code> / <code>pg_walinspect</code> yourself —
-              this app never runs <code>CREATE EXTENSION</code>.
+              Or set env credentials so the server auto-connects on start. Password is never
+              stored in the browser. Missing <code>pageinspect</code> /{" "}
+              <code>pg_walinspect</code> are installed automatically when needed; failures are
+              reported with the reason.
             </p>
           </div>
         )}
