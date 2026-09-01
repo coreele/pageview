@@ -1,6 +1,8 @@
 /**
- * L3 smoke: requires PG 16.11 + pageinspect + get_raw_page privilege.
- * Exit 0 on success; non-zero with clear message when blocked.
+ * L3 smoke: requires PG 16.11 + a role with CREATE privilege (superuser)
+ * for pageinspect / pg_walinspect + get_raw_page privilege. Includes an
+ * auto-install segment that DROPs both extensions and proves the mode guards
+ * re-install them. Exit 0 on success; non-zero with clear message when blocked.
  */
 import { config } from "dotenv";
 import { resolve } from "node:path";
@@ -281,6 +283,65 @@ async function btreeIndexSmoke(app: InjectApp, session: SessionState): Promise<v
   }
 }
 
+// ---------------------------------------------------------------------------
+// Auto-install segment (auto-install-extensions T5): proves end-to-end that
+// the mode guards re-install a dropped extension. Runs AFTER the B-tree
+// segment because that oracle calls pageinspect functions directly, so DROP
+// must come last. `finally` re-creates both extensions so a failed segment
+// never leaves the instance without them.
+// ---------------------------------------------------------------------------
+
+function aiCheck(cond: unknown, msg: string): asserts cond {
+  if (!cond) throw new Error(`Auto-install smoke failed: ${msg}`);
+}
+
+async function autoInstallSmoke(app: InjectApp, session: SessionState): Promise<void> {
+  const q = (text: string) => session.pool!.query(text);
+  const extPresent = async (ext: string): Promise<boolean> => {
+    const res = await q(`SELECT 1 FROM pg_extension WHERE extname = '${ext}'`);
+    return (res.rowCount ?? 0) > 0;
+  };
+
+  try {
+    // WAL guard: drop pg_walinspect -> request auto-installs -> confirmed back.
+    await q(`DROP EXTENSION IF EXISTS pg_walinspect`);
+    aiCheck(!(await extPresent("pg_walinspect")), "pg_walinspect still present after DROP");
+    const lsnRes = await app.inject({ method: "GET", url: "/api/wal/current-lsn" });
+    aiCheck(
+      lsnRes.statusCode === 200,
+      `GET /api/wal/current-lsn after DROP -> ${lsnRes.statusCode} ${lsnRes.body}`,
+    );
+    const lsn = (lsnRes.json() as { lsn: string }).lsn;
+    aiCheck(/^[0-9A-F]+\/[0-9A-F]+$/i.test(lsn), `current-lsn malformed: ${lsn}`);
+    aiCheck(await extPresent("pg_walinspect"), "pg_walinspect not re-installed by the WAL guard");
+    console.log("auto-install (WAL) OK: DROP pg_walinspect -> current-lsn 200 -> re-installed");
+
+    // Page guard: drop pageinspect -> /api/tables auto-installs -> confirmed back.
+    await q(`DROP EXTENSION IF EXISTS pageinspect`);
+    aiCheck(!(await extPresent("pageinspect")), "pageinspect still present after DROP");
+    const tablesRes = await app.inject({ method: "GET", url: "/api/tables" });
+    aiCheck(
+      tablesRes.statusCode === 200,
+      `GET /api/tables after DROP -> ${tablesRes.statusCode} ${tablesRes.body}`,
+    );
+    aiCheck(
+      Array.isArray((tablesRes.json() as { tables: unknown[] }).tables),
+      "tables response malformed after auto-install",
+    );
+    aiCheck(await extPresent("pageinspect"), "pageinspect not re-installed by the Page guard");
+    console.log("auto-install (Page) OK: DROP pageinspect -> /api/tables 200 -> re-installed");
+  } finally {
+    // Fallback rebuild: a failed segment must not leave the DB without extensions.
+    for (const ext of ["pg_walinspect", "pageinspect"]) {
+      try {
+        await q(`CREATE EXTENSION IF NOT EXISTS ${ext}`);
+      } catch (e) {
+        console.error(`Auto-install smoke cleanup failed for ${ext}`, e);
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
   if (!readEnvCredentials()) {
     console.error(
@@ -377,11 +438,13 @@ async function main(): Promise<void> {
   }
 
   await btreeIndexSmoke(app, session);
+  await autoInstallSmoke(app, session);
 
   console.log(`L3 smoke OK: ${target.qualifiedName} blk 0 length=${buf.length}`);
   console.log(`serverVersion=${session.serverVersion}`);
   console.log(`R1 schema placeholders OK (${cols.filter((c) => c.attisdropped).length} dropped)`);
   console.log("B-tree segment OK: list/metapage/internal/leaf/posting oracle + hash guard");
+  console.log("Auto-install segment OK: guards re-install dropped extensions (WAL + Page)");
   await app.close();
   if (session.pool) await session.pool.end();
 }
