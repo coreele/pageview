@@ -461,3 +461,20 @@ HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。
   P0-2 hint 语言（含 option title / Load 禁用 title）；空态/警告语言（空索引列表、
   初始空态、metapage/空叶页空态、页数据异常/special/magic/posting 警示、TABLE_NOT_LISTED
   跳表失败）；Not connected；既有回归（heap 路径、hex/diff、两主题）。
+
+## DEF-3 修复回执（2026-08-31，QA 轮次 3）
+
+- **缺陷**：DEF-3（Low）— `apps/web/src/StructureMap.tsx:696` metapage hint 残留全角括号
+  U+FF08/FF09（`metapage（PageGetContents @24）· v{...}`），296dc44 文案英文化漏改。
+- **处理结果**：已修复 — `metapage（PageGetContents @24）· v{...}` →
+  `metapage (PageGetContents @24) · v{...}`（仅全角括号→半角 ASCII 括号，`·` U+00B7 与
+  其余文本不动）。单行文案变更，无逻辑/结构/样式改动。
+- **复查命令与结论**：`grep -rPn
+  '[\x{ff01}-\x{ff5e}\x{3000}\x{2018}\x{2019}\x{201c}\x{201d}]' apps/web/src
+  apps/web/*.html`（CSS 经 find 展开）→ **0 命中**；未发现其它用户可见全角残留。
+- **验证证据**：`pnpm test` → server 31 · web 76 共 107 全绿（page-core/wal-core 本轮
+  输出未含，上一回执已 174 全绿）；`pnpm -r typecheck` → 4 包全部 Done、exit 0。
+  单行 JSX 文案变更，不触及 server/API/page-core，integration 不受影响。
+- **建议复测范围**：StructureMap metapage hint 显示（选中 metapage 顶部提示行，
+  两主题）；全角字符扫描复测（同上 grep 命令）；L2 回归（index-viewer 结构面板
+  其余 hint/字段行显示不受影响）。

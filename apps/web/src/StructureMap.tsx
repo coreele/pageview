@@ -693,7 +693,7 @@ export function BtreeStructureDetail({
     return (
       <div className="btree-field-section">
         <div className="muted btree-field-section__hint">
-          metapage（PageGetContents @24）· v{meta.btm_version}
+          metapage (PageGetContents @24) · v{meta.btm_version}
         </div>
         <div className="btree-field-rows">
           {metapageRows(meta).map((r) => {
