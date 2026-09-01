@@ -24,7 +24,7 @@ export function canLoadIndex(idx: IndexRowLike | null): boolean {
   return isBtreeIndex(idx);
 }
 
-/** Change-2 annex 2: null ("All tables") keeps the full list; otherwise tableOid match. */
+/** Annex 3: null (the empty default option) keeps the full list; otherwise tableOid match. */
 export function filterIndexesByTable(
   indexes: IndexRowLike[],
   tableOid: number | null,
@@ -34,7 +34,7 @@ export function filterIndexesByTable(
 }
 
 /**
- * Change-2 annex 2 rule 1: does the current index selection survive the new
+ * Change-3 annex 3 rule 1: does the current index selection survive the new
  * (filtered) list? false => reset the selection along with the page view.
  */
 export function indexSelectionSurvives(
@@ -45,28 +45,51 @@ export function indexSelectionSurvives(
   return filtered.some((i) => i.oid === selectedIndexOid);
 }
 
-/** Options drop the "→ owning table" suffix while filtering by one table (annex 2 rule 5). */
-export type IndexOptionMode = { omitTableSuffix?: boolean };
-
-export function formatIndexOption(idx: IndexRowLike, mode?: IndexOptionMode): string {
-  const table = mode?.omitTableSuffix ? "" : ` · → ${idx.tableQualifiedName}`;
-  const tail = `${idx.qualifiedName} (${idx.accessMethod} · ${idx.blocks} blk${table})`;
+/** Annex 3 rule 3: option text carries no owning-table segment in either state. */
+export function formatIndexOption(idx: IndexRowLike): string {
+  const tail = `${idx.qualifiedName} (${idx.accessMethod} · ${idx.blocks} blk)`;
   const prefix = isBtreeIndex(idx) ? "" : "✕ ";
   const suffix = idx.valid ? "" : " · invalid";
   return `${prefix}${tail}${suffix}`;
 }
 
-export function indexOptionTitle(idx: IndexRowLike, mode?: IndexOptionMode): string {
+export function indexOptionTitle(idx: IndexRowLike): string {
   if (!isBtreeIndex(idx)) return `${idx.accessMethod}: only B-tree index pages are supported`;
   if (!idx.valid) return "indisvalid=false; loadable for inspection only";
-  return mode?.omitTableSuffix
-    ? idx.qualifiedName
-    : `${idx.qualifiedName} · → ${idx.tableQualifiedName}`;
+  return idx.qualifiedName;
 }
 
 export function nonBtreeHint(idx: IndexRowLike | null): string | null {
   if (idx == null || isBtreeIndex(idx)) return null;
   return `${idx.accessMethod} index page parsing is not supported — B-tree only. Pick a B-tree index or switch back to a table.`;
+}
+
+/** Select option for the Index-mode table filter (tableOid null = empty default). */
+export type TableFilterOption = { tableOid: number | null; tableQualifiedName: string };
+
+/**
+ * Change-3 annex 3 rule 1: tables owning at least one index (non-B-tree-only
+ * tables included), deduped by tableOid, stably sorted by qualified name.
+ */
+export function tablesWithIndexes(indexes: IndexRowLike[]): TableFilterOption[] {
+  const seen = new Map<number, string>();
+  for (const i of indexes) {
+    if (!seen.has(i.tableOid)) seen.set(i.tableOid, i.tableQualifiedName);
+  }
+  return [...seen]
+    .map(([tableOid, tableQualifiedName]) => ({ tableOid, tableQualifiedName }))
+    .sort((a, b) =>
+      a.tableQualifiedName === b.tableQualifiedName
+        ? a.tableOid - b.tableOid
+        : a.tableQualifiedName < b.tableQualifiedName
+          ? -1
+          : 1,
+    );
+}
+
+/** Filter select options: empty default first (= no filtering), then indexed tables only. */
+export function tableFilterOptions(indexes: IndexRowLike[]): TableFilterOption[] {
+  return [{ tableOid: null, tableQualifiedName: "" }, ...tablesWithIndexes(indexes)];
 }
 
 /** Page-type badge text + P1-2 status chips derived from btpo_flags. */

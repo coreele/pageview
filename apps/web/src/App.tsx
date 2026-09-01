@@ -43,6 +43,7 @@ import {
   levelText,
   nonBtreeHint,
   pageTypeBadge,
+  tableFilterOptions,
 } from "./indexView";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
@@ -111,8 +112,9 @@ export function App() {
     () => indexes.find((i) => i.oid === selectedIndexOid) ?? null,
     [indexes, selectedIndexOid],
   );
-  // Change-2 annex 2: Index-mode table filter is client-side (selectedOid doubles as
-  // the filter value; null = "All tables"). Table-mode loading is untouched.
+  // Change-3 annex 3: Index-mode table filter is client-side (selectedOid doubles as
+  // the filter value; null = empty default option = no filtering). Table-mode loading
+  // is untouched. Options list only tables that own indexes (derived from `indexes`).
   const filteredIndexes = useMemo(
     () => filterIndexesByTable(indexes, selectedOid),
     [indexes, selectedOid],
@@ -388,10 +390,10 @@ export function App() {
   };
 
   /**
-   * Change-2 annex 2 rule 1/3: the Index-mode table select is a filter only — no page
-   * load. Its selection is retained as the normal Table-mode selection (input state).
-   * The page view always clears (P0-12); the index selection resets only when the
-   * filter drops it.
+   * Change-3 annex 3 (rules 1/5, annex-2 carry-over): the Index-mode table select is a
+   * filter only — no page load. Its selection is retained as the normal Table-mode
+   * selection (input state). The page view always clears (P0-12); the index selection
+   * resets only when the filter drops it.
    */
   const onSelectIndexFilter = (tableOid: number | null) => {
     setSelectedOid(tableOid);
@@ -407,8 +409,8 @@ export function App() {
     setRelationKind(kind);
     resetPageView();
     setSchema(null);
-    // Change-2 annex 2 rule 1: the filter (selectedOid) may have changed while in
-    // Table mode — drop the index selection if it no longer survives the filter.
+    // Change-3 annex 3 (annex-2 rule 1 carry-over): the filter (selectedOid) may have
+    // changed while in Table mode — drop the index selection if it no longer survives.
     if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, selectedOid))) {
       setSelectedIndexOid(null);
     }
@@ -839,16 +841,15 @@ export function App() {
                       <select
                         className="table-select"
                         value={selectedOid ?? ""}
-                        disabled={tables.length === 0 || loadState === "loading-tables"}
+                        disabled={indexes.length === 0 || loadState === "loading-indexes"}
                         title="Filter indexes by table"
                         onChange={(e) => {
                           onSelectIndexFilter(e.target.value === "" ? null : Number(e.target.value));
                         }}
                       >
-                        <option value="">All tables</option>
-                        {tables.map((t) => (
-                          <option key={t.oid} value={t.oid}>
-                            {t.qualifiedName} ({t.blocks} blk)
+                        {tableFilterOptions(indexes).map((o) => (
+                          <option key={o.tableOid ?? "all"} value={o.tableOid ?? ""}>
+                            {o.tableQualifiedName}
                           </option>
                         ))}
                       </select>
@@ -864,13 +865,7 @@ export function App() {
                           !indexesFetched ||
                           filteredIndexes.length === 0
                         }
-                        title={
-                          selectedIndex
-                            ? indexOptionTitle(selectedIndex, {
-                                omitTableSuffix: selectedOid != null,
-                              })
-                            : undefined
-                        }
+                        title={selectedIndex ? indexOptionTitle(selectedIndex) : undefined}
                         onChange={(e) => {
                           if (e.target.value !== "") onSelectIndex(Number(e.target.value));
                         }}
@@ -888,9 +883,9 @@ export function App() {
                           <option
                             key={i.oid}
                             value={i.oid}
-                            title={indexOptionTitle(i, { omitTableSuffix: selectedOid != null })}
+                            title={indexOptionTitle(i)}
                           >
-                            {formatIndexOption(i, { omitTableSuffix: selectedOid != null })}
+                            {formatIndexOption(i)}
                           </option>
                         ))}
                       </select>
@@ -930,9 +925,7 @@ export function App() {
                       disabled={!canLoadIndexBlk}
                       title={
                         selectedIndex && !canLoadIndex(selectedIndex)
-                          ? indexOptionTitle(selectedIndex, {
-                              omitTableSuffix: selectedOid != null,
-                            })
+                          ? indexOptionTitle(selectedIndex)
                           : undefined
                       }
                       onClick={triggerLoadIndex}

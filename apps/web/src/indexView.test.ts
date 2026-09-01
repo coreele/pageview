@@ -10,6 +10,8 @@ import {
   levelText,
   nonBtreeHint,
   pageTypeBadge,
+  tableFilterOptions,
+  tablesWithIndexes,
 } from "./indexView";
 
 function idx(overrides: Partial<IndexRow> = {}): IndexRow {
@@ -27,11 +29,9 @@ function idx(overrides: Partial<IndexRow> = {}): IndexRow {
   };
 }
 
-describe("index option text (four elements: qualifiedName, am, blocks, table)", () => {
-  it("formats a valid B-tree option", () => {
-    expect(formatIndexOption(idx())).toBe(
-      "public.orders_oid_idx (btree · 12 blk · → public.orders)",
-    );
+describe("index option text (qualifiedName, am, blocks; ownership via filter only)", () => {
+  it("formats a valid B-tree option without the owning-table segment", () => {
+    expect(formatIndexOption(idx())).toBe("public.orders_oid_idx (btree · 12 blk)");
   });
 
   it("prefixes non-B-tree options with ✕ and keeps the same tail format", () => {
@@ -41,21 +41,19 @@ describe("index option text (four elements: qualifiedName, am, blocks, table)", 
       accessMethod: "hash",
       blocks: 3,
     });
-    expect(formatIndexOption(hash)).toBe(
-      "✕ public.orders_hash_idx (hash · 3 blk · → public.orders)",
-    );
+    expect(formatIndexOption(hash)).toBe("✕ public.orders_hash_idx (hash · 3 blk)");
   });
 
   it("suffixes invalid indexes with a badge marker (still selectable)", () => {
     expect(formatIndexOption(idx({ valid: false }))).toBe(
-      "public.orders_oid_idx (btree · 12 blk · → public.orders) · invalid",
+      "public.orders_oid_idx (btree · 12 blk) · invalid",
     );
   });
 
   it("combines ✕ prefix and invalid suffix when both apply", () => {
     const hash = idx({ accessMethod: "hash", valid: false, blocks: 1 });
     expect(formatIndexOption(hash)).toBe(
-      "✕ public.orders_oid_idx (hash · 1 blk · → public.orders) · invalid",
+      "✕ public.orders_oid_idx (hash · 1 blk) · invalid",
     );
   });
 });
@@ -73,8 +71,8 @@ describe("index option titles", () => {
     );
   });
 
-  it("keeps a neutral title for loadable B-tree indexes", () => {
-    expect(indexOptionTitle(idx())).toBe("public.orders_oid_idx · → public.orders");
+  it("keeps a neutral title (bare qualifiedName) for loadable B-tree indexes", () => {
+    expect(indexOptionTitle(idx())).toBe("public.orders_oid_idx");
   });
 });
 
@@ -99,7 +97,7 @@ describe("load gating (P0-2: selectable but never loadable)", () => {
   });
 });
 
-describe("table filter (change-2 annex 2: All tables vs tableOid match)", () => {
+describe("table filter (annex 3: empty default option vs tableOid match)", () => {
   const others = idx({
     oid: 24577,
     name: "customers_pkey",
@@ -109,7 +107,7 @@ describe("table filter (change-2 annex 2: All tables vs tableOid match)", () => 
     tableQualifiedName: "public.customers",
   });
 
-  it("returns the full list when no table is selected (All tables)", () => {
+  it("returns the full list when no table is selected (empty default)", () => {
     expect(filterIndexesByTable([idx(), others], null)).toEqual([idx(), others]);
   });
 
@@ -144,42 +142,114 @@ describe("selection survival (change-2 annex 2 rule 1 reset predicate)", () => {
   });
 });
 
-describe("filtered option text drops the owning-table suffix", () => {
-  it("keeps the suffix by default (browse-all state, P0-1)", () => {
-    expect(formatIndexOption(idx())).toBe(
-      "public.orders_oid_idx (btree · 12 blk · → public.orders)",
-    );
+describe("option text has no owning-table segment in either state (change-3 annex 3)", () => {
+  const other = idx({
+    oid: 24577,
+    name: "customers_pkey",
+    qualifiedName: "public.customers_pkey",
+    blocks: 5,
+    tableOid: 16400,
+    tableQualifiedName: "public.customers",
   });
 
-  it("drops the suffix in the filtered state", () => {
-    expect(formatIndexOption(idx(), { omitTableSuffix: true })).toBe(
+  it("formats without the suffix in the full-list (empty-default) state", () => {
+    expect(filterIndexesByTable([idx(), other], null).map(formatIndexOption)).toEqual([
       "public.orders_oid_idx (btree · 12 blk)",
-    );
+      "public.customers_pkey (btree · 5 blk)",
+    ]);
   });
 
-  it("keeps the ✕ prefix and invalid suffix in the filtered state", () => {
-    expect(
-      formatIndexOption(idx({ accessMethod: "hash", valid: false, blocks: 1 }), {
-        omitTableSuffix: true,
-      }),
-    ).toBe("✕ public.orders_oid_idx (hash · 1 blk) · invalid");
+  it("formats without the suffix in the table-filtered state (identical text)", () => {
+    expect(filterIndexesByTable([idx(), other], 16384).map(formatIndexOption)).toEqual([
+      "public.orders_oid_idx (btree · 12 blk)",
+    ]);
+  });
+
+  it("keeps the ✕ prefix and invalid suffix in either state", () => {
+    const bad = idx({ accessMethod: "hash", valid: false, blocks: 1 });
+    expect(filterIndexesByTable([bad], null).map(formatIndexOption)).toEqual([
+      "✕ public.orders_oid_idx (hash · 1 blk) · invalid",
+    ]);
+    expect(filterIndexesByTable([bad], 16384).map(formatIndexOption)).toEqual([
+      "✕ public.orders_oid_idx (hash · 1 blk) · invalid",
+    ]);
   });
 });
 
-describe("filtered option title drops the owning-table suffix", () => {
-  it("keeps a neutral title without the suffix in the filtered state", () => {
-    expect(indexOptionTitle(idx(), { omitTableSuffix: true })).toBe(
+describe("btree option title is the bare qualifiedName in either state (change-3 annex 3)", () => {
+  it("full-list and filtered states share the same title", () => {
+    expect(filterIndexesByTable([idx()], null).map(indexOptionTitle)).toEqual([
       "public.orders_oid_idx",
-    );
+    ]);
+    expect(filterIndexesByTable([idx()], 16384).map(indexOptionTitle)).toEqual([
+      "public.orders_oid_idx",
+    ]);
   });
 
-  it("keeps non-B-tree / invalid titles unchanged in the filtered state", () => {
-    expect(indexOptionTitle(idx({ accessMethod: "hash" }), { omitTableSuffix: true })).toBe(
+  it("keeps non-B-tree / invalid titles unchanged in either state", () => {
+    expect(indexOptionTitle(idx({ accessMethod: "hash" }))).toBe(
       "hash: only B-tree index pages are supported",
     );
-    expect(indexOptionTitle(idx({ valid: false }), { omitTableSuffix: true })).toBe(
+    expect(indexOptionTitle(idx({ valid: false }))).toBe(
       "indisvalid=false; loadable for inspection only",
     );
+  });
+});
+
+describe("tablesWithIndexes (annex 3: indexed tables only, tableOid-deduped)", () => {
+  const customersIdx = idx({
+    oid: 24577,
+    name: "customers_pkey",
+    qualifiedName: "public.customers_pkey",
+    blocks: 5,
+    tableOid: 16400,
+    tableQualifiedName: "public.customers",
+  });
+  const hashOnly = idx({
+    oid: 24578,
+    name: "events_hash_idx",
+    qualifiedName: "public.events_hash_idx",
+    accessMethod: "hash",
+    blocks: 2,
+    tableOid: 16500,
+    tableQualifiedName: "public.events",
+  });
+
+  it("dedupes tables by tableOid (two indexes on one table => one entry)", () => {
+    expect(tablesWithIndexes([idx(), idx({ oid: 24579, blocks: 99 })])).toEqual([
+      { tableOid: 16384, tableQualifiedName: "public.orders" },
+    ]);
+  });
+
+  it("includes tables that own only non-B-tree indexes", () => {
+    expect(tablesWithIndexes([hashOnly])).toEqual([
+      { tableOid: 16500, tableQualifiedName: "public.events" },
+    ]);
+  });
+
+  it("sorts stably by qualifiedName (oid tiebreak for identical names)", () => {
+    expect(tablesWithIndexes([idx(), customersIdx, hashOnly])).toEqual([
+      { tableOid: 16400, tableQualifiedName: "public.customers" },
+      { tableOid: 16500, tableQualifiedName: "public.events" },
+      { tableOid: 16384, tableQualifiedName: "public.orders" },
+    ]);
+  });
+
+  it("returns an empty list when there are no indexes", () => {
+    expect(tablesWithIndexes([])).toEqual([]);
+  });
+});
+
+describe("table filter options (annex 3: empty default wiring)", () => {
+  it("prepends the empty default option (= no filtering) before indexed tables", () => {
+    expect(tableFilterOptions([idx()])).toEqual([
+      { tableOid: null, tableQualifiedName: "" },
+      { tableOid: 16384, tableQualifiedName: "public.orders" },
+    ]);
+  });
+
+  it("offers only the empty default when no table owns an index", () => {
+    expect(tableFilterOptions([])).toEqual([{ tableOid: null, tableQualifiedName: "" }]);
   });
 });
 

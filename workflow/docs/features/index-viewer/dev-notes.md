@@ -523,3 +523,46 @@ HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。
   无索引表（`No indexes for this table` option + Load 禁用）；Index→Table 切回
   过滤选择保留为输入态不自动加载；Table 模式回归（chrome/加载/hex/diff 零变化）；
   两主题下新控件渲染。
+
+## 变更 3 回执：Index 模式选择交互细化（2026-08-31，QA 轮次 5 Pass 后、合并授权前）
+
+依据：spec.md 修订记录变更 3 + ui-design.md「修订附页 3（权威，取代附页 2/F7 冲突处）」。
+纯 client 变更，API/server/page-core 零改动。
+
+- **触碰文件（3）**：
+  - `apps/web/src/indexView.ts` — 删除 `IndexOptionMode`/`omitTableSuffix` 分支：
+    `formatIndexOption` 双态统一 `qualifiedName (am · N blk)`（✕ 前缀 / ` · invalid`
+    后缀沿附页 1）；`indexOptionTitle` btree 有效分支统一裸 `qualifiedName`；新增纯函数
+    `tablesWithIndexes`（tableOid 去重、含仅非 B-tree 索引表、按 qualifiedName 稳定排序、
+    oid 决胜）与 `tableFilterOptions`（首位空默认选项 `{tableOid: null, label: ""}` =
+    不过滤）；
+  - `apps/web/src/App.tsx` — table 过滤器选项源由 `tables` 改为
+    `tableFilterOptions(indexes)`（首项空选项，无「All tables」文本）；禁用条件随数据源
+    改为 `indexes.length === 0 || loading-indexes`；4 处 `omitTableSuffix` 传参全部去除
+    （option 文本/title/Load 按钮 title/select title）；title 沿
+    `Filter indexes by table`；
+  - `apps/web/src/indexView.test.ts` — 既有四要素/后缀断言按变更 3 合同改写（双态均无
+    后缀、title 双态裸限定名，属需求合同修订非弱化）；新增 `tablesWithIndexes` ×4
+    （去重/含非 B-tree 表/排序/空输入）、`tableFilterOptions` ×2（空默认首位/仅空默认）；
+    Table 模式与 heap 既有断言零改动。
+- **附页 3 五条规则逐条落实**：
+  1. table 过滤器无「All tables」文本项，`tableFilterOptions` 首位空选项为默认
+     （空=不过滤=全部索引），选项仅含拥有索引的表（client 自 indexes 派生去重，含仅
+     非 B-tree 索引表）；title `Filter indexes by table` 不变；
+  2. option 文本全量/过滤态均 `schema.name (am · N blk)`，无归属段；✕/invalid 标记沿附页 1；
+  3. btree 有效 title 双态均为 `qualifiedName`；非 B-tree/invalid title 沿附页 1 不受过滤影响；
+  4. 「No indexes for this table」option 禁用项 + 主区面板 + Load 禁用保留为防御路径；
+  5. 重置/存活（`onSelectIndexFilter`/`onSwitchRelationKind` + `indexSelectionSurvives`）、
+     过滤不加载、Table 模式零改动均沿附页 2 未动。
+- **TDD 证据**：先改/增测试 → 红（web 15 failed/78 passed）→ 实现 → 绿（93/93）。
+- **验证证据**：`pnpm test` → wal-core 13 · page-core 54 · server 31 · web **93**
+  （87 基线 +6 净增）共 **191 全绿**；`pnpm -r typecheck` 4 包 Done exit 0；
+  `pnpm -r build` 4 包 Done（web dist 产出）；`pnpm test:integration` → **退出 0**
+  （B-tree 段 + hash guard + L3 smoke 全过）；CJK/全角扫描（apps/web/src +
+  apps/web/*.html，`[\x{4e00}-\x{9fff}]` 与
+  `[\x{ff01}-\x{ff5e}\x{3000}\x{2018}-\x{201d}]`）→ **0 命中**。
+- **建议复测范围（增量，QA 轮次 6）**：P0-1（option 双态均无归属后缀 + btree 有效
+  title 裸限定名）；table 过滤器（默认空选项可反选=全部索引；仅列有索引的表，含仅
+  hash/gin 索引的表；无「All tables」字样；title）；过滤器选项与 Table 模式表列表
+  数据源分离后各自正确；重置/存活、`No indexes for this table` 防御路径、Table 模式
+  回归（chrome/加载/hex/diff 零变化）；两主题渲染。
