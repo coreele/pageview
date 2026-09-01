@@ -12,6 +12,8 @@ import {
   splitFieldIntoRowSegments,
   STRUCTURE_BYTES_PER_ROW,
   SPARSE_SCHEMA,
+  type DecodedColumn,
+  type ParsedPage,
 } from "../src/index.js";
 
 describe("deriveStructureFields", () => {
@@ -75,7 +77,7 @@ describe("deriveStructureFields", () => {
     if (col?.range) {
       const drawn = byId[`tuple-${t.itemIndex}.col-${col.attnum}`]?.range;
       expect(drawn?.end).toBe(col.range.end);
-      expect(drawn!.start).toBeLessThanOrEqual(col.range.start);
+      expect(drawn!.start).toBe(col.range.start);
     }
 
     const drawnCols = fields
@@ -103,6 +105,130 @@ describe("deriveStructureFields", () => {
     expect(a.freeSpace.range).toEqual(b.freeSpace.range);
     expect(a.itemIds.map((i) => i.range)).toEqual(b.itemIds.map((i) => i.range));
     expect(a.tuples.map((t) => t.range)).toEqual(b.tuples.map((t) => t.range));
+  });
+});
+
+function storedCol(
+  attnum: number,
+  name: string,
+  typeName: string,
+  start: number,
+  end: number,
+  display: string,
+): DecodedColumn {
+  return {
+    attnum,
+    name,
+    typeName,
+    dropped: false,
+    null: false,
+    value: display,
+    display,
+    range: { start, end },
+  };
+}
+
+function pageWithTupleColumns(
+  columns: DecodedColumn[],
+  dataRangeEnd?: number,
+): { page: ParsedPage; t: ParsedPage["tuples"][0] } {
+  const page0 = parsePage(buildSparsePage());
+  const t0 = page0.tuples[0]!;
+  const t = {
+    ...t0,
+    columns,
+    dataRange: {
+      start: t0.dataRange.start,
+      end: dataRangeEnd ?? t0.dataRange.end,
+    },
+  };
+  const page: ParsedPage = { ...page0, tuples: [t, ...page0.tuples.slice(1)] };
+  return { page, t };
+}
+
+describe("column range vs MAXALIGN holes (column-align-pad)", () => {
+  it("P0-1/P0-3/P0-5: col range equals decoded; holes have no field", () => {
+    const d = parsePage(buildSparsePage()).tuples[0]!.dataRange.start;
+    const dataEnd = d + 8;
+    // id 2B, name 2B, 1B hole, price 3B, 1B trailing — fits 8B user data
+    const { page, t } = pageWithTupleColumns(
+      [
+        storedCol(1, "id", "int4", d, d + 2, "1"),
+        storedCol(2, "name", "text", d + 2, d + 4, "ab"),
+        storedCol(3, "price", "float4", d + 5, d + 7, "1"),
+      ],
+      dataEnd,
+    );
+    const fields = deriveStructureFields(page);
+    const prefix = `tuple-${t.itemIndex}`;
+    const byId = Object.fromEntries(fields.map((f) => [f.id, f]));
+
+    expect(byId[`${prefix}.col-1`]?.range).toEqual({ start: d, end: d + 2 });
+    expect(byId[`${prefix}.col-2`]?.range).toEqual({ start: d + 2, end: d + 4 });
+    expect(byId[`${prefix}.col-3`]?.range).toEqual({ start: d + 5, end: d + 7 });
+
+    const tupleFields = fields.filter((f) => f.id.startsWith(`${prefix}.`) && !f.visualOnly);
+    expect(tupleFields.some((f) => /\.pad-/.test(f.id))).toBe(false);
+    expect(tupleFields.some((f) => f.id.startsWith(`${prefix}.data`))).toBe(false);
+
+    expect(resolveFieldAt(page, d + 4)).toBeNull();
+    expect(resolveFieldAt(page, d + 7)).toBeNull();
+  });
+
+  it("P0-2: price span stays 4B when name length differs", () => {
+    const d = parsePage(buildSparsePage()).tuples[0]!.dataRange.start;
+    const apple = pageWithTupleColumns([
+      storedCol(1, "id", "int4", d, d + 2, "1"),
+      storedCol(2, "name", "text", d + 2, d + 3, "a"),
+      storedCol(3, "price", "float4", d + 4, d + 8, "1.25"),
+    ]);
+    const banana = pageWithTupleColumns([
+      storedCol(1, "id", "int4", d, d + 2, "2"),
+      storedCol(2, "name", "text", d + 2, d + 4, "ab"),
+      storedCol(3, "price", "float4", d + 4, d + 8, "0.5"),
+    ]);
+    const applePrice = deriveStructureFields(apple.page).find(
+      (f) => f.id === `tuple-${apple.t.itemIndex}.col-3`,
+    );
+    const bananaPrice = deriveStructureFields(banana.page).find(
+      (f) => f.id === `tuple-${banana.t.itemIndex}.col-3`,
+    );
+    expect(applePrice?.range).toEqual({ start: d + 4, end: d + 8 });
+    expect(bananaPrice?.range).toEqual({ start: d + 4, end: d + 8 });
+    expect(applePrice!.range.end - applePrice!.range.start).toBe(4);
+    expect(bananaPrice!.range.end - bananaPrice!.range.start).toBe(4);
+  });
+
+  it("P1-1: NULL column does not swallow following column's leading hole", () => {
+    const d = parsePage(buildSparsePage()).tuples[0]!.dataRange.start;
+    const { page, t } = pageWithTupleColumns([
+      storedCol(1, "id", "int4", d, d + 2, "5"),
+      {
+        attnum: 2,
+        name: "name",
+        typeName: "text",
+        dropped: false,
+        null: true,
+        value: null,
+        display: "NULL",
+      },
+      storedCol(3, "x", "float8", d + 4, d + 8, "1"),
+    ]);
+    const drawn = deriveStructureFields(page).find(
+      (f) => f.id === `tuple-${t.itemIndex}.col-3`,
+    );
+    expect(drawn?.range).toEqual({ start: d + 4, end: d + 8 });
+    expect(resolveFieldAt(page, d + 2)).toBeNull();
+    expect(resolveFieldAt(page, d + 3)).toBeNull();
+  });
+
+  it("P0-7: no decoded columns keeps whole data field", () => {
+    const page = parsePage(buildSparsePage());
+    const t = page.tuples[0]!;
+    expect(t.columns).toBeUndefined();
+    const fields = deriveStructureFields(page);
+    const data = fields.find((f) => f.id === `tuple-${t.itemIndex}.data`);
+    expect(data?.range).toEqual(t.dataRange);
   });
 });
 

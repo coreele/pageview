@@ -278,24 +278,17 @@ export function deriveStructureFields(page: ParsedPage): StructureField[] {
       .sort((a, b) => a.range.start - b.range.start);
 
     if (colFields.length > 0) {
-      // Fold MAXALIGN padding into the following column. A sibling "data" cell
-      // on the same 32B row overlaps a/b in CSS grid and paints a second row
-      // of "data" under the values.
-      let cursor = t.dataRange.start;
       for (const { col, range } of colFields) {
-        const visualStart = Math.min(range.start, Math.max(cursor, t.dataRange.start));
-        if (range.end <= visualStart) continue;
         out.push(
           field({
             id: `${prefix}.col-${col.attnum}`,
             label: col.name,
             fullLabel: `tuple lp[${t.itemIndex}].${col.name} (#${col.attnum} ${col.typeName})`,
-            range: { start: visualStart, end: range.end },
+            range: { start: range.start, end: range.end },
             region: "tuple",
             valueText: columnValueText(col),
           }),
         );
-        cursor = Math.max(cursor, range.end);
       }
     } else if (t.dataRange.end > t.dataRange.start) {
       out.push(

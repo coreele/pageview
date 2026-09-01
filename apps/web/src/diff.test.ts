@@ -44,6 +44,56 @@ describe("findStructureAt (fields-based, heap parity)", () => {
     const unmapped = findStructureAt([], 0);
     expect(unmapped).toBeNull();
   });
+
+  it("P0-5: alignment hole is unmapped (does not hit the next column)", () => {
+    const page0 = parsePage(buildSparsePage({ currentBlkno: 0 }));
+    const t0 = page0.tuples[0]!;
+    const d = t0.dataRange.start;
+    const page = {
+      ...page0,
+      tuples: [
+        {
+          ...t0,
+          columns: [
+            {
+              attnum: 1,
+              name: "id",
+              typeName: "int4",
+              dropped: false,
+              null: false,
+              value: "1",
+              display: "1",
+              range: { start: d, end: d + 2 },
+            },
+            {
+              attnum: 2,
+              name: "name",
+              typeName: "text",
+              dropped: false,
+              null: false,
+              value: "a",
+              display: "a",
+              range: { start: d + 2, end: d + 3 },
+            },
+            {
+              attnum: 3,
+              name: "price",
+              typeName: "float4",
+              dropped: false,
+              null: false,
+              value: "1.25",
+              display: "1.25",
+              range: { start: d + 4, end: d + 8 },
+            },
+          ],
+        },
+        ...page0.tuples.slice(1),
+      ],
+    };
+    const fields = deriveStructureFields(page);
+    expect(resolveFieldAt(page, d + 3)).toBeNull();
+    expect(findStructureAt(fields, d + 3)).toBeNull();
+  });
 });
 
 describe("structureAffectedByDiff (fields-based, heap parity)", () => {
