@@ -10,6 +10,7 @@
 | index-viewer | index-viewer | done | [workflow/docs/features/index-viewer/](../features/index-viewer/) | 已授权合并（QA 轮次 7 Pass + 复审 Approve）；待 FF 合入 main |
 | oid-numeric-guard | oid-numeric-guard | backlog | [workflow/docs/features/oid-numeric-guard/](../features/oid-numeric-guard/) | 待调度 Analyst/Planner（fast 候选；源 index-viewer QA DEF-2/Review F1） |
 | column-align-pad | column-align-pad | done | [workflow/docs/features/column-align-pad/](../features/column-align-pad/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
+| next-page-btn | next-page-btn | done | [workflow/docs/features/next-page-btn/](../features/next-page-btn/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | pd-flags-tuple-view | pd-flags-tuple-view | done | [workflow/docs/features/pd-flags-tuple-view/](../features/pd-flags-tuple-view/) | 已授权合并（用户预先授权，QA Pass + Review Approve）；待合入 main |
 
 ## 归档
