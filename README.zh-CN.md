@@ -41,15 +41,16 @@
 ## 环境要求
 
 - Node.js 20+、pnpm 9+
-- **Page 模式：** 已启用 `pageinspect`；具备 `get_raw_page` 权限的角色（通常为超级用户）。索引浏览仅支持 B-tree（建议 PG13+ 以呈现 dedup posting list）
-- **WAL 模式：** PostgreSQL **15+** 且已启用 `pg_walinspect`；具备 `pg_get_wal_records_info` / `pg_current_wal_lsn` 权限的角色（通常为超级用户）
+- **Page 模式：** 连接角色需可启用 `pageinspect`（需 `CREATE` 权限，通常为超级用户）并可调用 `get_raw_page`；扩展缺失时首次 Page 请求自动安装。索引浏览仅支持 B-tree（建议 PG13+ 以呈现 dedup posting list）
+- **WAL 模式：** PostgreSQL **15+**；连接角色需可启用 `pg_walinspect`（`CREATE` 权限）并可调用 `pg_get_wal_records_info` / `pg_current_wal_lsn`（通常为超级用户）；缺失时自动安装
 
 ```sql
+-- 自动安装失败时（权限不足 / 扩展文件缺失）的人工回退步骤
 CREATE EXTENSION pageinspect;      -- Page 模式
 CREATE EXTENSION pg_walinspect;    -- WAL 模式（PG15+）
 ```
 
-应用**不会**替你执行 `CREATE EXTENSION`。连接成功不强制两扩展皆有；各模式在请求时校验并给出明确错误。
+`pageinspect` / `pg_walinspect` 缺失时会在对应模式首次需要时自动安装——连接角色需具备 `CREATE` 权限（通常为超级用户）。连接成功不强制两扩展皆有；自动安装失败（如权限不足、扩展文件缺失）时，该模式报错并附服务端原因与上方人工步骤。
 
 ## 快速开始
 
@@ -106,8 +107,8 @@ Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 
 | 错误 | 处理 |
 |---|---|
-| `PAGEINSPECT_MISSING` | 以超级用户执行 `CREATE EXTENSION pageinspect;` 后重试 Page |
-| `WALINSPECT_MISSING` | 以超级用户执行 `CREATE EXTENSION pg_walinspect;` 后重试 WAL |
+| `PAGEINSPECT_MISSING` | 自动安装失败（如权限不足或扩展文件缺失）。以超级用户执行 `CREATE EXTENSION pageinspect;`，或先补装扩展文件，然后重试 Page |
+| `WALINSPECT_MISSING` | 自动安装失败（如权限不足或扩展文件缺失）。以超级用户执行 `CREATE EXTENSION pg_walinspect;`，或先补装扩展文件，然后重试 WAL |
 | `PG_VERSION_UNSUPPORTED` | WAL 模式需 PostgreSQL 15+ |
 | `WAL_BATCH_TOO_LARGE` | 缩小 LSN 区间（≤2000 条 / ≤2 MiB JSON / ≤16 MiB 跨度） |
 | Connection refused | 检查 host/port/凭证；确认 Postgres 在本机监听 |

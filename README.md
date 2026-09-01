@@ -41,15 +41,16 @@ Built for developers learning or debugging — **not** intended for public deplo
 ## Requirements
 
 - Node.js 20+, pnpm 9+
-- **Page mode:** PostgreSQL with `pageinspect` enabled; a role that can call `get_raw_page` (often superuser). Index browsing is B-tree only (PG13+ recommended for dedup posting lists)
-- **WAL mode:** PostgreSQL **15+** with `pg_walinspect` enabled; a role that can call `pg_get_wal_records_info` / `pg_current_wal_lsn` (often superuser)
+- **Page mode:** a connect role that can enable `pageinspect` (needs `CREATE` privilege — usually superuser) and call `get_raw_page`; a missing extension is installed automatically on first Page request. Index browsing is B-tree only (PG13+ recommended for dedup posting lists)
+- **WAL mode:** PostgreSQL **15+**; a connect role that can enable `pg_walinspect` (`CREATE` privilege) and call `pg_get_wal_records_info` / `pg_current_wal_lsn` (usually superuser); installed automatically when missing
 
 ```sql
+-- Manual fallback when automatic install fails (missing privilege / extension files)
 CREATE EXTENSION pageinspect;      -- Page mode
 CREATE EXTENSION pg_walinspect;    -- WAL mode (PG15+)
 ```
 
-The app never runs `CREATE EXTENSION` for you. Connect succeeds without either extension; each mode fails clearly when its extension (or PG version for WAL) is missing.
+Missing `pageinspect` / `pg_walinspect` are installed automatically when a mode first needs them — the connect role needs `CREATE` privilege (usually superuser). Connect succeeds without either extension; when automatic installation fails (insufficient privilege, missing extension files, …), the mode fails with the server's reason plus the manual steps above.
 
 ## Quick start
 
@@ -109,8 +110,8 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 
 | Error | Fix |
 |---|---|
-| `PAGEINSPECT_MISSING` | `CREATE EXTENSION pageinspect;` as superuser, then retry Page |
-| `WALINSPECT_MISSING` | `CREATE EXTENSION pg_walinspect;` as superuser, then retry WAL |
+| `PAGEINSPECT_MISSING` | Automatic install failed (e.g. missing privilege or extension files). Run `CREATE EXTENSION pageinspect;` as superuser — or install the extension files first — then retry Page |
+| `WALINSPECT_MISSING` | Automatic install failed (e.g. missing privilege or extension files). Run `CREATE EXTENSION pg_walinspect;` as superuser — or install the extension files first — then retry WAL |
 | `PG_VERSION_UNSUPPORTED` | Use PostgreSQL 15+ for WAL mode |
 | `WAL_BATCH_TOO_LARGE` | Narrow the LSN range (≤2000 records / ≤2 MiB JSON / ≤16 MiB span) |
 | Connection refused | Check host/port/credentials; Postgres listening on localhost |
