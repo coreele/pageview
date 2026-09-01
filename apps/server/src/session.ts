@@ -100,11 +100,13 @@ export function readEnvCredentials(): {
   };
 }
 
+/** Manual next step when automatic installation of pageinspect failed. */
 export const PAGEINSPECT_NEXT =
-  "Enable pageinspect manually as a superuser: CREATE EXTENSION pageinspect; then retry the Page request. This app will not run CREATE EXTENSION for you.";
+  "Automatic install failed. Enable pageinspect manually as a superuser: CREATE EXTENSION pageinspect; then retry the Page request.";
 
+/** Manual next step when automatic installation of pg_walinspect failed. */
 export const WALINSPECT_NEXT =
-  "Enable pg_walinspect manually as a superuser: CREATE EXTENSION pg_walinspect; then retry. This app will not run CREATE EXTENSION for you.";
+  "Automatic install failed. Enable pg_walinspect manually as a superuser: CREATE EXTENSION pg_walinspect; then retry.";
 
 export const PG_VERSION_WAL_MIN = 15;
 
@@ -127,34 +129,85 @@ function gateError(code: string, message: string, nextStep: string): GateError {
   return err;
 }
 
-export async function verifyPageinspect(client: PoolClient): Promise<void> {
-  const ext = await client.query(`SELECT 1 FROM pg_extension WHERE extname = 'pageinspect'`);
-  if (ext.rowCount === 0) {
+async function extensionPresent(client: PoolClient, ext: string): Promise<boolean> {
+  const res = await client.query(`SELECT 1 FROM pg_extension WHERE extname = '${ext}'`);
+  return (res.rowCount ?? res.rows.length) > 0;
+}
+
+type ExtensionGate = {
+  /** Extension name used in catalog checks and CREATE EXTENSION. */
+  ext: "pageinspect" | "pg_walinspect";
+  /** Existing gate error code — the error-code set is unchanged (spec contract). */
+  code: "PAGEINSPECT_MISSING" | "WALINSPECT_MISSING";
+  /** Callability probe (executed, result ignored — same as pre-auto-install). */
+  callableSql: string;
+  /** Manual guidance shown only when automatic installation failed. */
+  nextStep: string;
+};
+
+const PAGEINSPECT_GATE: ExtensionGate = {
+  ext: "pageinspect",
+  code: "PAGEINSPECT_MISSING",
+  callableSql: `SELECT to_regprocedure('pageinspect.get_raw_page(text, int4)') IS NOT NULL AS ok`,
+  nextStep: PAGEINSPECT_NEXT,
+};
+
+const WALINSPECT_GATE: ExtensionGate = {
+  ext: "pg_walinspect",
+  code: "WALINSPECT_MISSING",
+  callableSql: `SELECT to_regprocedure('pg_walinspect.pg_get_wal_records_info(pg_lsn, pg_lsn)') IS NOT NULL AS ok`,
+  nextStep: WALINSPECT_NEXT,
+};
+
+/**
+ * Guard flow (spec contract): existence check → missing ⇒ one bare
+ * `CREATE EXTENSION IF NOT EXISTS <ext>` (no SCHEMA/VERSION, at most one
+ * attempt per request) → re-run the same existence + callability checks →
+ * pass on success. The installed path issues zero DDL. Concurrent duplicate
+ * errors (42710 duplicate_object / 42701 duplicate_column) mean another
+ * session won the install race; they are resolved by the authoritative
+ * recheck instead of surfacing as spurious failures. Any other install error
+ * is converted in place to the existing gate error with the PG reason kept in
+ * the message — it must never leak through mapPgError as PERMISSION/INTERNAL.
+ */
+async function ensureExtension(client: PoolClient, gate: ExtensionGate): Promise<void> {
+  if (await extensionPresent(client, gate.ext)) {
+    // Installed: same checks as before auto-install, zero DDL.
+    await client.query(gate.callableSql);
+    return;
+  }
+  try {
+    await client.query(`CREATE EXTENSION IF NOT EXISTS ${gate.ext}`);
+  } catch (e) {
+    const pgErr = e as { code?: string; message?: string };
+    if (pgErr.code !== "42710" && pgErr.code !== "42701") {
+      throw gateError(
+        gate.code,
+        `${gate.ext} extension is missing and automatic installation failed: ${pgErr.message ?? String(e)}`,
+        gate.nextStep,
+      );
+    }
+    // Another concurrent session created the extension; the recheck below decides.
+  }
+  if (!(await extensionPresent(client, gate.ext))) {
     throw gateError(
-      "PAGEINSPECT_MISSING",
-      "pageinspect extension is not installed",
-      PAGEINSPECT_NEXT,
+      gate.code,
+      `${gate.ext} extension is missing: automatic installation did not take effect (still absent from pg_extension)`,
+      gate.nextStep,
     );
   }
-  // Prove callable without fetching a real page
-  await client.query(`SELECT to_regprocedure('pageinspect.get_raw_page(text, int4)') IS NOT NULL AS ok`);
+  await client.query(gate.callableSql);
+}
+
+export async function verifyPageinspect(client: PoolClient): Promise<void> {
+  await ensureExtension(client, PAGEINSPECT_GATE);
 }
 
 export async function verifyWalinspect(client: PoolClient): Promise<void> {
-  const ext = await client.query(`SELECT 1 FROM pg_extension WHERE extname = 'pg_walinspect'`);
-  if (ext.rowCount === 0) {
-    throw gateError(
-      "WALINSPECT_MISSING",
-      "pg_walinspect extension is not installed",
-      WALINSPECT_NEXT,
-    );
-  }
-  await client.query(
-    `SELECT to_regprocedure('pg_walinspect.pg_get_wal_records_info(pg_lsn, pg_lsn)') IS NOT NULL AS ok`,
-  );
+  await ensureExtension(client, WALINSPECT_GATE);
 }
 
-/** Require connected + pageinspect for Page-mode routes. */
+/** Require connected + pageinspect (auto-installed when missing) for Page-mode routes. */
 export async function requirePageinspect(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
@@ -164,7 +217,11 @@ export async function requirePageinspect(pool: Pool): Promise<void> {
   }
 }
 
-/** Require connected + PG≥15 + pg_walinspect for WAL routes. */
+/**
+ * Require connected + PG≥15 + pg_walinspect (auto-installed when missing) for
+ * WAL routes. The version gate fires before any pool use: on PG<15 no
+ * extension query is sent and pg_walinspect is never installed.
+ */
 export async function requireWalCapabilities(
   pool: Pool,
   serverVersion: string | null,

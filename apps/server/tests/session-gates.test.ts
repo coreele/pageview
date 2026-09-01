@@ -8,14 +8,16 @@ import {
 } from "../src/session.js";
 
 describe("extension gate messages", () => {
-  it("keeps pageinspect self-enable guidance", () => {
+  it("keeps pageinspect manual-enable guidance for failed auto-install", () => {
     expect(PAGEINSPECT_NEXT).toMatch(/CREATE EXTENSION pageinspect/i);
-    expect(PAGEINSPECT_NEXT).toMatch(/will not run CREATE EXTENSION/i);
+    expect(PAGEINSPECT_NEXT).toMatch(/superuser/i);
+    expect(PAGEINSPECT_NEXT).not.toMatch(/will not run CREATE EXTENSION/i);
   });
 
-  it("documents walinspect self-enable guidance", () => {
+  it("documents walinspect manual-enable guidance for failed auto-install", () => {
     expect(WALINSPECT_NEXT).toMatch(/CREATE EXTENSION pg_walinspect/i);
-    expect(WALINSPECT_NEXT).toMatch(/will not run CREATE EXTENSION/i);
+    expect(WALINSPECT_NEXT).toMatch(/superuser/i);
+    expect(WALINSPECT_NEXT).not.toMatch(/will not run CREATE EXTENSION/i);
   });
 });
 
