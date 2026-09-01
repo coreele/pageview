@@ -16,6 +16,8 @@
   /* index-viewer (ui-design): derived special/meta region tokens */
   --region-special: color-mix(in srgb, var(--accent) 20%, var(--surface));
   --region-meta: color-mix(in srgb, var(--region-header) 60%, var(--region-free));
+  /* index-viewer change-4 annex 4: heap peek overlay backdrop dim */
+  --overlay-dim: color-mix(in srgb, #0b1218 45%, transparent);
   --hex-hl: #ffe08a;
   --diff: #ea580c;
   --wal-new: #047857;
@@ -50,6 +52,8 @@
   /* index-viewer (ui-design): derived special/meta region tokens */
   --region-special: color-mix(in srgb, var(--accent) 20%, var(--surface));
   --region-meta: color-mix(in srgb, var(--region-header) 60%, var(--region-free));
+  /* index-viewer change-4 annex 4: heap peek overlay backdrop dim */
+  --overlay-dim: color-mix(in srgb, #000 62%, transparent);
   --hex-hl: #7a5a12;
   --diff: #fb923c;
   --wal-new: #4ade80;
@@ -1950,5 +1954,78 @@ input {
 
   .wal-block-ref {
     grid-column: 1 / -1;
+  }
+}
+
+/* index-viewer change-4 annex 4: heap peek overlay (near-fullscreen, read-only).
+   Tokens only (surface/border/dim); light/dark differ via --overlay-dim. */
+.heap-peek-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100; /* above chrome and its popovers */
+  background: var(--overlay-dim);
+  display: flex;
+  padding: 0.75rem;
+}
+
+.heap-peek-overlay {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  margin: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 16px 48px color-mix(in srgb, #000 25%, transparent);
+}
+
+.heap-peek-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.heap-peek-title {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.heap-peek-close {
+  flex: 0 0 auto;
+}
+
+/* Content scrolls internally (annex-4 rule 2: body scroll is locked). */
+.heap-peek-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.heap-peek-status {
+  padding: 0.75rem;
+}
+
+.heap-peek-body .main-split {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (min-width: 960px) {
+  .heap-peek-body .main-split {
+    grid-template-columns: minmax(280px, 0.55fr) minmax(280px, 0.45fr);
+    align-items: start;
   }
 }

@@ -1,10 +1,10 @@
 /**
- * Block navigation + heap-jump helpers (index-viewer T8, P1-1/P1-3).
- * Same-index navigation loads via loadIndexBlk; heap TID jumps switch the
- * relation kind to the owning table (design §3 jumpToHeap).
+ * Same-index block navigation helpers (index-viewer T8, P1-1). The P1-3 heap
+ * TID jump moved into the read-only HeapPeekOverlay (change-4 annex 4) — it
+ * no longer switches the relation kind in place, so no table-list guard
+ * remains here.
  */
 import { P_NONE } from "page-core";
-import type { AppError, TableRow } from "./api";
 
 export type SiblingNav = {
   /** Left sibling block, or null when btpo_prev == P_NONE. */
@@ -23,20 +23,5 @@ export function siblingNav(special: { btpo_prev: number; btpo_next: number }): S
     next: special.btpo_next !== P_NONE ? special.btpo_next : null,
     prevNote: special.btpo_prev === P_NONE ? "leftmost" : null,
     nextNote: special.btpo_next === P_NONE ? "rightmost" : null,
-  };
-}
-
-/** Owning-table lookup for P1-3 jumps; null when hidden from the table list. */
-export function resolveJumpTable(tables: TableRow[], tableOid: number): TableRow | null {
-  return tables.find((t) => t.oid === tableOid) ?? null;
-}
-
-/** Readable feedback when the jump target table is not listed (never silent). */
-export function heapJumpError(tableOid: number, tableQualifiedName?: string): AppError {
-  const where = tableQualifiedName ? ` (owning table ${tableQualifiedName})` : "";
-  return {
-    code: "TABLE_NOT_LISTED",
-    message: `Target table not in table list: oid ${tableOid}${where}; it may be in a system schema or dropped`,
-    nextStep: "Switch to Table and select the target table manually.",
   };
 }

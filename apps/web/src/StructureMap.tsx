@@ -483,7 +483,11 @@ export function ItemIdFlagDetail({ item }: { item: ItemId }) {
   );
 }
 
-/** Heap selection-detail body: ItemId flags, pd_flags strip, tuple infomask/ctid/columns. */
+/**
+ * Heap selection-detail body: ItemId flags, pd_flags strip, tuple infomask/ctid/columns.
+ * onLoadCrossBlock is omitted in read-only contexts (change-4 heap peek overlay)
+ * — the ctid line then renders without a jump button.
+ */
 export function HeapDetail({
   page,
   selectedId,
@@ -493,7 +497,8 @@ export function HeapDetail({
   page: ParsedPage;
   selectedId: string | null;
   currentBlkno: number;
-  onLoadCrossBlock: (blkno: number) => void;
+  /** Cross-block ctid jump (main view only). */
+  onLoadCrossBlock?: (blkno: number) => void;
 }) {
   const selectedItem = page.itemIds.find(
     (i) => selectedId === `itemid-${i.index}` || selectedId?.startsWith(`itemid-${i.index}.`),
@@ -534,17 +539,21 @@ export function HeapDetail({
             <div className="selection-ctid">
               ctid=({selectedTuple.header.t_ctid.blockNumber},{selectedTuple.header.t_ctid.offsetNumber})
               {selectedTuple.header.t_ctid.blockNumber !== currentBlkno ? (
-                <>
-                  {" "}
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
-                  >
-                    Load block {selectedTuple.header.t_ctid.blockNumber}
-                  </button>
-                  <span className="muted"> (cross-block; no prefetch)</span>
-                </>
+                onLoadCrossBlock ? (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => onLoadCrossBlock(selectedTuple.header.t_ctid.blockNumber)}
+                    >
+                      Load block {selectedTuple.header.t_ctid.blockNumber}
+                    </button>
+                    <span className="muted"> (cross-block; no prefetch)</span>
+                  </>
+                ) : (
+                  <span className="muted"> (cross-block; read-only peek)</span>
+                )
               ) : (
                 <span className="muted"> (same page)</span>
               )}

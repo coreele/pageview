@@ -566,3 +566,89 @@ HexDump 零改动、/api/tables/* 合同零触碰（git diff 范围可核）。
   hash/gin 索引的表；无「All tables」字样；title）；过滤器选项与 Table 模式表列表
   数据源分离后各自正确；重置/存活、`No indexes for this table` 防御路径、Table 模式
   回归（chrome/加载/hex/diff 零变化）；两主题渲染。
+
+## 变更 4 回执：P1-3 heap TID 跳转改为页内只读浮层（方案 B）（2026-08-31，QA 轮次 6 Pass 后、合并授权前）
+
+依据：spec.md 修订记录变更 4 + ui-design.md「修订附页 4：Heap 页检视浮层（权威）」。纯
+web 变更；API/server/page-core 零改动。
+
+- **触碰文件（8）**：
+  - `apps/web/src/heapPeek.ts`（新）— 独立状态切片纯模块：`HeapPeekRequest` /
+    `heapPeekRequest`（indexRow+blkno → 请求）、`HeapPeekState`
+    （closed/loading/open/error 四态）与 `heapPeekReducer`（loaded/error 仅在
+    loading 态生效——陈旧响应不覆盖；close 从任一态回 closed）、`heapPeekInitial`、
+    `overlayTitle`/`loadingText`（附页 4 文案表）、App 接线槽
+    `HeapPeekSlot`/`openHeapPeekSlot`/`closeHeapPeekSlot`；
+  - `apps/web/src/HeapPeekOverlay.tsx`（新）— 浮层组件：按 tableOid+blkno
+    `fetchSchema`+`fetchPage` 两调用取页、`parsePage`+`decodePageTuples` 解析
+    （UNSUPPORTED_PAGE 走浮层内错误态）；三联区复用（StructureMap+HexDump+HeapDetail）；
+  - `apps/web/src/App.tsx` — 删除就地 `jumpToHeap`（setRelationKind/setSelectedOid/
+    resetPageView/loadBlk 整段）；新增 heapPeek 槽 + `openHeapPeek`（记录触发元素
+    document.activeElement + nonce 递增重挂载）+ `closeHeapPeek`；
+    `onJumpToHeap` 改为 `openHeapPeek(heapPeekRequest(index, block))`；浮层条件渲染
+    于 `</main>` 后；主视图状态机与 Table 模式 JSX 零改动；
+  - `apps/web/src/StructureMap.tsx` — `HeapDetail.onLoadCrossBlock` 改可选：传入时
+    （主视图）行为不变；浮层不传 → ctid 行无跳转按钮、标注 `(cross-block; read-only
+    peek)`（附页 4 规则 3 择一实现：不渲染跳转按钮）；
+  - `apps/web/src/blockNav.ts` — 移除 `resolveJumpTable`/`heapJumpError`
+    （TABLE_NOT_LISTED 前置守卫随就地切换废止；grep 确认零残留引用）；`siblingNav`
+    （P1-1 同索引导航）不变；
+  - `apps/web/src/styles.css` — `--overlay-dim` token light/dark 各定义一次；
+    overlay/backdrop/标题栏/内部滚动样式沿既有 token（surface/border/shadow
+    color-mix），z-index 100（高于 chrome）；≥960px 时三联区双栏；
+  - `apps/web/src/heapPeek.test.ts`（新）— 10 例：请求构造、reducer
+    打开/加载成功/错误（含 BLKNO_OUT_OF_RANGE 例）/关闭/陈旧响应不覆盖、
+    标题与加载文案、App 槽接线模型（开→含 request+nonce、关→null、槽不含主视图字段）；
+  - `apps/web/src/blockNav.test.ts` — 移除 `resolveJumpTable`/`heapJumpError`
+    两 describe 4 例（守卫随合同废止，属需求变更非弱化）；`siblingNav` 3 例不变。
+
+### spec 变更 4 七点合同逐条落实
+
+| 点 | 落实 |
+|---|---|
+| ① 点击不再就地切换，当前页开浮层 | `openHeapPeek` 仅置 heapPeek 槽；relationKind/选中/主视图状态零触碰 |
+| ② 标题 `{tableQualifiedName} · blk {N}`；✕/Esc/遮罩关闭 | `overlayTitle`；三路径均汇 `onClose`（等价） |
+| ③ 三联区复用 + 独立切片 + 主视图零影响 | 浮层内 selectedId/highlight/hexLocate 局部；开关不清主视图任何状态（P0-12 语义不受影响） |
+| ④ 直接 tableOid+blkno 取页（schema+page 两调用）；错误浮层内呈现；移除 TABLE_NOT_LISTED | `Promise.all([fetchSchema, fetchPage])`；`{code}: {message}` + `Next: …` 面板；blockNav 守卫删除，无死代码 |
+| ⑤ 只读检视：无 Load/blkno 输入/Refresh/diff/二级跳转 | 浮层无输入控件；diffIds 恒空集；HeapDetail 不传 onLoadCrossBlock（无 ctid 跳转按钮） |
+| ⑥ 就地 jumpToHeap 语义整体废止 | 函数删除；grep `jumpToHeap/TABLE_NOT_LISTED` 零命中 |
+| ⑦ Table 模式与主视图其余交互不变 | git diff：table 分支 JSX/handler 零触碰；`onLoadCrossBlock` 传入路径渲染等价 |
+
+### 附页 4 四条交互规则逐条落实
+
+1. **Esc / ✕ / 遮罩三方式等价关闭，仅销毁浮层状态** — document 级 Esc 监听 + ✕ 按钮
+   + backdrop onClick（overlay 内 stopPropagation）；关闭 = 卸载组件（key=nonce 重挂载），
+   主视图不动；
+2. **body 滚动锁 + 初始焦点 ✕ + 关闭返还焦点** — mount 置 `body.style.overflow=hidden`
+   卸载恢复；mount 时 `closeBtnRef.focus()`；卸载时 `triggerRef.current?.focus()`
+   （openHeapPeek 捕获触发元素）；
+3. **浮层内只读** — 无输入/Refresh/diff；ctid 跨块跳转按钮不渲染（择一实现），标注
+   `(cross-block; read-only peek)`；
+4. **样式沿既有 token，light/dark 各一次，z-index 高于 chrome** — `--overlay-dim`
+   双主题定义；surface/border/color-mix shadow；z-index 100（conn-popover 为 20）。
+
+### TDD 与验证证据
+
+- **TDD**：先写 `heapPeek.test.ts` 10 例 → 红（`Cannot find module './heapPeek'`，
+  web 1 failed）→ 实现 `heapPeek.ts` → 绿；`blockNav.test.ts` 先行移除 TABLE_NOT_LISTED
+  4 例（93→89 基线）。React 接线（焦点管理/滚动锁/遮罩点击/浮层渲染）无组件测试基建
+  （沿 T5 起记录的例外）：可纯逻辑化部分已全部抽取进 heapPeek.ts 覆盖；DOM 行为归入
+  建议复测清单，恢复条件=引入 jsdom/@testing-library（超出本项范围）。
+- **验证**：`pnpm test` → wal-core 13 · page-core 54 · server 31 · web **99**（93−4+10）
+  共 **197 全绿**（既有断言零弱化，移除 4 例属需求合同废止）；`pnpm -r typecheck`
+  4 包 Done exit 0；`pnpm -r build` 4 包 Done（web dist 产出）；
+  `pnpm test:integration` → **退出 0**（B-tree 段 + hash guard + L3 smoke 全过，纯 web
+  变更不受影响已确认）；CJK/全角扫描（apps/web/src + apps/web/*.html + css，
+  `[\x{4e00}-\x{9fff}]` 与 `[\x{ff01}-\x{ff5e}\x{3000}\x{2018}-\x{201d}]`）→ **0 命中**。
+- **提交**：单提交 `feat(web): heap page peek overlay for index TID jumps` 于
+  index-viewer 分支（源分支声明见工作项记录）。
+
+### 建议复测范围（增量，QA 轮次 7）
+
+浮层开/关/错误/焦点/Esc（leaf TID 按钮 + posting TID 行两种触发；✕/Esc/遮罩三路径；
+打开后初始焦点在 ✕、关闭后焦点回触发按钮、body 不滚动；越界 blkno 或断连时浮层内
+`{code}: {message}` + `Next: …`、标题栏保留）；浮层内只读（无 Load/输入/Refresh/diff；
+ctid 行无跳转按钮；选中/hex 联动仅浮层内生效）；主视图零影响（开关前后 index 页/选中/
+高亮/diff 原样；同索引块导航 P1-1 仍就地加载）；Table 模式回归（chrome/加载/ctid 跨块
+按钮/diff 零变化）；两主题（backdrop dim、标题栏、错误面板）；再开同一块 nonce 重置
+浮层状态。

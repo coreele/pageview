@@ -31,7 +31,14 @@ import {
 } from "./api";
 import { HexDump } from "./HexDump";
 import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
-import { heapJumpError, resolveJumpTable } from "./blockNav";
+import { HeapPeekOverlay } from "./HeapPeekOverlay";
+import {
+  closeHeapPeekSlot,
+  heapPeekRequest,
+  openHeapPeekSlot,
+  type HeapPeekRequest,
+  type HeapPeekSlot,
+} from "./heapPeek";
 import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
@@ -95,6 +102,12 @@ export function App() {
   const [indexes, setIndexes] = useState<IndexRow[]>([]);
   const [selectedIndexOid, setSelectedIndexOid] = useState<number | null>(null);
   const [indexesFetched, setIndexesFetched] = useState(false);
+
+  // Change-4 annex 4: heap peek overlay slot — an independent slice keyed by a
+  // fresh nonce per open; opening/closing never touches main-view state.
+  const [heapPeek, setHeapPeek] = useState<HeapPeekSlot>(closeHeapPeekSlot());
+  const heapPeekNonceRef = useRef(0);
+  const heapPeekTriggerRef = useRef<HTMLElement | null>(null);
 
   const [form, setForm] = useState({
     host: "127.0.0.1",
@@ -370,24 +383,18 @@ export function App() {
   };
 
   /**
-   * P1-3: jump from a leaf/posting heap TID to the owning table page — switches
-   * relationKind to table, selects the table, clears state and loads the block.
-   * Hidden target tables (system schema / dropped) get readable feedback.
+   * P1-3 (change-4 annex 4, plan B): a leaf/posting heap TID opens a read-only
+   * peek overlay on the current page — the main index view is never switched
+   * or cleared. The trigger element is remembered for focus return on close.
    */
-  const jumpToHeap = async (tableOid: number, block: number) => {
-    const target = resolveJumpTable(tables, tableOid);
-    if (!target) {
-      const owner = pageView?.kind === "btree" ? pageView.index.tableQualifiedName : undefined;
-      setError(heapJumpError(tableOid, owner));
-      return;
-    }
-    setRelationKind("table");
-    setSelectedOid(tableOid);
-    resetPageView();
-    setSchema(null);
-    setBlkno(block);
-    await loadBlk(tableOid, block);
+  const openHeapPeek = (request: HeapPeekRequest) => {
+    heapPeekTriggerRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    heapPeekNonceRef.current += 1;
+    setHeapPeek(openHeapPeekSlot(request, heapPeekNonceRef.current));
   };
+
+  const closeHeapPeek = useCallback(() => setHeapPeek(closeHeapPeekSlot()), []);
 
   /**
    * Change-3 annex 3 (rules 1/5, annex-2 carry-over): the Index-mode table select is a
@@ -1320,7 +1327,7 @@ export function App() {
                     onLoadIndexBlock={loadIndexBlock}
                     onJumpToHeap={
                       pageView?.kind === "btree"
-                        ? (block) => void jumpToHeap(pageView.index.tableOid, block)
+                        ? (block) => openHeapPeek(heapPeekRequest(pageView.index, block))
                         : undefined
                     }
                   />
@@ -1344,6 +1351,15 @@ export function App() {
           </div>
         )}
       </main>
+
+      {heapPeek && (
+        <HeapPeekOverlay
+          key={heapPeek.nonce}
+          request={heapPeek.request}
+          triggerRef={heapPeekTriggerRef}
+          onClose={closeHeapPeek}
+        />
+      )}
     </div>
   );
 }
