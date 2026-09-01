@@ -52,6 +52,12 @@ import {
   pageTypeBadge,
   tableFilterOptions,
 } from "./indexView";
+import {
+  btreePageNav,
+  heapPageNav,
+  navButtonTitle,
+  toolbarNavEnabled,
+} from "./pageToolbarNav";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
 type LoadState = "idle" | "connecting" | "loading-tables" | "loading-indexes" | "loading-page";
@@ -62,6 +68,45 @@ type RelationKind = "table" | "index";
 type PageView =
   | { kind: "heap"; page: ParsedPage }
   | { kind: "btree"; page: ParsedBtreePage; index: IndexRow };
+
+function PageToolbarNavButtons({
+  enabled,
+  kind,
+  prev,
+  next,
+  onGo,
+}: {
+  enabled: boolean;
+  kind: "heap" | "btree";
+  prev: number | null;
+  next: number | null;
+  onGo: (blk: number) => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        disabled={!enabled || prev == null}
+        title={navButtonTitle(kind, "prev", prev)}
+        onClick={() => {
+          if (prev != null) onGo(prev);
+        }}
+      >
+        Prev
+      </button>
+      <button
+        type="button"
+        disabled={!enabled || next == null}
+        title={navButtonTitle(kind, "next", next)}
+        onClick={() => {
+          if (next != null) onGo(next);
+        }}
+      >
+        Next
+      </button>
+    </>
+  );
+}
 
 export function App() {
   const [theme, setTheme] = useState<Theme>(
@@ -85,6 +130,8 @@ export function App() {
   const [tables, setTables] = useState<TableRow[]>([]);
   const [selectedOid, setSelectedOid] = useState<number | null>(null);
   const [blkno, setBlkno] = useState(0);
+  /** Last successfully displayed page block; independent of the blkno input (P1-1). */
+  const [loadedBlkno, setLoadedBlkno] = useState<number | null>(null);
   const [schema, setSchema] = useState<SchemaResponse | null>(null);
   const [pageView, setPageView] = useState<PageView | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -134,6 +181,21 @@ export function App() {
   );
   const heapPage = pageView?.kind === "heap" ? pageView.page : null;
   const btreePage = pageView?.kind === "btree" ? pageView.page : null;
+  const heapToolbarNav = useMemo(() => {
+    if (loadedBlkno == null || !selectedTable) return { prev: null, next: null };
+    return heapPageNav(loadedBlkno, selectedTable.blocks);
+  }, [loadedBlkno, selectedTable]);
+  const indexToolbarNav = useMemo(() => btreePageNav(btreePage?.special), [btreePage]);
+  const heapNavEnabled = toolbarNavEnabled(
+    heapPage != null,
+    loadState === "loading-page",
+    selectedOid,
+  );
+  const indexNavEnabled = toolbarNavEnabled(
+    btreePage != null,
+    loadState === "loading-page",
+    selectedIndexOid,
+  );
   // Structure fields for the loaded page (selection/hex linkage/diff consumers).
   const fields = useMemo<StructureField[] | null>(() => {
     if (!pageView) return null;
@@ -152,6 +214,7 @@ export function App() {
   /** P0-12 clearing semantics: page / selection / highlight / diff / hex-locate. */
   const resetPageView = useCallback(() => {
     setPageView(null);
+    setLoadedBlkno(null);
     setSelectedId(null);
     setHighlight(null);
     setPrevRaw(null);
@@ -269,6 +332,7 @@ export function App() {
         const parseErr = pe instanceof PageParseError ? pe : null;
         if (parseErr) {
           setPageView(null);
+          setLoadedBlkno(null);
           setError({
             code: "UNSUPPORTED_PAGE",
             message: parseErr.message,
@@ -288,12 +352,16 @@ export function App() {
       setPrevRaw(bytes);
       setPageView({ kind: "heap", page: parsed });
       setBlkno(block);
+      setLoadedBlkno(block);
       setSelectedId(null);
       setHighlight(null);
       setHexLocate(null);
     } catch (err) {
       setError(err as AppError);
-      if (!opts?.refresh) setPageView(null);
+      if (!opts?.refresh) {
+        setPageView(null);
+        setLoadedBlkno(null);
+      }
     } finally {
       setLoadState("idle");
     }
@@ -325,6 +393,7 @@ export function App() {
         const parseErr = pe instanceof PageParseError ? pe : null;
         if (parseErr) {
           setPageView(null);
+          setLoadedBlkno(null);
           setError({
             code: "UNSUPPORTED_PAGE",
             message: parseErr.message,
@@ -343,12 +412,16 @@ export function App() {
       setPrevRaw(bytes);
       setPageView({ kind: "btree", page: parsed, index });
       setBlkno(block);
+      setLoadedBlkno(block);
       setSelectedId(null);
       setHighlight(null);
       setHexLocate(null);
     } catch (err) {
       setError(err as AppError);
-      if (!opts?.refresh) setPageView(null);
+      if (!opts?.refresh) {
+        setPageView(null);
+        setLoadedBlkno(null);
+      }
     } finally {
       setLoadState("idle");
     }
@@ -357,6 +430,7 @@ export function App() {
   const onSelectTable = async (oid: number) => {
     setSelectedOid(oid);
     setPageView(null);
+    setLoadedBlkno(null);
     setDiffIds(new Set());
     const t = tables.find((x) => x.oid === oid);
     if (t && t.blocks === 0) {
@@ -751,7 +825,7 @@ export function App() {
               </div>
             </div>
           ) : (
-            <div className="meta-row meta-controls-row">
+            <div className="meta-row meta-controls-row meta-controls-row--stack">
               <div className="chrome-controls">
                 <div
                   className="mode-switch relation-kind-switch"
@@ -840,6 +914,15 @@ export function App() {
                     >
                       Refresh
                     </button>
+                    <PageToolbarNavButtons
+                      enabled={heapNavEnabled}
+                      kind="heap"
+                      prev={heapToolbarNav.prev}
+                      next={heapToolbarNav.next}
+                      onGo={(target) => {
+                        if (selectedOid != null) void loadBlk(selectedOid, target);
+                      }}
+                    />
                   </>
                 ) : (
                   <>
@@ -955,6 +1038,15 @@ export function App() {
                     >
                       Refresh
                     </button>
+                    <PageToolbarNavButtons
+                      enabled={indexNavEnabled}
+                      kind="btree"
+                      prev={indexToolbarNav.prev}
+                      next={indexToolbarNav.next}
+                      onGo={(target) => {
+                        if (selectedIndexOid != null) void loadIndexBlk(selectedIndexOid, target);
+                      }}
+                    />
                   </>
                 )}
               </div>

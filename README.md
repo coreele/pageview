@@ -16,6 +16,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 - **Hex dump** — same 32B/row layout, linked selection and scroll-to-offset
 - **Tuple decode** — column values, `t_infomask` / `t_infomask2` bit strips, HOT/ctid hints
 - **Diff highlight** — byte-level changes on Refresh
+- **Page nav** — toolbar **Prev** / **Next**: heap uses the displayed `blkno ± 1`; B-tree uses left/right siblings (`btpo_prev` / `btpo_next`). First/last (or leftmost/rightmost) pages disable the button instead of requesting an out-of-range block
 
 ### Index pages (B-tree)
 

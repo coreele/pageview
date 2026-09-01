@@ -401,6 +401,12 @@ input {
   gap: 0.45rem 1.1rem;
 }
 
+.meta-controls-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+}
+
 .meta-stats {
   display: flex;
   flex-wrap: wrap;

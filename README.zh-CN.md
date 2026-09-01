@@ -16,6 +16,7 @@
 - **十六进制转储** — 同样按 32 字节分行，联动选中与滚动定位
 - **元组解码** — 列值、`t_infomask` / `t_infomask2` 位条、HOT/ctid 提示
 - **差异高亮** — Refresh 时按字节标出变更
+- **翻页** — 工具栏 **Prev** / **Next**：heap 按已显示页 `blkno ± 1`；B-tree 按左右兄弟（`btpo_prev` / `btpo_next`）。首页/末页（或 leftmost/rightmost）禁用按钮，不发越界请求
 
 ### 索引页（B-tree）
 
