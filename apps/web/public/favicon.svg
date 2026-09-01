@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- pg-page-viewer favicon: miniature page structure map (header / ItemId / tuples / free / special) -->
+  <rect x="0" y="0" width="64" height="64" rx="13" fill="#141c24"/>
+  <!-- page header -->
+  <rect x="10" y="13" width="44" height="7" rx="1.5" fill="#cfe3f5"/>
+  <!-- ItemId array (left column, short rows) -->
+  <rect x="10" y="24" width="9" height="4" rx="1" fill="#f3e0a8"/>
+  <rect x="10" y="31" width="9" height="4" rx="1" fill="#f3e0a8"/>
+  <rect x="10" y="38" width="9" height="4" rx="1" fill="#f3e0a8"/>
+  <!-- tuple area (right of ItemIds) -->
+  <rect x="22" y="24" width="20" height="4" rx="1" fill="#c8ebd6"/>
+  <rect x="22" y="31" width="27" height="4" rx="1" fill="#c8ebd6"/>
+  <rect x="22" y="38" width="16" height="4" rx="1" fill="#c8ebd6"/>
+  <!-- free space: intentionally empty gap -->
+  <!-- special space (bottom strip, accent) -->
+  <rect x="10" y="52" width="44" height="4" rx="1" fill="#2dd4bf"/>
+</svg>
