@@ -36,4 +36,31 @@ design §3 的「无逐列对齐」「⌈indnatts/8⌉ bitmap」「位=1 为 NUL
 
 - 捕获命令（每场景一次，`--blkno` 见 fixtures README 表）全部 `statsError=null, itemsError=null`；
 - `indexColumns`/`tableRows` oracle 抽检：idx-composite 行值与种子 SQL 一致（如 (2,'b037',1)）、idx-posting-internal pivot 边界行 k=1/3 与 pivot 键一致；
-- 捕获脚本为手工开发工具（仓库先例：无自动化测试），其行为验证 = 产物检视（上表）；T3 将以 oracle 测试消费这些产物形成回归保护。
+- 捕获脚本为手工开发工具（仓库先例：无自动化测试），其行为验证 = 产物检视（上表）；T3 以 oracle 测试消费这些产物形成回归保护。
+
+## T3 — page-core decodeIndexTupleKeys（2026-08-31）
+
+- 新增 `src/btree-decode.ts`：`decodeIndexTupleKeys(page, tuple, columns)` 纯函数 + typoid 策略表（KEY_COLUMN_SPECS，单点集中）；BigInt 手工 civil 换算（未用 Date/毫秒路径，heap decode.ts 未复用未改动）；`fixture-builder.ts` 扩展 `presentAttnums`（反转 bitmap）/`pivotNKeyAtts`/`pivotHeapTid`；`index.ts` 导出。
+- 测试（TDD 先红 36 失败后绿）：`tests/btree-decode.test.ts` 30 例（P0 全类型、多列混排步进+对齐+range、NULL bitmap 1B/9 列双字节、pivot 尾 TID 排除、nkeyatts 截断、minus-infinity、posting、4B varlena、压缩/external 防御、越界/截断降级、unsupported 级联、尾 pad 容忍）；`tests/btree-oracle.test.ts` 增 16 场景解码对照（每元组 vs UTC 会话 ctid 行 ::text，含 hikey=右页首键断言、internal pivot 截断/递增、尾 TID pivot==边界行、jsonb 降级、表达式元数据标记）。
+- 修正记录（测试红阶段暴露的测试自身错误，非实现缺陷）：date 8932=2024-06-15（非 8944）、timestamp µs 常量 770529923456123、bool ::text 输出即 'true'/'false'、hikey=右页边界键（非本页最大值）。
+- `parseBtreePage`/heap `decode.ts` 零改动；既有 btree.test.ts 45 例零改动零回退。
+
+## T4 — server columns 端点（2026-08-31）
+
+- `catalog.ts` 增 `INDEX_META_SQL`（indnatts/indnkeyatts/indkey/indoption::text）+ `INDEX_COLUMNS_SQL`（pg_attribute(索引) JOIN pg_type，attnum≤indnatts，ORDER BY attnum）+ `parseIntVector`；无 attisdropped 过滤（Spec 裁决：索引无 dropped 占位）。
+- `app.ts` 增 `GET /api/indexes/:oid/columns`：守卫链镜像 pages 端点（NOT_CONNECTED 401 → requirePageinspect（PAGEINSPECT_MISSING 400）→ BAD_OID 400 → NOT_INDEX 404 → INDEX_NOT_BTREE 400 → mapPgError）；响应形状按 Spec 合同（oid/schema/name/qualifiedName/accessMethod/indnatts/indnkeyatts/hasExpression/columns[10 字段]）。
+- indoption 实测补充（本地 pg_index 实证）：`(a DESC, b)` → "3 0"（PG 显式记录 DESC 默认 NULLS FIRST 位）；`(a DESC NULLS LAST, b)` → "1 0"。位解析：bit0=DESC、bit1=NULLS FIRST；include 列恒 false。
+- 测试（TDD 先红 12 失败后绿）：`tests/index-columns.test.ts` 12 例（守卫序全链、响应形状逐字段（含 indnatts=3/indnkeyatts=2+include）、DESC|NULLS_FIRST 位、表达式 indkey 0、空 indoption、SQL 契约断言）；既有 indexes/heap 路由测试零回退。
+
+## 验证证据汇总（本批 T1–T4）
+
+- L2：`pnpm test` 全绿 — wal-core 13 + page-core 95（含新增 btree-decode 30 + oracle 解码 16）+ server 79（含新增 12）+ web 112；`pnpm -r typecheck`、`pnpm -r build` 零错误。
+- L3：`pnpm test:integration` 退出 0（本地 PG16.11：B-tree oracle 段、heap R1、auto-install 段零回退；本批未加新 L3 段——T8 才加）。
+- T1 基线：分支创建前 main@a66e2db 上 250 测试全绿 + typecheck 零错误。
+
+## 未解决风险 / 后续注意
+
+- 本地 PG 由 Developer 本次会话启动（pg_ctl -D ~/pgdata，socket /tmp），供 T2 实捕与 L3 冒烟；后续批次（T5–T9）若需实库，同一方式启动。
+- 步进规则表偏差（bitmap 固定 4B/位反转/定长列对齐/nkeyatts 直读/minus-inf==0/尾 TID 按标志位）已按用户裁决以 oracle 为准实现；Reviewer 复核时请对照 dev-notes 规则表而非 design §3 原文。
+- t_comp 种子 b 定长 4 字符，混合长度对齐由 idx-align（变长 b）与探针场景锁定；BC 年份（y≤0）日期格式未覆盖（PG ::text 会带 BC 后缀，我们的 civil 输出为负年份）——起出 P0 验收范围，T7/P1 可补。
+- idx-null 捕获页含 1 个垃圾 LP_NORMAL 元组（页复用残留，无 oracle 行值）；解码器容忍（bytes 不足/越界降级路径存在），未做专门断言。

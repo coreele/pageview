@@ -5,9 +5,12 @@ import {
   LIST_INDEXES_SQL,
   LIST_TABLES_SQL,
   INDEX_RELATION_SQL,
+  INDEX_META_SQL,
+  INDEX_COLUMNS_SQL,
   PAGE_RELATION_SQL,
   SCHEMA_COLUMNS_SQL,
   mapSchemaColumnRow,
+  parseIntVector,
 } from "./catalog.js";
 import {
   emptySession,
@@ -444,6 +447,98 @@ export async function buildApp(session: SessionState = emptySession()) {
           tableQualifiedName: `${r.table_schema}.${r.table_name}`,
           valid: Boolean(r.valid),
         })),
+      };
+    } catch (e) {
+      const mapped = mapPgError(e);
+      return reply.code(mapped.statusCode).send(mapped.body);
+    }
+  });
+
+  app.get<{ Params: { oid: string } }>("/api/indexes/:oid/columns", async (req, reply) => {
+    if (!session.connected || !session.pool) {
+      return notConnectedReply(reply);
+    }
+    try {
+      await requirePageinspect(session.pool);
+      // ⓪ oid must be a valid unsigned 4-byte integer (400 BAD_OID)
+      const parsed = parseOidParam(
+        req.params.oid,
+        "Pick an index from the index list, then retry.",
+      );
+      if (!parsed.ok) return reply.code(parsed.reply.statusCode).send(parsed.reply.body);
+      const oid = parsed.oid;
+
+      // ① relation must exist and be an index (404 NOT_INDEX)
+      const cls = await session.pool.query(INDEX_RELATION_SQL, [oid]);
+      if (cls.rowCount === 0 || cls.rows[0].relkind !== "i") {
+        return reply
+          .code(404)
+          .send(
+            appError(
+              404,
+              "NOT_INDEX",
+              "Relation is not an index",
+              "Pick a user index from the index list.",
+            ).body,
+          );
+      }
+
+      // ② only B-tree indexes are supported (400 INDEX_NOT_BTREE)
+      const accessMethod = String(cls.rows[0].access_method);
+      if (accessMethod !== "btree") {
+        return reply
+          .code(400)
+          .send(
+            appError(
+              400,
+              "INDEX_NOT_BTREE",
+              `Index access method "${accessMethod}" is not supported; only B-tree indexes have column metadata`,
+              `Pick a B-tree index (access method btree) or switch back to tables.`,
+            ).body,
+          );
+      }
+
+      // Metadata only — no decoding server-side (Spec API contract shape)
+      const meta = await session.pool.query(INDEX_META_SQL, [oid]);
+      const cols = await session.pool.query(INDEX_COLUMNS_SQL, [oid]);
+      const metaRow = meta.rows[0] ?? {
+        indnatts: 0,
+        indnkeyatts: 0,
+        indkey: "",
+        indoption: "",
+      };
+      const indnatts = Number(metaRow.indnatts);
+      const indnkeyatts = Number(metaRow.indnkeyatts);
+      const indkey = parseIntVector(metaRow.indkey);
+      const indoption = parseIntVector(metaRow.indoption);
+      const columns = cols.rows.map((r) => {
+        const attnum = Number(r.attnum);
+        const kind = attnum <= indnkeyatts ? "key" : "include";
+        // indoption only carries entries for key columns; INCLUDE columns are
+        // orderable in no direction and always sort after key columns
+        const opt = kind === "key" ? (indoption[attnum - 1] ?? 0) : 0;
+        return {
+          attnum,
+          name: String(r.name),
+          typoid: Number(r.typoid),
+          typname: String(r.typname),
+          typmod: Number(r.typmod),
+          kind,
+          isExpression: indkey[attnum - 1] === 0,
+          descending: (opt & 0x0001) === 0x0001,
+          nullsFirst: (opt & 0x0002) === 0x0002,
+        };
+      });
+      return {
+        oid,
+        schema: String(cls.rows[0].nspname),
+        name: String(cls.rows[0].relname),
+        qualifiedName: `${cls.rows[0].nspname}.${cls.rows[0].relname}`,
+        accessMethod,
+        indnatts,
+        indnkeyatts,
+        hasExpression: indkey.includes(0),
+        columns,
       };
     } catch (e) {
       const mapped = mapPgError(e);

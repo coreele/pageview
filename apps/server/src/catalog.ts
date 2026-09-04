@@ -84,6 +84,50 @@ JOIN pg_am am ON am.oid = c.relam
 WHERE c.oid = $1
 `;
 
+/**
+ * Index-key-decode: pg_index metadata for GET /api/indexes/:oid/columns.
+ * indkey/indoption come back as ::text (e.g. "1 2 3" / "1 0") and are
+ * parsed in TS — hasExpression = indkey contains 0; indoption bit 0 = DESC,
+ * bit 1 = NULLS FIRST (key columns only; PG records defaults explicitly).
+ */
+export const INDEX_META_SQL = `
+SELECT x.indnatts,
+       x.indnkeyatts,
+       x.indkey::text AS indkey,
+       x.indoption::text AS indoption
+FROM pg_index x
+WHERE x.indexrelid = $1
+`;
+
+/**
+ * Index-key-decode: index's own pg_attribute rows (attnum 1..indnatts — the
+ * btree storage datum types) JOIN pg_type, ordered by attnum (= decode
+ * order). No attisdropped filter: indexes have no dropped placeholders
+ * (DROP COLUMN on the table drops the index) — Spec ruling.
+ */
+export const INDEX_COLUMNS_SQL = `
+SELECT a.attnum,
+       a.attname AS name,
+       t.oid AS typoid,
+       t.typname,
+       a.atttypmod AS typmod
+FROM pg_attribute a
+JOIN pg_type t ON t.oid = a.atttypid
+WHERE a.attrelid = $1 AND a.attnum > 0
+  AND a.attnum <= (SELECT indnatts FROM pg_index WHERE indexrelid = $1)
+ORDER BY a.attnum
+`;
+
+/** Parsed indkey/indoption ints for the columns response ("1 2 3" → [1,2,3]). */
+export function parseIntVector(text: string | null | undefined): number[] {
+  if (text == null) return [];
+  return String(text)
+    .trim()
+    .split(/\s+/)
+    .filter((s) => s.length > 0)
+    .map(Number);
+}
+
 export function relationBlocksFromSize(byteLength: number, blockSize = HEAP_BLOCK_SIZE): number {
   return Math.max(0, Math.floor(Number(byteLength) / blockSize));
 }
