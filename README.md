@@ -23,6 +23,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 - **Index browsing** — table | index switch; the index list shows access method, block count, and owning table; non-B-tree indexes are listed but marked unloadable; invalid indexes flagged (still loadable)
 - **Page types** — metapage (`btm_*` incl. `allequalimage` on v4+), internal (child downlinks + level), leaf (heap TIDs); special space `btpo_*` with a `btpo_flags` bit strip
 - **Hikey & posting lists** — high-key mark on the first tuple of non-rightmost pages; dedup posting tuples (PG13+) with TID count and full scrollable list
+- **Key value decoding** — index tuple keys decoded per column type (int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domains) with NULL, include/↓/nulls-first badges and click-to-highlight column bytes; unsupported types (e.g. jsonb) or expression indexes degrade gracefully to hex-only
 - **Block navigation** — load siblings (`btpo_prev`/`btpo_next`), root/fastroot, and child pages with one click; leaf heap TIDs jump straight to the owning table's block
 - **Guards** — non-B-tree access methods (hash/gist/spgist/brin/gin) blocked in the UI and by the server (`INDEX_NOT_BTREE`)
 

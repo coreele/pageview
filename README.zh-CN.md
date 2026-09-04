@@ -23,6 +23,7 @@
 - **索引浏览** — 表 | 索引切换；索引列表展示访问方法、块数与所属表；非 B-tree 索引列出但标记不可加载；无效索引带标记（仍可加载）
 - **页面类型** — metapage（`btm_*`，v4+ 含 `allequalimage`）、internal（子页指针 + level）、leaf（heap TID）；special space `btpo_*` 与 `btpo_flags` 位条
 - **高键与 posting list** — 非最右页首元组标记 hikey；dedup posting 元组（PG13+）显示 TID 数与完整可滚动列表
+- **键值解码** — index tuple 键按列类型解码（int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domain），含 NULL、include/↓/nulls-first 徽标与点击列高亮对应字节；不支持类型（如 jsonb）或表达式索引优雅降级为仅 hex
 - **块导航** — 一键加载左右页（`btpo_prev`/`btpo_next`）、root/fastroot 与子页；叶页 heap TID 可直接跳到所属表对应块
 - **拦截** — 非 B-tree 访问方法（hash/gist/spgist/brin/gin）在 UI 与服务端双重拦截（`INDEX_NOT_BTREE`）
 

@@ -58,9 +58,83 @@ design §3 的「无逐列对齐」「⌈indnatts/8⌉ bitmap」「位=1 为 NUL
 - L3：`pnpm test:integration` 退出 0（本地 PG16.11：B-tree oracle 段、heap R1、auto-install 段零回退；本批未加新 L3 段——T8 才加）。
 - T1 基线：分支创建前 main@a66e2db 上 250 测试全绿 + typecheck 零错误。
 
+## T5/T6 — web 元数据状态与键值区渲染（2026-09-01，前会话已提交）
+
+- T5（3e88fb5）：`api.ts` 增 `IndexColumnsResponse`/`fetchIndexColumns`；`App.tsx` `indexColumns` 按 oid 缓存（成功粘滞/失败不缓存重试/连接重建与 refreshIndexes 清空），`ensureIndexColumns` 在 `loadIndexBlk` 内触发（不 await/不 setError/不入 loadState）；纯模块 `indexKeyDetail.ts` 缓存时序与降级派生单测。
+- T6（e43cb83）：键值区置于 Key bytes hex 之上（每列一行/NULL/include 徽标/64 字符截断注/行级与索引级降级标注/loading 行，文案逐字按 ui-design 冻结表）；`IndexTupleDetail`/`StructureMap`/`App` 注入；纯函数单测覆盖行模型/截断/徽标/降级/decode→行映射。metapage 无键值区；hex 块零改动。
+
+## 前会话中断的在制改动评估（本会话处置，2026-09-01）
+
+中断时工作区有 6 个未提交文件，逐一评估结论：
+
+| 文件 | 内容 | 处置与理由 |
+|---|---|---|
+| `page-core/src/btree-decode.ts` | T7 numeric/float4/float8/bytea 策略与解码器 | **保留并修正**：结构与方向正确；float 定点/科学计数阈值原写 7/15，经实库+源码冻结为 5/14（见 T7 节），timestamp 尾零裁剪补齐 |
+| `page-core/tests/btree-decode.test.ts` | 上述类型的 synthetic 测试 | **保留并修正**：float 期望值按实库重写；其“captured from real PG”注释当时并无实捕证据，本会话已用探针实库对照补齐 |
+| `apps/server/src/catalog.ts` | domain → typbasetype 替换 SQL | **保留**：实测索引元数据 dm 列正确返回 numeric(1700) |
+| `apps/server/tests/index-columns.test.ts` | domain SQL 契约 + 响应形状测试 | **保留**（与实现一致） |
+| `apps/web/src/indexKeyDetail.ts` | ↓/nulls first 徽标、keyRowId、pivotHeapTidText | **保留**：pivotHeapTidText 读 [end−6,end) 与 PG 一致（见 pivot pad 节） |
+| `apps/web/src/indexKeyDetail.test.ts` | 上述单测 | **保留**：其 pivotHeapTidText 用例当时为红（合成 builder 布局与实库发散，见下节），本会话修 builder 后转绿 |
+
+无丢弃项。design.md 工作区的“Manager 补记”修订节为 Manager 所有，本会话未触碰、未提交。
+
+## Pivot 尾 TID / itemlen pad 实测结论（本会话，2026-09-01）
+
+中断前线索怀疑“itemlen 含尾 TID 之后的 MAXALIGN pad，keyEnd=range.end−6 把 pad 误计入键区”。实测（本地 PG16.11，dup-text 索引内页/hikey + int4 INCLUDE 索引 pivot）+ 本地源码树 `~/postgres`（stock 16.11，git status 干净）双源结论：
+
+1. **尾 TID 恒在 `[itemlen−6, itemlen)`**，无“TID 之后 pad”——否则 `nbtree.h BTreeTupleGetHeapTID`（读 `IndexTupleSize−6`）本身会错；实测尾 TID 与 ctid 行 SQL 值一一对应。
+2. 真实布局：`keytuple = MAXALIGN(8+bitmap?+keys)`（index_form_tuple 结果），带尾 TID 的 pivot `itemlen = MAXALIGN(keytuple+6)`，故键 datum 末端与 TID 之间有 ≤7B（keytuple 已对齐时恒 2B）**零 pad**；posting 列表起点同理为 MAXALIGN 后的 keytuple 末端（ip_blkid 偏移）。
+3. 解码器 `keyEnd = range.end − 6`（= TID 起点）**实测正确无需改**：列步进只消费各列真实 datum 字节，永不踩入 pad；oracle fixture 16 场景 + 冒烟 16 个尾 TID pivot 对照全过。
+4. **真正的问题在合成 fixture-builder**：它把尾 TID 紧贴键 datum 写入（非 [end−6)），键长 ≠ 0 mod 8 时与实库布局发散，掩盖 pad 语义（前会话 pivotHeapTidText 测试因此红）。修复：builder 按 PG 布局写（`maxalign8(maxalign8(data+key)+6)`，TID 置末 6B），并补红→绿回归测试 2 例（布局字节断言 + pad 容忍解码）。
+
+## T7 — P1 类型扩展（2026-09-01）
+
+- 解码：numeric（short/long 双格式、base-10000、NaN/±Infinity）、float4/float8（IEEE 754 小端）、bytea（`\x`+小写 hex）入 `KEY_COLUMN_SPECS` 策略表；domain 由 server SQL 侧替换基类型后直接命中。
+- **格式冻结证据（实库）**：探针脚本（临时，未提交）seed 全形状后经 `decodeIndexTupleKeys` vs UTC 会话 `::text`：numeric 22 形状（1e±300、1e63/64、dscale 保留尾零、NaN/±Inf、64 位 π）、float4 14、float8 17、bytea 5、domain 替换——全部一致。其中 float4/float8 期望值曾与实库冲突（1e7→`1e+07` 非 `10000000`；首版探针 INSERT 未真正入库 float 电池，误判“恒纯小数”）：依 `~/postgres/src/common/{f2s.c,d2s.c}` `to_chars`（定点 iff `−4≤exp≤5`(f4)/`≤14`(f8)，printf 默认阈值）修正 `formatPgFloat` 阈值与测试后全绿。
+- 顺带修复（TDD 先红）：timestamp/timestamptz 小数秒尾零裁剪（µs=1370 → `.00137`，PG ::text 口径；T2/T6 种子未踩中尾零故未暴露）。
+- server：`INDEX_COLUMNS_SQL` 域列 `typtype='d'` → typbasetype 替换（响应形状不变，纯 SQL 变更）+ 契约/路由测试。
+- UI：`↓`/`nulls first` 徽标（仅 key 列，indoption 位）；键值行可点击（`<button>`，Tab/Enter/Space）→ hex 高亮该列字节区间（id `tuple-{lp}.col-{attnum}`，复用既有 onSelectRange）；pivot 尾部 heap TID 在 itemlen 行显示 `(block,offset)`（`pivotHeapTidText`，BT_PIVOT_HEAP_TID_ATTR 门控）。
+- BC 年份（y≤0）：plan T7 完成条件不含，维持记录局限（PG ::text 带 `BC` 后缀，我们 civil 输出负/零年），后续可补。
+
+## T8 — 集成冒烟与 CI（2026-09-01）
+
+- `integration-smoke.ts` 新增 `indexKeyDecodeSmoke` 段（独立 schema `pageview_smoke_ixkd`，幂等 seed，finally 清理，单连接 `SET TimeZone='UTC'`）：
+  - `/api/indexes/:oid/columns` 形状（kd_mix 复合、kd_desc 的 DESC|NULLS FIRST 位）+ 守卫（表 oid 404 NOT_INDEX / hash 400 INDEX_NOT_BTREE / `abc` 400 BAD_OID）经 `app.inject`；
+  - leaf/posting 全量对照：11 个索引（P1 四型 + date/timestamp/timestamptz/uuid/bool + 复合含 NULL/空串/多字节/长值 + dup text 含 posting），10569 个元组 decode == ctid 行 UTC `::text`（归一化：text 族加引号、时间空格→T、`+00`→`Z`）；
+  - internal 页尾 TID pivot：16 个 pivot 键 == 尾 TID ctid 行 SQL 值（断言 >0 防静默跳过）；
+  - 降级：表达式索引 hasExpression、(int,jsonb) 首列正常/次列 `unsupported type: jsonb`、纯 jsonb 单列全降级；
+- 既有段零回退（B-tree list/metapage/internal/leaf/posting + hash guard + heap R1 + auto-install）；退出码 0；blocked=2 语义不变。
+- CI：integration job 已运行 `pnpm test:integration`，**零改动**（seed 全部自带）。
+
+## T9 — 文档（2026-09-01）
+
+- README.md / README.zh-CN.md：Features 索引节各补一句键值解码（含类型集、徽标/高亮、降级）。
+- 本 dev-notes 补齐 T5–T9 记录。
+
+## 验证证据汇总（T5–T9 批）
+
+- L2：`pnpm test` 全绿 — wal-core 13 + page-core 158 + server 81 + web 136；`pnpm -r typecheck`、`pnpm -r build` 零错误。
+- L3：`pnpm test:integration` 退出 0（含新 index-key-decode 段：10569 leaf/posting 对照、16 尾 TID pivot、守卫/降级断言；既有段零回退）。
+- 探针脚本（pivot-probe.ts / p1-format-probe.ts）：一次性证据工具，不入库（不在 plan 触碰路径）；其检查已由 T8 冒烟段永久化。
+
+## 手测清单（ui-design；浏览器项待补测）
+
+自动化无法覆盖的 UI 视觉/交互项，**待浏览器手测**（`pnpm dev:server` + `pnpm dev:web`）后回填结论：
+
+- [ ] loading 标注：页面先渲染，选中元组键值区单行 `loading column metadata…`，随后自动变行
+- [ ] 断连降级：元数据失败仅键值区单行标注（含 code），页面/hex/结构图正常
+- [ ] 表达式索引：索引级 `expression index — key values not decoded (hex only)`，无行，页面正常
+- [ ] jsonb 混合：a 正常行 + j 行 `unsupported type: jsonb`，其后列省略
+- [ ] NULL/include 徽标/长值截断注/↓/nulls first 徽标呈现
+- [ ] 键值行点击 → hex 对应字节区间高亮（Tab 可达，:focus-visible 可见）
+- [ ] 两套主题（light/dark）下键值区可读
+- [ ] hex 双向联动/结构图选中/Refresh diff 不回退
+- [ ] pivot 尾 TID `(block,offset)` 显示
+
 ## 未解决风险 / 后续注意
 
 - 本地 PG 由 Developer 本次会话启动（pg_ctl -D ~/pgdata，socket /tmp），供 T2 实捕与 L3 冒烟；后续批次（T5–T9）若需实库，同一方式启动。
 - 步进规则表偏差（bitmap 固定 4B/位反转/定长列对齐/nkeyatts 直读/minus-inf==0/尾 TID 按标志位）已按用户裁决以 oracle 为准实现；Reviewer 复核时请对照 dev-notes 规则表而非 design §3 原文。
-- t_comp 种子 b 定长 4 字符，混合长度对齐由 idx-align（变长 b）与探针场景锁定；BC 年份（y≤0）日期格式未覆盖（PG ::text 会带 BC 后缀，我们的 civil 输出为负年份）——起出 P0 验收范围，T7/P1 可补。
+- t_comp 种子 b 定长 4 字符，混合长度对齐由 idx-align（变长 b）与探针场景锁定；BC 年份（y≤0）日期格式未覆盖（PG ::text 会带 BC 后缀，我们的 civil 输出为负年份）——超出 P0 验收范围；T7 按 plan 范围处理为记录局限（plan T7 完成条件不含 BC），后续如需可补。
+- 手测清单（上节）为浏览器待办，UI 验收点未核验前不应视 P0-13/P1 视觉项为已证。
 - idx-null 捕获页含 1 个垃圾 LP_NORMAL 元组（页复用残留，无 oracle 行值）；解码器容忍（bytes 不足/越界降级路径存在），未做专门断言。
