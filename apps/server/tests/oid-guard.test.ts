@@ -40,7 +40,10 @@ const PAGE = Buffer.alloc(8192, 0x5a);
  * catalog SQL, so the recorded log proves whether a route ever reached a
  * catalog lookup (the BAD_OID guard must fire before any of them).
  */
-function stubPool(log: string[] = [], opts: { pageinspectMissing?: boolean } = {}): Pool {
+function stubPool(
+  log: string[] = [],
+  opts: { pageinspectMissing?: boolean; missingRelation?: boolean } = {},
+): Pool {
   const dispatch = (sql: string): QueryResult => {
     const s = sql.toLowerCase();
     if (s.includes("pg_extension")) {
@@ -49,6 +52,7 @@ function stubPool(log: string[] = [], opts: { pageinspectMissing?: boolean } = {
     }
     if (s.includes("to_regprocedure")) return { rows: [{ ok: true }], rowCount: 1 };
     if (s.includes("pg_attribute")) return { rows: [COLUMN_ROW], rowCount: 1 }; // SCHEMA_COLUMNS_SQL
+    if (opts.missingRelation) return { rows: [], rowCount: 0 };
     // INDEX_RELATION_SQL joins pg_am; PAGE_RELATION_SQL does not.
     if (s.includes("pg_relation_size") && s.includes("pg_am"))
       return { rows: [BTREE_ROW], rowCount: 1 };
@@ -127,5 +131,32 @@ describe("oid param guard — 400 BAD_OID (before any catalog query)", () => {
     const res = await app.inject({ method: "GET", url: "/api/indexes/abc/pages/0" });
     expect(res.statusCode).toBe(400);
     expect(res.json().code).toBe("PAGEINSPECT_MISSING");
+  });
+});
+
+describe("table page endpoint regression — legacy order unchanged for numeric oids", () => {
+  it("unknown numeric oid still 404 NOT_HEAP_TABLE", async () => {
+    const { app } = await appWithPool(stubPool([], { missingRelation: true }));
+    const res = await app.inject({ method: "GET", url: "/api/tables/99999/pages/0" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("NOT_HEAP_TABLE");
+    expect(res.json()).toHaveProperty("nextStep");
+  });
+
+  it("non-integer or negative blkno still 400 BAD_BLKNO", async () => {
+    const { app } = await appWithPool(stubPool());
+    for (const blkno of ["abc", "-1", "1.5"]) {
+      const res = await app.inject({ method: "GET", url: `/api/tables/16384/pages/${blkno}` });
+      expect(res.statusCode).toBe(400);
+      expect(res.json().code).toBe("BAD_BLKNO");
+    }
+  });
+
+  it("blkno >= blocks still 400 BLKNO_OUT_OF_RANGE", async () => {
+    const { app } = await appWithPool(stubPool());
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/12" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("BLKNO_OUT_OF_RANGE");
+    expect(res.json()).toHaveProperty("nextStep");
   });
 });
