@@ -40,6 +40,32 @@ function appError(
   return { statusCode, body: { code, message, nextStep } };
 }
 
+/** oid is an unsigned 4-byte integer; 0 is the InvalidOid reserved value. */
+const OID_MAX = 4294967295;
+
+type OidGuard =
+  | { ok: true; oid: number }
+  | { ok: false; reply: { statusCode: number; body: AppErrorBody } };
+
+/**
+ * Guard ⓪ for :oid routes: validate the oid param before any catalog query
+ * so non-numeric / out-of-range input gets 400 BAD_OID instead of falling
+ * through to pg 22P02 → BAD_LSN (misleading) or a 404 existence miss.
+ */
+function parseOidParam(raw: string, nextStep: string): OidGuard {
+  const oid = Number(raw);
+  if (Number.isInteger(oid) && oid >= 1 && oid <= OID_MAX) return { ok: true, oid };
+  return {
+    ok: false,
+    reply: appError(
+      400,
+      "BAD_OID",
+      `Invalid oid "${raw}" (expected an integer in 1..${OID_MAX})`,
+      nextStep,
+    ),
+  };
+}
+
 function mapPgError(e: unknown): { statusCode: number; body: AppErrorBody } {
   const err = e as { code?: string; message?: string; nextStep?: string; errno?: string; reason?: string };
   if (err.code === "PAGEINSPECT_MISSING") {
@@ -285,7 +311,12 @@ export async function buildApp(session: SessionState = emptySession()) {
     }
     try {
       await requirePageinspect(session.pool);
-      const oid = Number(req.params.oid);
+      const parsed = parseOidParam(
+        req.params.oid,
+        "Pick a heap table from the table list, then retry.",
+      );
+      if (!parsed.ok) return reply.code(parsed.reply.statusCode).send(parsed.reply.body);
+      const oid = parsed.oid;
       const cls = await session.pool.query(
         `SELECT c.oid, c.relkind, n.nspname, c.relname
          FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -322,7 +353,13 @@ export async function buildApp(session: SessionState = emptySession()) {
       }
       try {
         await requirePageinspect(session.pool);
-        const oid = Number(req.params.oid);
+        // ⓪ oid must be a valid unsigned 4-byte integer (400 BAD_OID)
+        const parsed = parseOidParam(
+          req.params.oid,
+          "Pick a heap table from the table list, then retry.",
+        );
+        if (!parsed.ok) return reply.code(parsed.reply.statusCode).send(parsed.reply.body);
+        const oid = parsed.oid;
         const blkno = Number(req.params.blkno);
         if (!Number.isInteger(blkno) || blkno < 0) {
           return reply
@@ -422,7 +459,13 @@ export async function buildApp(session: SessionState = emptySession()) {
       }
       try {
         await requirePageinspect(session.pool);
-        const oid = Number(req.params.oid);
+        // ⓪ oid must be a valid unsigned 4-byte integer (400 BAD_OID), before ①
+        const parsed = parseOidParam(
+          req.params.oid,
+          "Pick an index from the index list, then retry.",
+        );
+        if (!parsed.ok) return reply.code(parsed.reply.statusCode).send(parsed.reply.body);
+        const oid = parsed.oid;
 
         // ① relation must exist and be an index (404 NOT_INDEX)
         const cls = await session.pool.query(INDEX_RELATION_SQL, [oid]);
