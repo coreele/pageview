@@ -245,3 +245,38 @@ describe("catalog SQL contract", () => {
     expect(INDEX_COLUMNS_SQL).toMatch(/ORDER BY a\.attnum/i);
   });
 });
+
+describe("domain columns resolve to their base type (index-key-decode T7/P1)", () => {
+  it("INDEX_COLUMNS_SQL substitutes typbasetype for typtype='d' columns", () => {
+    expect(INDEX_COLUMNS_SQL).toMatch(/typtype\s*=\s*'d'/i);
+    expect(INDEX_COLUMNS_SQL).toMatch(/typbasetype/i);
+    expect(INDEX_COLUMNS_SQL).toMatch(/LEFT\s+JOIN\s+pg_type\s+bt\s+ON\s+t\.typtype\s*=\s*'d'\s+AND\s+bt\.oid\s*=\s*t\.typbasetype/i);
+    // the CASE prefers the base type's oid and name
+    expect(INDEX_COLUMNS_SQL).toMatch(/CASE\s+WHEN\s+t\.typtype\s*=\s*'d'\s+THEN\s+bt\.oid\s+ELSE\s+t\.oid\s+END\s+AS\s+typoid/i);
+    expect(INDEX_COLUMNS_SQL).toMatch(/CASE\s+WHEN\s+t\.typtype\s*=\s*'d'\s+THEN\s+bt\.typname\s+ELSE\s+t\.typname\s+END\s+AS\s+typname/i);
+  });
+
+  it("response shape is unchanged for resolved domain columns (base typoid/typname flow through)", async () => {
+    // PG returns the base type for domain columns (SQL-side substitution);
+    // the route maps them like any other column.
+    const { app } = await appWithPool(
+      stubPool({
+        meta: { indnatts: 1, indnkeyatts: 1, indkey: "1", indoption: "0" },
+        columns: [{ attnum: 1, name: "pos", typoid: 23, typname: "int4", typmod: -1 }],
+      }),
+    );
+    const res = await app.inject({ method: "GET", url: "/api/indexes/24576/columns" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().columns[0]).toEqual({
+      attnum: 1,
+      name: "pos",
+      typoid: 23,
+      typname: "int4",
+      typmod: -1,
+      kind: "key",
+      isExpression: false,
+      descending: false,
+      nullsFirst: false,
+    });
+  });
+});

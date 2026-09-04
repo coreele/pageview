@@ -104,15 +104,21 @@ WHERE x.indexrelid = $1
  * btree storage datum types) JOIN pg_type, ordered by attnum (= decode
  * order). No attisdropped filter: indexes have no dropped placeholders
  * (DROP COLUMN on the table drops the index) — Spec ruling.
+ *
+ * P1 domains: a domain's pg_attribute row carries the DOMAIN's oid; btree
+ * stores and compares the BASE type's datum, so typtype='d' rows are
+ * substituted with their typbasetype (oid + typname; response shape
+ * unchanged — pure SQL-side resolution).
  */
 export const INDEX_COLUMNS_SQL = `
 SELECT a.attnum,
        a.attname AS name,
-       t.oid AS typoid,
-       t.typname,
+       CASE WHEN t.typtype = 'd' THEN bt.oid ELSE t.oid END AS typoid,
+       CASE WHEN t.typtype = 'd' THEN bt.typname ELSE t.typname END AS typname,
        a.atttypmod AS typmod
 FROM pg_attribute a
 JOIN pg_type t ON t.oid = a.atttypid
+LEFT JOIN pg_type bt ON t.typtype = 'd' AND bt.oid = t.typbasetype
 WHERE a.attrelid = $1 AND a.attnum > 0
   AND a.attnum <= (SELECT indnatts FROM pg_index WHERE indexrelid = $1)
 ORDER BY a.attnum

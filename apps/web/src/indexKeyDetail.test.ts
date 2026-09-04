@@ -13,6 +13,8 @@ import {
   deriveKeyColumnsState,
   emptyColumnsCache,
   KEY_VALUE_TRUNCATE_CHARS,
+  keyRowId,
+  pivotHeapTidText,
   shouldFetchColumns,
   toIndexColumnMeta,
 } from "./indexKeyDetail";
@@ -367,5 +369,59 @@ describe("deriveKeyColumnsState (T5: degradation copy per ui-design frozen table
     const data = columnsResponse();
     const cache = cacheAfterColumnsOk(emptyColumnsCache(), 24576, data);
     expect(deriveKeyColumnsState(cache, 24576)).toEqual({ kind: "columns", data });
+  });
+});
+
+describe("T7 P1: descending / nulls-first badges and pivot trailing heap TID", () => {
+  it("adds ↓ and nulls first badges from indoption metadata", () => {
+    const section = buildKeyValuesSection(
+      [
+        decoded({ attnum: 1, display: "5" }),
+        decoded({ attnum: 2, name: "b", typname: "text", display: "'x'" }),
+      ],
+      columnsResponse({
+        columns: [
+          column({ attnum: 1, descending: true, nullsFirst: true }),
+          column({ attnum: 2, name: "b", typoid: 25, typname: "text", kind: "include" }),
+        ],
+      }),
+    );
+    expect(section.kind).toBe("rows");
+    if (section.kind !== "rows") return;
+    expect(section.rows[0]!.kind === "value" && section.rows[0]!.badges).toEqual(["↓", "nulls first"]);
+    expect(section.rows[1]!.kind === "value" && section.rows[1]!.badges).toEqual(["include"]);
+  });
+
+  it("keyRowId follows the tuple-{lp}.col-{attnum} convention", () => {
+    expect(keyRowId(3, 2)).toBe("tuple-3.col-2");
+  });
+
+  it("pivotHeapTidText reads the trailing 6B TID of BT_PIVOT_HEAP_TID_ATTR pivots", () => {
+    const keyBytes = new Uint8Array(4);
+    new DataView(keyBytes.buffer).setInt32(0, 42, true);
+    const page = parseBtreePage(
+      buildBtreePage({
+        pageType: "internal",
+        tuples: [
+          {
+            tidBlock: 5,
+            tidOffset: 0,
+            pivot: true,
+            pivotNKeyAtts: 1,
+            pivotHeapTid: { blockNumber: 9, offsetNumber: 3 },
+            keyBytes,
+          },
+          { tidBlock: 6, tidOffset: 0, pivot: true, pivotNKeyAtts: 1, keyBytes },
+        ],
+      }),
+    );
+    expect(pivotHeapTidText(page, page.tuples[0]!)).toBe("(9,3)");
+    // pivot without the heap-TID attr bit -> null
+    expect(pivotHeapTidText(page, page.tuples[1]!)).toBeNull();
+    // non-pivot tuples never report a trailing TID
+    const leaf = parseBtreePage(
+      buildBtreePage({ pageType: "leaf", tuples: [{ tidBlock: 1, tidOffset: 1, keyBytes }] }),
+    );
+    expect(pivotHeapTidText(leaf, leaf.tuples[0]!)).toBeNull();
   });
 });

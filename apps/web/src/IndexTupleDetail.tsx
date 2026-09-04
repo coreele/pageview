@@ -1,6 +1,6 @@
 import type { ByteRange, BtreeIndexTuple, ParsedBtreePage } from "page-core";
 import { formatBytesPreview, tidRole, tInfoRows } from "./indexDetail";
-import type { KeyValuesSection } from "./indexKeyDetail";
+import { keyRowId, pivotHeapTidText, type KeyValuesSection } from "./indexKeyDetail";
 
 type Props = {
   page: ParsedBtreePage;
@@ -39,6 +39,7 @@ export function IndexTupleDetail({
   const role = tidRole(page, tuple);
   const keyPreview = formatBytesPreview(page.raw, tuple.keyRange);
   const keyId = `tuple-${tuple.lpIndex}.key`;
+  const heapTidText = pivotHeapTidText(page, tuple);
   const roleText =
     role.role === "child"
       ? "internal: child page pointer"
@@ -89,6 +90,12 @@ export function IndexTupleDetail({
 
       <div className="index-tuple-detail__line mono">
         itemlen {tuple.itemlen} · t_info 0x{tuple.t_info.toString(16).padStart(4, "0")}
+        {heapTidText != null && (
+          <>
+            {" · "}
+            <span className="key-value-row__note">heap TID tiebreaker {heapTidText}</span>
+          </>
+        )}
       </div>
 
       <div className="flag-list" aria-label="t_info bits">
@@ -104,47 +111,79 @@ export function IndexTupleDetail({
           <div className="index-tuple-detail__key-values-title">Key values</div>
           {keyValues.kind === "rows" ? (
             <div className="key-values-rows mono">
-              {keyValues.rows.map((row) => (
-                <div
-                  key={row.attnum}
-                  className={`key-value-row${row.kind === "null" ? " key-value-row--null" : ""}${row.kind === "degraded" ? " key-value-row--degraded" : ""}`}
-                >
-                  <span className="key-value-row__text">
-                    {row.attnum} {row.name} ({row.typname})
-                    {row.kind === "value" ? (
-                      <>
-                        {" = "}
+              {keyValues.rows.map((row) =>
+                row.kind === "value" && row.range ? (
+                  <div
+                    key={row.attnum}
+                    className="key-value-row key-value-row--clickable"
+                  >
+                    <button
+                      type="button"
+                      className="key-value-row__button"
+                      onClick={() =>
+                        onSelectRange(keyRowId(tuple.lpIndex, row.attnum), row.range!)
+                      }
+                      title={`Column bytes [${row.range.start}..${row.range.end}) — click to highlight in hex`}
+                    >
+                      <span className="key-value-row__text">
+                        {row.attnum} {row.name} ({row.typname}) = {" "}
                         <span className="key-value-row__value">{row.display}</span>
-                      </>
-                    ) : row.kind === "null" ? (
-                      <>
-                        {" = "}
-                        <span className="key-value-row__null">NULL</span>
-                      </>
-                    ) : (
-                      <>
-                        {" — "}
-                        <span className="key-value-row__reason">{row.reason}</span>
-                      </>
+                        {row.badges.map((b) => (
+                          <span key={b} className="detail-badge">
+                            {b}
+                          </span>
+                        ))}
+                      </span>
+                    </button>
+                    {row.truncation && (
+                      <span className="key-value-row__note">
+                        {" "}
+                        {row.truncation.total} chars total (showing first 64)
+                      </span>
                     )}
-                    {row.kind !== "degraded" &&
-                      row.badges.map((b) => (
-                        <span key={b} className="detail-badge">
-                          {b}
-                        </span>
-                      ))}
-                  </span>
-                  {row.kind === "value" && row.truncation && (
-                    <span className="key-value-row__note">
-                      {" "}
-                      {row.truncation.total} chars total (showing first 64)
+                  </div>
+                ) : (
+                  <div
+                    key={row.attnum}
+                    className={`key-value-row${row.kind === "null" ? " key-value-row--null" : ""}${row.kind === "degraded" ? " key-value-row--degraded" : ""}`}
+                  >
+                    <span className="key-value-row__text">
+                      {row.attnum} {row.name} ({row.typname})
+                      {row.kind === "value" ? (
+                        <>
+                          {" = "}
+                          <span className="key-value-row__value">{row.display}</span>
+                        </>
+                      ) : row.kind === "null" ? (
+                        <>
+                          {" = "}
+                          <span className="key-value-row__null">NULL</span>
+                        </>
+                      ) : (
+                        <>
+                          {" — "}
+                          <span className="key-value-row__reason">{row.reason}</span>
+                        </>
+                      )}
+                      {row.kind !== "degraded" &&
+                        row.badges.map((b) => (
+                          <span key={b} className="detail-badge">
+                            {b}
+                          </span>
+                        ))}
                     </span>
-                  )}
-                  {row.kind === "degraded" && row.laterNote && (
-                    <span className="key-value-row__note"> {row.laterNote}</span>
-                  )}
-                </div>
-              ))}
+                    {row.kind === "value" && row.truncation && (
+                      <span className="key-value-row__note">
+                        {" "}
+                        {row.truncation.total} chars total (showing first 64)
+                      </span>
+                    )}
+                    {row.kind === "degraded" && row.laterNote && (
+                      <span className="key-value-row__note"> {row.laterNote}</span>
+                    )}
+                  </div>
+                ),
+              )}
             </div>
           ) : (
             <div className="key-values-note muted">{keyValues.note}</div>

@@ -1617,6 +1617,26 @@ input {
   font-size: 0.75rem;
 }
 
+/* P1: value rows with a byte range are clickable -> hex highlight. */
+.key-value-row--clickable .key-value-row__button {
+  all: unset;
+  cursor: pointer;
+  display: inline;
+  color: inherit;
+  font: inherit;
+}
+
+.key-value-row--clickable .key-value-row__button:hover .key-value-row__value {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.key-value-row--clickable .key-value-row__button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+  border-radius: 2px;
+}
+
 .key-values-note {
   font-size: 0.8rem;
   line-height: 1.4;

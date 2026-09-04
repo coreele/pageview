@@ -4,7 +4,14 @@
  * the degradation state machine (copy strings frozen in ui-design.md).
  * T6 adds the per-column row model on top of these.
  */
-import type { ByteRange, DecodedKeyColumn, IndexColumnMeta } from "page-core";
+import type {
+  ByteRange,
+  BtreeIndexTuple,
+  DecodedKeyColumn,
+  IndexColumnMeta,
+  ParsedBtreePage,
+} from "page-core";
+import { BT_PIVOT_HEAP_TID_ATTR } from "page-core";
 import type { AppError, IndexColumnRow, IndexColumnsResponse } from "./api";
 
 // ---------------------------------------------------------------------------
@@ -141,7 +148,39 @@ export type KeyValuesSection =
 
 function badgesFor(meta: IndexColumnsResponse, attnum: number): string[] {
   const col = meta.columns.find((c) => c.attnum === attnum);
-  return col && col.kind === "include" ? ["include"] : [];
+  if (!col) return [];
+  const badges: string[] = [];
+  if (col.kind === "include") badges.push("include");
+  // indoption bits apply to key columns only (include columns are unordered)
+  if (col.kind === "key") {
+    if (col.descending) badges.push("↓");
+    if (col.nullsFirst) badges.push("nulls first");
+  }
+  return badges;
+}
+
+/** P1: hex-highlight selection id for one key-value row (ui-design flow 4). */
+export function keyRowId(lpIndex: number, attnum: number): string {
+  return `tuple-${lpIndex}.col-${attnum}`;
+}
+
+/**
+ * P1: text of a pivot's trailing heap TID tiebreaker ((block,offset)), or
+ * null when the tuple is not a pivot or carries no trailing TID
+ * (BT_PIVOT_HEAP_TID_ATTR gate — dev-notes rule 6).
+ */
+export function pivotHeapTidText(
+  page: ParsedBtreePage,
+  tuple: BtreeIndexTuple,
+): string | null {
+  if (!tuple.isPivot || tuple.isPosting) return null;
+  if ((tuple.t_tid.offsetNumber & BT_PIVOT_HEAP_TID_ATTR) === 0) return null;
+  const start = tuple.range.end - 6;
+  if (start < tuple.range.start) return null;
+  const view = new DataView(page.raw.buffer, page.raw.byteOffset, page.raw.byteLength);
+  const block = (view.getUint16(start, true) << 16) | view.getUint16(start + 2, true);
+  const offset = view.getUint16(start + 4, true);
+  return `(${block},${offset})`;
 }
 
 /**
