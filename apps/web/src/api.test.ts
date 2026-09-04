@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchIndexPage, listIndexes } from "./api";
+import { fetchIndexColumns, fetchIndexPage, listIndexes } from "./api";
 
 const realFetch = globalThis.fetch;
 
@@ -136,5 +136,75 @@ describe("fetchIndexPage", () => {
     await expect(fetchIndexPage(24576, 99999)).rejects.toMatchObject({
       code: "BLKNO_OUT_OF_RANGE",
     });
+  });
+});
+
+describe("fetchIndexColumns (index-key-decode T5)", () => {
+  const sampleColumns = {
+    oid: 24576,
+    schema: "public",
+    name: "t_a_b_idx",
+    qualifiedName: "public.t_a_b_idx",
+    accessMethod: "btree",
+    indnatts: 3,
+    indnkeyatts: 2,
+    hasExpression: false,
+    columns: [
+      {
+        attnum: 1,
+        name: "a",
+        typoid: 23,
+        typname: "int4",
+        typmod: -1,
+        kind: "key",
+        isExpression: false,
+        descending: false,
+        nullsFirst: false,
+      },
+      {
+        attnum: 3,
+        name: "c",
+        typoid: 23,
+        typname: "int4",
+        typmod: -1,
+        kind: "include",
+        isExpression: false,
+        descending: false,
+        nullsFirst: false,
+      },
+    ],
+  };
+
+  it("GETs /api/indexes/:oid/columns and returns the metadata envelope", async () => {
+    const fn = stubFetch(() => ({ status: 200, body: sampleColumns }));
+    const res = await fetchIndexColumns(24576);
+    expect(fn.mock.calls[0]![0]).toBe("/api/indexes/24576/columns");
+    expect(res).toEqual(sampleColumns);
+    expect(res.indnkeyatts).toBe(2);
+    expect(res.columns[1]!.kind).toBe("include");
+  });
+
+  it("propagates guard errors (NOT_INDEX / INDEX_NOT_BTREE) untouched", async () => {
+    stubFetch(() => ({
+      status: 404,
+      body: {
+        code: "NOT_INDEX",
+        message: "Relation is not an index",
+        nextStep: "Pick a user index from the index list.",
+      },
+    }));
+    await expect(fetchIndexColumns(16384)).rejects.toMatchObject({ code: "NOT_INDEX" });
+  });
+
+  it("propagates BAD_OID for non-numeric oids", async () => {
+    stubFetch(() => ({
+      status: 400,
+      body: {
+        code: "BAD_OID",
+        message: "oid must be an integer",
+        nextStep: "Pick an index from the index list, then retry.",
+      },
+    }));
+    await expect(fetchIndexColumns(Number("abc"))).rejects.toMatchObject({ code: "BAD_OID" });
   });
 });

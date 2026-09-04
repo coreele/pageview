@@ -38,6 +38,32 @@ export type IndexPageResponse = {
   pageBase64: string;
 };
 
+/** index-key-decode: one index column (index's own pg_attribute + pg_index bits). */
+export type IndexColumnRow = {
+  attnum: number;
+  name: string;
+  typoid: number;
+  typname: string;
+  typmod: number;
+  kind: "key" | "include";
+  isExpression: boolean;
+  descending: boolean;
+  nullsFirst: boolean;
+};
+
+/** GET /api/indexes/:oid/columns response (Spec API contract shape). */
+export type IndexColumnsResponse = {
+  oid: number;
+  schema: string;
+  name: string;
+  qualifiedName: string;
+  accessMethod: string;
+  indnatts: number;
+  indnkeyatts: number;
+  hasExpression: boolean;
+  columns: IndexColumnRow[];
+};
+
 export type SchemaResponse = {
   oid: number;
   schema: string;
@@ -130,6 +156,12 @@ export async function listIndexes(): Promise<IndexRow[]> {
 
 export async function fetchIndexPage(oid: number, blkno: number): Promise<IndexPageResponse> {
   const res = await fetch(`/api/indexes/${oid}/pages/${blkno}`);
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+export async function fetchIndexColumns(oid: number): Promise<IndexColumnsResponse> {
+  const res = await fetch(`/api/indexes/${oid}/columns`);
   if (!res.ok) throw await parseError(res);
   return res.json();
 }

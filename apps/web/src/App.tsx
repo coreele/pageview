@@ -14,6 +14,7 @@ import {
 } from "page-core";
 import {
   connect,
+  fetchIndexColumns,
   fetchIndexPage,
   fetchPage,
   fetchRecentWalWindow,
@@ -58,6 +59,14 @@ import {
   navButtonTitle,
   toolbarNavEnabled,
 } from "./pageToolbarNav";
+import {
+  cacheAfterColumnsFailure,
+  cacheAfterColumnsOk,
+  columnsErrorOf,
+  emptyColumnsCache,
+  shouldFetchColumns,
+  type IndexColumnsCache,
+} from "./indexKeyDetail";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
 type LoadState = "idle" | "connecting" | "loading-tables" | "loading-indexes" | "loading-page";
@@ -150,6 +159,15 @@ export function App() {
   const [selectedIndexOid, setSelectedIndexOid] = useState<number | null>(null);
   const [indexesFetched, setIndexesFetched] = useState(false);
 
+  // index-key-decode: per-oid index column metadata cache (design §5). The
+  // ref mirrors the state for synchronous fetch decisions (loadIndexBlk fires
+  // the request without awaiting); successes are sticky per oid, failures are
+  // retried on the next Load, and connect rebuilds / refreshIndexes clear it.
+  // Consumed by the key-values section rendering (T6).
+  const indexColumnsRef = useRef<IndexColumnsCache>(new Map());
+  const [indexColumns, setIndexColumns] = useState<IndexColumnsCache>(indexColumnsRef.current);
+  const indexColumnsInFlightRef = useRef<Set<number>>(new Set());
+
   // Change-4 annex 4: heap peek overlay slot — an independent slice keyed by a
   // fresh nonce per open; opening/closing never touches main-view state.
   const [heapPeek, setHeapPeek] = useState<HeapPeekSlot>(closeHeapPeekSlot());
@@ -235,6 +253,42 @@ export function App() {
     }
   }, []);
 
+  const applyIndexColumns = useCallback((next: IndexColumnsCache) => {
+    indexColumnsRef.current = next;
+    setIndexColumns(next);
+  }, []);
+
+  /** index-key-decode: connection rebuild / index-list refresh clears cached metadata (stale DB / DDL). */
+  const clearIndexColumns = useCallback(() => {
+    applyIndexColumns(emptyColumnsCache());
+  }, [applyIndexColumns]);
+
+  /**
+   * index-key-decode (P0-12/P0-13): fire-and-forget metadata fetch inside
+   * loadIndexBlk — never awaited, never setError, never touches loadState;
+   * failures degrade the key-values section only (hex-only fallback).
+   */
+  const ensureIndexColumns = useCallback(
+    (oid: number) => {
+      if (!shouldFetchColumns(indexColumnsRef.current, oid)) return;
+      if (indexColumnsInFlightRef.current.has(oid)) return;
+      indexColumnsInFlightRef.current.add(oid);
+      void fetchIndexColumns(oid)
+        .then((data) => {
+          applyIndexColumns(cacheAfterColumnsOk(indexColumnsRef.current, oid, data));
+        })
+        .catch((e: unknown) => {
+          applyIndexColumns(
+            cacheAfterColumnsFailure(indexColumnsRef.current, oid, columnsErrorOf(e)),
+          );
+        })
+        .finally(() => {
+          indexColumnsInFlightRef.current.delete(oid);
+        });
+    },
+    [applyIndexColumns],
+  );
+
   const refreshIndexes = useCallback(async () => {
     setLoadState("loading-indexes");
     setError(null);
@@ -242,12 +296,14 @@ export function App() {
       const rows = await listIndexes();
       setIndexes(rows);
       setIndexesFetched(true);
+      // index-key-decode: fresh list invalidates cached column metadata (DDL).
+      clearIndexColumns();
     } catch (e) {
       setError(e as AppError);
     } finally {
       setLoadState("idle");
     }
-  }, []);
+  }, [clearIndexColumns]);
 
   useEffect(() => {
     (async () => {
@@ -283,10 +339,12 @@ export function App() {
       resetPageView();
       setSchema(null);
       setSelectedOid(null);
-      // New database: drop stale index-list state (index-viewer).
+      // New database: drop stale index-list state (index-viewer) and cached
+      // index column metadata (index-key-decode).
       setIndexes([]);
       setSelectedIndexOid(null);
       setIndexesFetched(false);
+      clearIndexColumns();
       await refreshTables();
     } catch (err) {
       setError(err as AppError);
@@ -368,8 +426,12 @@ export function App() {
   };
 
   /**
-   * index-viewer: load one B-tree index page. Raw page only — no /schema call
-   * (Spec: index pages never fetch table column schema).
+   * index-viewer: load one B-tree index page. The page itself is fetched raw
+   * (no owning-table /schema call). index-key-decode Spec revision: loading
+   * an index page also fetches the index's own column metadata
+   * (GET /api/indexes/:oid/columns, fired in parallel below and never
+   * awaited) — it degrades the key-values section only on failure and never
+   * blocks the page render (P0-12/P0-13).
    */
   const loadIndexBlk = async (oid: number, block: number, opts?: { refresh?: boolean }) => {
     const index = indexes.find((x) => x.oid === oid) ?? null;
@@ -383,6 +445,9 @@ export function App() {
     }
     setLoadState("loading-page");
     setError(null);
+    // index-key-decode: metadata request in parallel — not awaited, no
+    // setError, no loadState involvement (P0-12/P0-13).
+    ensureIndexColumns(oid);
     try {
       const rawPage = await fetchIndexPage(oid, block);
       const bytes = Uint8Array.from(atob(rawPage.pageBase64), (c) => c.charCodeAt(0));
