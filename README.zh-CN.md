@@ -113,5 +113,6 @@ Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 | `WAL_BATCH_TOO_LARGE` | 缩小 LSN 区间（≤2000 条 / ≤2 MiB JSON / ≤16 MiB 跨度） |
 | Connection refused | 检查 host/port/凭证；确认 Postgres 在本机监听 |
 | `BLKNO_OUT_OF_RANGE` | 使用 `blkno` 在 `0 .. relpages-1` 范围内 |
+| `BAD_OID` | 构造 URL 时使用从表/索引列表取得的 oid（整数 `1..4294967295`） |
 | `INDEX_NOT_BTREE` | 索引页仅支持 B-tree；请改选访问方法为 `btree` 的索引，或浏览其所属表 |
 | `get_raw_page` / walinspect 权限不足 | 使用具备权限的角色 |

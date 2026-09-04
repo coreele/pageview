@@ -116,5 +116,6 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 | `WAL_BATCH_TOO_LARGE` | Narrow the LSN range (≤2000 records / ≤2 MiB JSON / ≤16 MiB span) |
 | Connection refused | Check host/port/credentials; Postgres listening on localhost |
 | `BLKNO_OUT_OF_RANGE` | Use `blkno` in `0 .. relpages-1` |
+| `BAD_OID` | Use an oid (integer `1..4294967295`) copied from the table/index list when building the URL |
 | `INDEX_NOT_BTREE` | Index pages support B-tree only; pick an index with access method `btree`, or browse its owning table |
 | `get_raw_page` / walinspect denied | Use a privileged role |
