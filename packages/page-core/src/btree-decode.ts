@@ -71,7 +71,7 @@ export type DecodedKeyColumn = {
 // ---------------------------------------------------------------------------
 
 type FixedSpec = { align: 1 | 2 | 4 | 8; len: 1 | 2 | 4 | 8 | 16; read: (b: Uint8Array, v: DataView, o: number) => string };
-type VarlenaSpec = { varlena: true; text: boolean };
+type VarlenaSpec = { varlena: true; read: (content: Uint8Array) => string };
 type ColumnSpec = FixedSpec | VarlenaSpec;
 
 const INT4_MIN = -0x80000000;
@@ -129,7 +129,9 @@ function formatTimestamp(v: DataView, o: number, withZ: boolean): string {
   const mi = (secs / 60n) % 60n;
   const s = secs % 60n;
   const { y, m, d } = civilFromDays(day + PG_EPOCH_TO_UNIX_DAYS);
-  const frac = micros === 0n ? "" : `.${micros.toString().padStart(6, "0")}`;
+  // PG ::text convention: the fraction drops trailing zeros (and the dot
+  // entirely when zero) — oracle-compared against UTC-session ::text.
+  const frac = micros === 0n ? "" : `.${micros.toString().padStart(6, "0").replace(/0+$/, "")}`;
   return `${pad4(y)}-${pad2(m)}-${pad2(d)}T${pad2(h)}:${pad2(mi)}:${pad2(s)}${frac}${withZ ? "Z" : ""}`;
 }
 
@@ -170,12 +172,133 @@ function decodeUtf8WithEscapes(bytes: Uint8Array): string {
 const hex = (bytes: Uint8Array): string =>
   Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 
+// ---------------------------------------------------------------------------
+// P1: numeric / float4 / float8 / bytea (formats frozen against PG 16.11
+// real index pages — see dev-notes T7 probe evidence)
+// ---------------------------------------------------------------------------
+
+/**
+ * PG float text conventions (float4out/float8out → Ryu to_chars, PG 16
+ * source-verified): specials Infinity/-Infinity/NaN; fixed-point notation
+ * while -4 <= exp10 <= 5 (float4, f2s.c) / 14 (float8, d2s.c) — thresholds
+ * chosen to match printf defaults; otherwise d.ddde±NN with a 2+ digit
+ * exponent. -0 keeps its sign.
+ */
+function formatPgFloat(value: number, maxPlainExp: number): string {
+  if (Number.isNaN(value)) return "NaN";
+  if (value === Infinity) return "Infinity";
+  if (value === -Infinity) return "-Infinity";
+  const neg = value < 0 || Object.is(value, -0);
+  const a = Math.abs(value);
+  if (a === 0) return neg ? "-0" : "0";
+
+  let digits = "";
+  let exp = 0;
+  for (let p = 1; p <= 17; p++) {
+    const se = a.toExponential(p - 1);
+    if (Number(se) === a || (maxPlainExp <= 5 && Math.fround(Number(se)) === a)) {
+      const [mant, e] = se.split("e");
+      digits = mant!.replace(".", "").replace(/0+$/, "") || "0";
+      exp = Number(e);
+      break;
+    }
+  }
+  if (digits === "") digits = String(a); // unreachable safety net
+
+  let out: string;
+  if (exp >= -4 && exp <= maxPlainExp) {
+    if (exp >= 0) {
+      out =
+        digits.length > exp + 1
+          ? `${digits.slice(0, exp + 1)}.${digits.slice(exp + 1)}`
+          : digits + "0".repeat(exp + 1 - digits.length);
+    } else {
+      out = `0.${"0".repeat(-exp - 1)}${digits}`;
+    }
+  } else {
+    const mant = digits.length > 1 ? `${digits[0]}.${digits.slice(1)}` : digits;
+    out = `${mant}e${exp < 0 ? "-" : "+"}${String(Math.abs(exp)).padStart(2, "0")}`;
+  }
+  return (neg ? "-" : "") + out;
+}
+
+/** Decode PG numeric varlena content (base-10000 digits) to exact text. */
+function formatNumeric(content: Uint8Array): string {
+  if (content.length < 2) return "NaN"; // malformed; defensive
+  const v = new DataView(content.buffer, content.byteOffset, content.byteLength);
+  const w0 = v.getUint16(0, true);
+  switch (w0 & 0xf000) {
+    case 0xc000:
+      return "NaN";
+    case 0xd000:
+      return "Infinity";
+    case 0xf000:
+      return "-Infinity";
+    default:
+      break;
+  }
+  const signBits = w0 & 0xc000;
+
+  let neg: boolean;
+  let dscale: number;
+  let weight: number;
+  let digitStart: number;
+  if (signBits === 0x8000) {
+    // short format: sign bit 0x2000; dscale bits 7-12; weight bits 0-6
+    // (biased: stored >= 64 decodes as stored - 128, range [-64, 63])
+    neg = (w0 & 0x2000) !== 0;
+    dscale = (w0 >> 7) & 0x3f;
+    const stored = w0 & 0x7f;
+    weight = stored >= 64 ? stored - 128 : stored;
+    digitStart = 2;
+  } else {
+    // long format: sign_dscale (0x4000 = negative), int16 weight, digits
+    neg = signBits === 0x4000;
+    dscale = w0 & 0x3fff;
+    weight = content.length >= 4 ? v.getInt16(2, true) : 0;
+    digitStart = 4;
+  }
+
+  const n = Math.max(0, Math.floor((content.length - digitStart) / 2));
+  const digits: number[] = [];
+  for (let i = 0; i < n; i++) digits.push(v.getUint16(digitStart + i * 2, true));
+
+  const pad4 = (d: number): string => String(d).padStart(4, "0");
+  let intStr: string;
+  let fracStr: string;
+  if (n === 0) {
+    intStr = "0";
+    fracStr = "0".repeat(dscale);
+  } else {
+    if (weight < 0) {
+      intStr = "0";
+    } else {
+      const intCount = Math.min(n, weight + 1);
+      const parts: string[] = [];
+      for (let i = 0; i < intCount; i++) parts.push(i === 0 ? String(digits[i]!) : pad4(digits[i]!));
+      if (weight >= n) parts.push("0".repeat(4 * (weight - n + 1)));
+      intStr = parts.join("");
+    }
+    // Fraction groups: digit i (i > weight) covers decimal places
+    // [4*(i-weight-1)+1 .. 4*(i-weight)]; groups before the first stored
+    // digit are implicit zeros (leading empty groups for negative weights).
+    const firstFracIdx = Math.max(0, weight + 1);
+    const leadingEmptyGroups = firstFracIdx - weight - 1;
+    let fracFull = "0000".repeat(Math.max(0, leadingEmptyGroups));
+    for (let i = firstFracIdx; i < n; i++) fracFull += pad4(digits[i]!);
+    fracStr = fracFull.slice(0, dscale).padEnd(dscale, "0");
+  }
+  return `${neg ? "-" : ""}${intStr}${dscale > 0 ? `.${fracStr}` : ""}`;
+}
+
 /** Fixed-length decoders (little-endian Datum memcpy). */
 const FIXED_SPECS: Record<number, FixedSpec> = {
   16: { align: 1, len: 1, read: (b, _v, o) => (b[o]! !== 0 ? "true" : "false") }, // bool
   20: { align: 8, len: 8, read: (_b, v, o) => v.getBigInt64(o, true).toString() }, // int8
   21: { align: 2, len: 2, read: (_b, v, o) => v.getInt16(o, true).toString() }, // int2
   23: { align: 4, len: 4, read: (_b, v, o) => v.getInt32(o, true).toString() }, // int4
+  700: { align: 4, len: 4, read: (_b, v, o) => formatPgFloat(v.getFloat32(o, true), 5) }, // float4
+  701: { align: 8, len: 8, read: (_b, v, o) => formatPgFloat(v.getFloat64(o, true), 14) }, // float8
   1082: { align: 4, len: 4, read: (_b, v, o) => formatDate(v, o) }, // date
   1114: { align: 8, len: 8, read: (_b, v, o) => formatTimestamp(v, o, false) }, // timestamp
   1184: { align: 8, len: 8, read: (_b, v, o) => formatTimestamp(v, o, true) }, // timestamptz
@@ -190,9 +313,11 @@ const FIXED_SPECS: Record<number, FixedSpec> = {
 };
 
 const VARLENA_SPECS: Record<number, VarlenaSpec> = {
-  25: { varlena: true, text: true }, // text
-  1042: { varlena: true, text: true }, // bpchar
-  1043: { varlena: true, text: true }, // varchar
+  17: { varlena: true, read: (c) => `\\x${hex(c)}` }, // bytea
+  25: { varlena: true, read: (c) => `'${decodeUtf8WithEscapes(c)}'` }, // text
+  1042: { varlena: true, read: (c) => `'${decodeUtf8WithEscapes(c)}'` }, // bpchar
+  1043: { varlena: true, read: (c) => `'${decodeUtf8WithEscapes(c)}'` }, // varchar
+  1700: { varlena: true, read: formatNumeric }, // numeric
 };
 
 /** typoid → column spec; the single policy table (no typname heuristics). */
@@ -321,7 +446,7 @@ export function decodeIndexTupleKeys(
         degrade = `cannot step past previous decode error (${col.typname}, attnum ${col.attnum})`;
         continue;
       }
-      const display = `'${decodeUtf8WithEscapes(raw.slice(r.contentStart, r.end))}'`;
+      const display = spec.read(raw.slice(r.contentStart, r.end));
       out.push({ ...colName(col), status: "value", display, range: { start: r.start, end: r.end } });
       offset = r.end;
       continue;

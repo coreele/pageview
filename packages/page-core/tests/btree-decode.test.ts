@@ -118,6 +118,10 @@ describe("decodeIndexTupleKeys — P0 scalar types (single-column leaves)", () =
     const cases: Array<[bigint, string]> = [
       [0n, "2000-01-01T00:00:00"],
       [-1n, "1999-12-31T23:59:59.999999"],
+      // PG ::text trims trailing zeros in the fraction (1370 µs -> .00137);
+      // the smoke oracle compares against UTC-session ::text directly.
+      [1370n, "2000-01-01T00:00:00.00137"],
+      [1000n, "2000-01-01T00:00:00.001"],
       [1n, "2000-01-01T00:00:00.000001"],
       [770529923456123n, "2024-06-01T04:05:23.456123"],
       [0x7fffffffffffffffn, "infinity"],
@@ -247,6 +251,42 @@ describe("decodeIndexTupleKeys — stepping (frozen rules)", () => {
     expect(out[0]!.range!.end).toBeLessThanOrEqual(page.tuples[0]!.range.end - 6);
   });
 
+  it("pivot trailing TID layout matches PG: itemlen = MAXALIGN(MAXALIGN(key)+6), TID occupies the last 6 bytes", () => {
+    // Real PG 16.11 pages (dup-text index, dev-notes T7 probe): the trailing
+    // heap TID always sits at [itemlen-6, itemlen) — nbtree.h
+    // BTreeTupleGetHeapTID reads it there — and itemlen =
+    // MAXALIGN(keytuple + 6) where keytuple itself is MAXALIGN'd. With an
+    // unaligned varlena key ('yy': 1B header + 2 bytes) the 2 bytes of pad
+    // land BETWEEN the key datum end (11) and the TID start (18).
+    const key = new Uint8Array([0x07, 0x79, 0x79]); // 'yy'
+    const page = page1([
+      { tidBlock: 2, tidOffset: 0, keyBytes: key, pivotNKeyAtts: 1, pivotHeapTid: { blockNumber: 0x10203, offsetNumber: 7 } },
+    ]);
+    const t = page.tuples[0]!;
+    expect(t.itemlen).toBe(24); // MAXALIGN(MAXALIGN(8+3) + 6) = MAXALIGN(16+6)
+    const raw = page.raw;
+    const tidStart = t.range.end - 6;
+    expect(tidStart - t.range.start).toBe(18);
+    const view = new DataView(raw.buffer, raw.byteOffset, raw.byteLength);
+    const block = view.getUint16(tidStart, true) * 0x10000 + view.getUint16(tidStart + 2, true);
+    expect(block).toBe(0x10203);
+    expect(view.getUint16(tidStart + 4, true)).toBe(7);
+    // the 5 pad bytes [11..16) + 2 alignment bytes [16..18) are zeros
+    for (let i = t.range.start + 11; i < tidStart; i++) expect(raw[i]).toBe(0);
+  });
+
+  it("decodeIndexTupleKeys tolerates the MAXALIGN pad between an unaligned varlena key datum and the trailing TID", () => {
+    const key = new Uint8Array([0x07, 0x79, 0x79]); // 'yy'
+    const page = page1([
+      { tidBlock: 2, tidOffset: 0, keyBytes: key, pivotNKeyAtts: 1, pivotHeapTid: { blockNumber: 4, offsetNumber: 9 } },
+    ]);
+    const t = page.tuples[0]!;
+    const out = decodeIndexTupleKeys(page, t, [col(1, "b", 25, "text")]);
+    expect(out[0]!.status).toBe("value");
+    expect(out[0]!.display).toBe("'yy'");
+    expect(out[0]!.range!.end - t.range.start).toBe(11); // datum only, not the pad
+  });
+
   it("pivot suffix truncation: attnum > nkeyatts columns are null (INCLUDE cols included)", () => {
     const cols3: IndexColumnMeta[] = [
       col(1, "a", 23, "int4"),
@@ -335,5 +375,225 @@ describe("decodeIndexTupleKeys — degradation", () => {
     const page = page1([{ tidBlock: 0, tidOffset: 1, keyBytes: k }]);
     const out = decodeIndexTupleKeys(page, page.tuples[0]!, [col(1, "a", 23, "int4")]);
     expect(out[0]!.display).toBe("9");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// T7 P1 extensions: numeric / float4 / float8 / bytea.
+// All byte sequences below were captured from real PG 16.11 index pages
+// (see dev-notes T7 probe evidence); the formats are frozen by them:
+//   numeric short: 1st uint16 = 0x8000 | neg(0x2000) | dscale<<7 | weight&0x7F
+//                  (weight >= 64 decodes as stored-128; range [-64,63]),
+//                  then base-10000 uint16 digits
+//   numeric long : 1st uint16 = sign|dscale (bit15 clear; 0x4000 neg),
+//                  int16 weight, then digits; specials 0xC000/0xD000/0xF000
+//   float4/float8: little-endian IEEE 754, PG text conventions
+//                  (Infinity/-Infinity/NaN; fixed-point while -4 <= exp
+//                  <= 5 (float4, f2s.c) / 14 (float8, d2s.c), matching
+//                  printf-default thresholds; otherwise d.ddde±NN)
+//   bytea        : varlena content rendered as \x + lowercase hex
+// ---------------------------------------------------------------------------
+
+function varlena(content: number[]): Uint8Array {
+  const total = 1 + content.length;
+  return new Uint8Array([(total << 1) | 1, ...content]);
+}
+
+function u16le(n: number): number[] {
+  return [n & 0xff, (n >> 8) & 0xff];
+}
+
+function f4(n: number): Uint8Array {
+  const b = new Uint8Array(4);
+  new DataView(b.buffer).setFloat32(0, n, true);
+  return b;
+}
+
+function f8(n: number): Uint8Array {
+  const b = new Uint8Array(8);
+  new DataView(b.buffer).setFloat64(0, n, true);
+  return b;
+}
+
+function decode1(keyBytes: Uint8Array, typoid: number, typname: string) {
+  const page = page1([{ tidBlock: 0, tidOffset: 1, keyBytes }]);
+  return decodeIndexTupleKeys(page, page.tuples[0]!, [col(1, "v", typoid, typname)])[0]!;
+}
+
+describe("decodeIndexTupleKeys — P1 numeric (oracle-frozen bytes)", () => {
+  const cases: Array<[number[], string]> = [
+    // 0x8000 marker; dscale<<7; weight&0x7F; base-10000 digits
+    [ [...u16le(0x8000)], "0" ],                                        // 0
+    [ [...u16le(0x8000), ...u16le(1)], "1" ],                           // 1
+    [ [...u16le(0xa000), ...u16le(1)], "-1" ],                          // -1 (0x2000 neg)
+    [ [...u16le(0x8100), ...u16le(1), ...u16le(5000)], "1.50" ],        // dscale 2, digits [1,5000]
+    [ [...u16le(0x8180), ...u16le(123), ...u16le(4560)], "123.456" ],   // dscale 3
+    [ [...u16le(0x827f), ...u16le(1)], "0.0001" ],                      // weight -1 (0x7f → -1), dscale 4
+    [ [...u16le(0x8002), ...u16le(100)], "10000000000" ],               // 1e10, weight 2
+    [ [...u16le(0x8001), ...u16le(100)], "1000000" ],                   // 1e6, weight 1
+    [ [...u16le(0x837e), ...u16le(100)], "0.000001" ],                  // 1e-6: weight -2 (0x7e), dscale 6
+    [ [...u16le(0x8c7a), ...u16le(1)], "0.000000000000000000000001" ],  // 1e-24: weight -6 (0x7a), dscale 24
+    [
+      [...u16le(0xa281), ...u16le(9), ...u16le(9999), ...u16le(9999), ...u16le(9000)],
+      "-99999.99999",
+    ],
+    [ [...u16le(0x8010), ...u16le(1)], "1" + "0".repeat(64) ],          // 1e64, weight 16
+    [ [...u16le(0xa00f), ...u16le(1000)], "-" + "1" + "0".repeat(63) ], // -1e63, weight 15
+  ];
+  for (const [bytes, want] of cases) {
+    it(`numeric short ${want}`, () => {
+      const out = decode1(varlena(bytes), 1700, "numeric");
+      expect(out.status).toBe("value");
+      expect(out.display).toBe(want);
+    });
+  }
+
+  it("numeric long: 1e300 (weight 75 > 63)", () => {
+    const out = decode1(
+      varlena([...u16le(0x0000), ...u16le(75), ...u16le(1)]),
+      1700,
+      "numeric",
+    );
+    expect(out.display).toBe("1" + "0".repeat(300));
+  });
+
+  it("numeric long: 1e-300 (weight -75, dscale 300)", () => {
+    const out = decode1(
+      varlena([...u16le(0x012c), ...u16le(0xffb5), ...u16le(1)]),
+      1700,
+      "numeric",
+    );
+    expect(out.display).toBe("0." + "0".repeat(299) + "1");
+  });
+
+  it("numeric long: dscale 150 literal", () => {
+    // sign_dscale = 150 (0x0096), weight -38 (0xffda), digits [100]
+    const out = decode1(
+      varlena([...u16le(0x0096), ...u16le(0xffda), ...u16le(100)]),
+      1700,
+      "numeric",
+    );
+    expect(out.display).toBe("0." + "0".repeat(148) + "01");
+  });
+
+  it("numeric long: negative sign bit 0x4000", () => {
+    // -(1e300): sign_dscale = 0x4000
+    const out = decode1(
+      varlena([...u16le(0x4000), ...u16le(75), ...u16le(1)]),
+      1700,
+      "numeric",
+    );
+    expect(out.display).toBe("-" + "1" + "0".repeat(300));
+  });
+
+  it("numeric specials: NaN / Infinity / -Infinity (2-byte payload)", () => {
+    expect(decode1(varlena([...u16le(0xc000)]), 1700, "numeric").display).toBe("NaN");
+    expect(decode1(varlena([...u16le(0xd000)]), 1700, "numeric").display).toBe("Infinity");
+    expect(decode1(varlena([...u16le(0xf000)]), 1700, "numeric").display).toBe("-Infinity");
+  });
+
+  it("numeric zero with dscale renders trailing zeros (numeric(10,2) 0)", () => {
+    // dscale 2, no digits
+    const out = decode1(varlena([...u16le(0x8100)]), 1700, "numeric");
+    expect(out.display).toBe("0.00");
+  });
+
+  it("numeric 4-byte varlena header (>127B) steps correctly", () => {
+    // 60-digit number with a 4B varlena header: content = 2B header + 15 digits
+    const digits = [1234, 5678, 9012, 3456, 7890, 1234, 5678, 9012, 3456, 7890, 1234, 5678, 9012, 3456, 7890];
+    const content = [...u16le(0x800e), ...digits.flatMap((d) => u16le(d))];
+    const total = 4 + content.length; // 4B header
+    const buf = new Uint8Array(total);
+    new DataView(buf.buffer).setUint32(0, (total << 2) >>> 0, true);
+    buf.set(content, 4);
+    const out = decode1(buf, 1700, "numeric");
+    expect(out.display).toBe(digits.map(String).join(""));
+  });
+});
+
+describe("decodeIndexTupleKeys — P1 float4 (PG text conventions)", () => {
+  const cases: Array<[number, string]> = [
+    [0, "0"],
+    [1, "1"],
+    [-1, "-1"],
+    [Math.fround(0.1), "0.1"],
+    [Math.fround(123456.789), "123456.79"],
+    [999999, "999999"],
+    [1e5, "100000"],
+    [1e6, "1e+06"],
+    [1e7, "1e+07"],
+    [1e8, "1e+08"],
+    [Math.fround(123.456e-7), "1.23456e-05"],
+    [1e-30, "1e-30"],
+    [3.4028235e38, "3.4028235e+38"],
+    [Infinity, "Infinity"],
+    [-Infinity, "-Infinity"],
+    [NaN, "NaN"],
+    [-0, "-0"],
+  ];
+  for (const [v, want] of cases) {
+    it(`float4 ${want}`, () => {
+      const out = decode1(f4(v), 700, "float4");
+      expect(out.status).toBe("value");
+      expect(out.display).toBe(want);
+    });
+  }
+});
+
+describe("decodeIndexTupleKeys — P1 float8 (PG text conventions)", () => {
+  const cases: Array<[number, string]> = [
+    [0, "0"],
+    [1, "1"],
+    [-1, "-1"],
+    [0.1, "0.1"],
+    [123456.789, "123456.789"],
+    [123456789012345, "123456789012345"],
+    [1234567890123456, "1.234567890123456e+15"],
+    [1e-30, "1e-30"],
+    [1.5e-7, "1.5e-07"],
+    [0.0001, "0.0001"],
+    [0.00001, "1e-05"],
+    [1e14, "100000000000000"],
+    [1e15, "1e+15"],
+    [1e16, "1e+16"],
+    [1.7976931348623157e308, "1.7976931348623157e+308"],
+    [2.2250738585072014e-308, "2.2250738585072014e-308"],
+    [3.141592653589793, "3.141592653589793"],
+    [Infinity, "Infinity"],
+    [-Infinity, "-Infinity"],
+    [NaN, "NaN"],
+    [-0, "-0"],
+  ];
+  for (const [v, want] of cases) {
+    it(`float8 ${want}`, () => {
+      const out = decode1(f8(v), 701, "float8");
+      expect(out.status).toBe("value");
+      expect(out.display).toBe(want);
+    });
+  }
+});
+
+describe("decodeIndexTupleKeys — P1 bytea", () => {
+  it("renders \\x-prefixed lowercase hex", () => {
+    expect(decode1(varlena([0x00, 0x11, 0xff]), 17, "bytea").display).toBe("\\x0011ff");
+    expect(
+      decode1(varlena([0xde, 0xad, 0xbe, 0xef, 0xca, 0xfe, 0xba, 0xbe, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]), 17, "bytea").display,
+    ).toBe("\\xdeadbeefcafebabe0123456789abcdef");
+  });
+
+  it("renders empty bytea as \\x", () => {
+    expect(decode1(varlena([]), 17, "bytea").display).toBe("\\x");
+  });
+
+  it("steps to an attalign-aligned fixed column after a varlena (composite (bytea, int4))", () => {
+    // int4 is attalign 'i': after the 2-byte varlena it starts at offset 4
+    const key = new Uint8Array([...varlena([0xaa]), 0, 0, 7, 0, 0, 0]);
+    const page = page1([{ tidBlock: 0, tidOffset: 1, keyBytes: key }]);
+    const out = decodeIndexTupleKeys(page, page.tuples[0]!, [
+      col(1, "b", 17, "bytea"),
+      col(2, "i", 23, "int4"),
+    ]);
+    expect(out[0]!.display).toBe("\\xaa");
+    expect(out[1]!.display).toBe("7");
   });
 });

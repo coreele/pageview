@@ -284,10 +284,16 @@ function packIndexTuple(t: BuiltBtreeTuple): { body: Uint8Array } {
     return { body };
   }
   const heapTid = t.pivotHeapTid;
-  const tail = heapTid ? 6 : 0;
+  // PG layout (indextuple.c index_form_tuple + nbtree.h BTreeTupleGetHeapTID,
+  // oracle-frozen on PG 16.11 dup-text captures): the key tuple itself is
+  // MAXALIGN'd; a pivot's trailing heap TID occupies the LAST 6 bytes of an
+  // itemlen that is MAXALIGN(keytuple + 6) — up to 7 pad bytes (2 when the
+  // keytuple is already aligned) sit BETWEEN the key datum end and the TID.
   const body = new Uint8Array(
     t.pivotNKeyAtts !== undefined || t.presentAttnums !== undefined
-      ? maxalign8(dataIndex + key.length + tail)
+      ? heapTid
+        ? maxalign8(maxalign8(dataIndex + key.length) + 6)
+        : maxalign8(dataIndex + key.length)
       : 8 + key.length,
   );
   let posid = 0;
@@ -311,7 +317,7 @@ function packIndexTuple(t: BuiltBtreeTuple): { body: Uint8Array } {
   writeInvertedBitmap(body, t.presentAttnums);
   body.set(key, dataIndex);
   if (heapTid) {
-    const o = dataIndex + key.length;
+    const o = body.length - 6; // nbtree.h: ItemPointer at IndexTupleSize - 6
     writeU16(body, o, (heapTid.blockNumber >>> 16) & 0xffff);
     writeU16(body, o + 2, heapTid.blockNumber & 0xffff);
     writeU16(body, o + 4, heapTid.offsetNumber);
