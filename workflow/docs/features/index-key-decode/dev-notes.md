@@ -90,11 +90,11 @@ design §3 的「无逐列对齐」「⌈indnatts/8⌉ bitmap」「位=1 为 NUL
 ## T7 — P1 类型扩展（2026-09-01）
 
 - 解码：numeric（short/long 双格式、base-10000、NaN/±Infinity）、float4/float8（IEEE 754 小端）、bytea（`\x`+小写 hex）入 `KEY_COLUMN_SPECS` 策略表；domain 由 server SQL 侧替换基类型后直接命中。
-- **格式冻结证据（实库）**：探针脚本（临时，未提交）seed 全形状后经 `decodeIndexTupleKeys` vs UTC 会话 `::text`：numeric 22 形状（1e±300、1e63/64、dscale 保留尾零、NaN/±Inf、64 位 π）、float4 14、float8 17、bytea 5、domain 替换——全部一致。其中 float4/float8 期望值曾与实库冲突（1e7→`1e+07` 非 `10000000`；首版探针 INSERT 未真正入库 float 电池，误判“恒纯小数”）：依 `~/postgres/src/common/{f2s.c,d2s.c}` `to_chars`（定点 iff `−4≤exp≤5`(f4)/`≤14`(f8)，printf 默认阈值）修正 `formatPgFloat` 阈值与测试后全绿。
+- **格式冻结证据（实库）**：临时探针脚本 seed 全形状后 `decodeIndexTupleKeys` vs UTC 会话 `::text`：numeric 22 形状（1e±300、1e63/64、dscale 尾零保留、NaN/±Inf、64 位 π）、float4 14、float8 17、bytea 5、domain 替换——全部一致。在制版本的 float 阈值（7/15）与实库冲突（1e7→`1e+07` 非 `10000000`；首版探针 INSERT 未真正入库 float 电池致误判）：按 `~/postgres/src/common/{f2s.c,d2s.c}` `to_chars`（定点 iff `−4≤exp≤5`(f4)/`≤14`(f8)，printf 默认阈值）修正后全绿。
 - 顺带修复（TDD 先红）：timestamp/timestamptz 小数秒尾零裁剪（µs=1370 → `.00137`，PG ::text 口径；T2/T6 种子未踩中尾零故未暴露）。
 - server：`INDEX_COLUMNS_SQL` 域列 `typtype='d'` → typbasetype 替换（响应形状不变，纯 SQL 变更）+ 契约/路由测试。
 - UI：`↓`/`nulls first` 徽标（仅 key 列，indoption 位）；键值行可点击（`<button>`，Tab/Enter/Space）→ hex 高亮该列字节区间（id `tuple-{lp}.col-{attnum}`，复用既有 onSelectRange）；pivot 尾部 heap TID 在 itemlen 行显示 `(block,offset)`（`pivotHeapTidText`，BT_PIVOT_HEAP_TID_ATTR 门控）。
-- BC 年份（y≤0）：plan T7 完成条件不含，维持记录局限（PG ::text 带 `BC` 后缀，我们 civil 输出负/零年），后续可补。
+- BC 年份（y≤0）：plan T7 完成条件不含，按“处理或记录”裁决记录局限（见未解决风险）。
 
 ## T8 — 集成冒烟与 CI（2026-09-01）
 
@@ -114,7 +114,7 @@ design §3 的「无逐列对齐」「⌈indnatts/8⌉ bitmap」「位=1 为 NUL
 ## 验证证据汇总（T5–T9 批）
 
 - L2：`pnpm test` 全绿 — wal-core 13 + page-core 158 + server 81 + web 136；`pnpm -r typecheck`、`pnpm -r build` 零错误。
-- L3：`pnpm test:integration` 退出 0（含新 index-key-decode 段：10569 leaf/posting 对照、16 尾 TID pivot、守卫/降级断言；既有段零回退）。
+- L3：`pnpm test:integration` 退出 0（含新 index-key-decode 段，证据见 T8 节；既有段零回退）。
 - 探针脚本（pivot-probe.ts / p1-format-probe.ts）：一次性证据工具，不入库（不在 plan 触碰路径）；其检查已由 T8 冒烟段永久化。
 
 ## 手测清单（ui-design；浏览器项待补测）
@@ -135,6 +135,6 @@ design §3 的「无逐列对齐」「⌈indnatts/8⌉ bitmap」「位=1 为 NUL
 
 - 本地 PG 由 Developer 本次会话启动（pg_ctl -D ~/pgdata，socket /tmp），供 T2 实捕与 L3 冒烟；后续批次（T5–T9）若需实库，同一方式启动。
 - 步进规则表偏差（bitmap 固定 4B/位反转/定长列对齐/nkeyatts 直读/minus-inf==0/尾 TID 按标志位）已按用户裁决以 oracle 为准实现；Reviewer 复核时请对照 dev-notes 规则表而非 design §3 原文。
-- t_comp 种子 b 定长 4 字符，混合长度对齐由 idx-align（变长 b）与探针场景锁定；BC 年份（y≤0）日期格式未覆盖（PG ::text 会带 BC 后缀，我们的 civil 输出为负年份）——超出 P0 验收范围；T7 按 plan 范围处理为记录局限（plan T7 完成条件不含 BC），后续如需可补。
+- t_comp 种子 b 定长 4 字符，混合长度对齐由 idx-align（变长 b）与探针场景锁定；BC 年份（y≤0）日期格式未覆盖（PG ::text 带 `BC` 后缀，我们 civil 输出负/零年）——超出 P0 验收范围且 plan T7 完成条件不含，按“处理或记录”记录局限，后续可补。
 - 手测清单（上节）为浏览器待办，UI 验收点未核验前不应视 P0-13/P1 视觉项为已证。
 - idx-null 捕获页含 1 个垃圾 LP_NORMAL 元组（页复用残留，无 oracle 行值）；解码器容忍（bytes 不足/越界降级路径存在），未做专门断言。
