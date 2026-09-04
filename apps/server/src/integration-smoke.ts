@@ -6,7 +6,13 @@
  */
 import { config } from "dotenv";
 import { resolve } from "node:path";
-import { parseBtreePage, type ParsedBtreePage } from "page-core";
+import {
+  BT_PIVOT_HEAP_TID_ATTR,
+  decodeIndexTupleKeys,
+  parseBtreePage,
+  type IndexColumnMeta,
+  type ParsedBtreePage,
+} from "page-core";
 import {
   emptySession,
   parsePgMajorVersion,
@@ -29,6 +35,7 @@ config();
 // ---------------------------------------------------------------------------
 
 const SMOKE_IX_SCHEMA = "pageview_smoke_ix";
+const SMOKE_IXKD_SCHEMA = "pageview_smoke_ixkd";
 
 type InjectApp = Awaited<ReturnType<typeof buildApp>>["app"];
 
@@ -291,6 +298,331 @@ async function btreeIndexSmoke(app: InjectApp, session: SessionState): Promise<v
 // never leaves the instance without them.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// index-key-decode segment (T8): columns endpoint shape + guards through
+// the API, then decodeIndexTupleKeys on real leaf/internal pages compared
+// with UTC-session ctid-row ::text values (Spec oracle). Covers P0 types,
+// P1 types (numeric/float4/float8/bytea + specials), NULLs, posting tuples,
+// pivots with the trailing heap TID (decode equals the SQL row at that TID),
+// indoption (DESC) bits, expression/jsonb degradation, and domain columns.
+// ---------------------------------------------------------------------------
+
+type ColsApiResponse = {
+  oid: number;
+  schema: string;
+  name: string;
+  qualifiedName: string;
+  accessMethod: string;
+  indnatts: number;
+  indnkeyatts: number;
+  hasExpression: boolean;
+  columns: Array<{
+    attnum: number;
+    name: string;
+    typoid: number;
+    typname: string;
+    typmod: number;
+    kind: string;
+    isExpression: boolean;
+    descending: boolean;
+    nullsFirst: boolean;
+  }>;
+};
+
+/** Normalize a UTC-session ::text row value to the decode display contract. */
+function kdNormalize(typname: string, v: string): string {
+  switch (typname) {
+    case "text":
+    case "varchar":
+    case "bpchar":
+      return `'${v}'`;
+    case "timestamp":
+      return v.replace(" ", "T");
+    case "timestamptz":
+      return v.replace(" ", "T").replace(/\+00$/, "Z");
+    default:
+      return v;
+  }
+}
+
+async function indexKeyDecodeSmoke(app: InjectApp, session: SessionState): Promise<void> {
+  const client = await session.pool!.connect();
+  const q = (text: string, values?: unknown[]) => client.query(text, values);
+  const S = SMOKE_IXKD_SCHEMA;
+  let compared = 0;
+  let pivotTidCompared = 0;
+  try {
+    await q(`DROP SCHEMA IF EXISTS ${S} CASCADE`);
+    await q(`CREATE SCHEMA ${S}`);
+    await q(`SET TimeZone = 'UTC'`);
+
+    // -- P1 type battery (numeric/float4/float8/bytea incl. specials) ------
+    await q(`CREATE TABLE ${S}.kd_p1 (n numeric, f4 float4, f8 float8, by bytea)`);
+    await q(`INSERT INTO ${S}.kd_p1 VALUES
+      (0, 0, 0, ''::bytea),
+      (1, 1, 1, decode('00','hex')),
+      (-1, -1, -1, decode('0011ff','hex')),
+      (1.50, 0.1, 0.1, decode('deadbeefcafebabe0123456789abcdef','hex')),
+      (123.456, 123456.79, 123456.789, decode(repeat('ab', 70), 'hex')),
+      (1e10, 1e7, 1e15, NULL),
+      (1e63, 1e8, 1e16, NULL),
+      (1e64, 3.4028235e38, 1.7976931348623157e308, NULL),
+      (1e-24, 1e-30, 2.2250738585072014e-308, NULL),
+      (1e-300, 1.1754944e-38, 1e-30, NULL),
+      (1e300, 'NaN'::float4, 'NaN'::float8, NULL),
+      (99999999999999999999.99999, 'Infinity'::float4, 'Infinity'::float8, NULL),
+      (0.0001, '-Infinity'::float4, '-Infinity'::float8, NULL),
+      (0.00001, -0, -0, NULL),
+      ('NaN'::numeric, NULL, NULL, NULL),
+      ('Infinity'::numeric, NULL, NULL, NULL),
+      ('-Infinity'::numeric, NULL, NULL, NULL),
+      (3.14159265358979323846264338327950288, NULL, NULL, NULL)`);
+    await q(`CREATE INDEX kd_p1_n_idx ON ${S}.kd_p1 (n)`);
+    await q(`CREATE INDEX kd_p1_f4_idx ON ${S}.kd_p1 (f4)`);
+    await q(`CREATE INDEX kd_p1_f8_idx ON ${S}.kd_p1 (f8)`);
+    await q(`CREATE INDEX kd_p1_by_idx ON ${S}.kd_p1 (by)`);
+
+    // -- P0 scalar battery (date/timestamp/timestamptz/uuid/bool) ----------
+    await q(`CREATE TABLE ${S}.kd_sc (d date, ts timestamp, tst timestamptz, u uuid, bo boolean)`);
+    await q(`INSERT INTO ${S}.kd_sc SELECT
+      date '2000-01-01' + (g * 37) + CASE WHEN g % 997 = 0 THEN 1 ELSE 0 END * 1000000,
+      timestamp '2000-01-01 00:00:00' + (g * 137) * interval '1 microsecond',
+      timestamptz '2000-01-01 00:00:00' + (g * 1013) * interval '1 microsecond',
+      case when g % 17 = 0 then gen_random_uuid() else md5(g::text)::uuid end,
+      g % 3 = 0
+      FROM generate_series(1, 2500) g`);
+    await q(`INSERT INTO ${S}.kd_sc VALUES
+      ('infinity'::date, 'infinity'::timestamp, 'infinity'::timestamptz, NULL, NULL),
+      ('-infinity'::date, '-infinity'::timestamp, '-infinity'::timestamptz, NULL, NULL)`);
+    await q(`CREATE INDEX kd_sc_d_idx ON ${S}.kd_sc (d)`);
+    await q(`CREATE INDEX kd_sc_ts_idx ON ${S}.kd_sc (ts)`);
+    await q(`CREATE INDEX kd_sc_tst_idx ON ${S}.kd_sc (tst)`);
+    await q(`CREATE INDEX kd_sc_u_idx ON ${S}.kd_sc (u)`);
+    await q(`CREATE INDEX kd_sc_bo_idx ON ${S}.kd_sc (bo)`);
+
+    // -- composite with NULLs / multibyte / empty / >64 chars -------------
+    await q(`CREATE TABLE ${S}.kd_mix (a int, b text)`);
+    await q(`INSERT INTO ${S}.kd_mix SELECT
+      CASE WHEN g % 23 = 0 THEN NULL ELSE g % 40 END,
+      CASE WHEN g % 19 = 0 THEN NULL
+           WHEN g % 15 = 0 THEN ''
+           WHEN g % 11 = 0 THEN convert_from(decode('e4bda0e5a5bd','hex'),'utf8') || repeat('!', g % 3)
+           WHEN g % 7 = 0 THEN repeat('L', 70 + g % 5)
+           ELSE repeat('x', (g % 6) + 1) END
+      FROM generate_series(1, 6000) g`);
+    await q(`CREATE INDEX kd_mix_idx ON ${S}.kd_mix (a, b)`);
+
+    // -- duplicates: pivots with trailing heap TID + posting tuples --------
+    await q(`CREATE TABLE ${S}.kd_dup (b text NOT NULL)`);
+    await q(`INSERT INTO ${S}.kd_dup SELECT repeat('y', (g % 3) + 1) FROM generate_series(1, 20000) g`);
+    await q(`CREATE INDEX kd_dup_idx ON ${S}.kd_dup (b)`);
+
+    // -- indoption / expression / jsonb / hash guard ------------------------
+    await q(`CREATE TABLE ${S}.kd_desc (a int, b int)`);
+    await q(`INSERT INTO ${S}.kd_desc SELECT g % 30, g % 5 FROM generate_series(1, 2000) g`);
+    await q(`CREATE INDEX kd_desc_idx ON ${S}.kd_desc (a DESC, b)`);
+    await q(`CREATE TABLE ${S}.kd_expr (name text)`);
+    await q(`INSERT INTO ${S}.kd_expr SELECT md5(g::text) FROM generate_series(1, 500) g`);
+    await q(`CREATE INDEX kd_expr_idx ON ${S}.kd_expr (lower(name))`);
+    await q(`CREATE INDEX kd_expr_hash ON ${S}.kd_expr USING hash (name)`);
+    await q(`CREATE TABLE ${S}.kd_js (a int, j jsonb)`);
+    await q(`INSERT INTO ${S}.kd_js SELECT g % 20, jsonb_build_object('k', g) FROM generate_series(1, 1000) g`);
+    await q(`CREATE INDEX kd_js_idx ON ${S}.kd_js (a, j)`);
+    await q(`CREATE INDEX kd_js_only_idx ON ${S}.kd_js (j)`);
+
+    const list = (
+      await app.inject({ method: "GET", url: "/api/indexes" })
+    ).json().indexes as Array<{ oid: number; qualifiedName: string }>;
+    const oidOf = (qualified: string): number => {
+      const e = list.find((x) => x.qualifiedName === qualified);
+      check(e != null, `index ${qualified} missing from list`);
+      return e!.oid;
+    };
+
+    const fetchColumns = async (oid: number): Promise<ColsApiResponse> => {
+      const res = await app.inject({ method: "GET", url: `/api/indexes/${oid}/columns` });
+      check(res.statusCode === 200, `GET columns ${oid} -> ${res.statusCode} ${res.body}`);
+      return res.json() as ColsApiResponse;
+    };
+
+    // 1) Endpoint shape: composite (a int, b text) ------------------------
+    const mixCols = await fetchColumns(oidOf(`${S}.kd_mix_idx`));
+    check(mixCols.schema === S && mixCols.name === "kd_mix_idx", "mix qualifiedName parts");
+    check(mixCols.qualifiedName === `${S}.kd_mix_idx`, "mix qualifiedName");
+    check(mixCols.accessMethod === "btree", "mix accessMethod");
+    check(mixCols.indnatts === 2 && mixCols.indnkeyatts === 2, `mix indnatts ${mixCols.indnatts}/${mixCols.indnkeyatts}`);
+    check(mixCols.hasExpression === false, "mix hasExpression");
+    check(mixCols.columns.length === 2, `mix columns ${mixCols.columns.length}`);
+    check(mixCols.columns[0]!.name === "a" && mixCols.columns[0]!.typname === "int4", "mix col0");
+    check(mixCols.columns[0]!.kind === "key" && !mixCols.columns[0]!.isExpression, "mix col0 kind");
+    check(mixCols.columns[0]!.descending === false && mixCols.columns[0]!.nullsFirst === false, "mix col0 indoption");
+    check(mixCols.columns[1]!.name === "b" && mixCols.columns[1]!.typname === "text", "mix col1");
+
+    // DESC bits: (a DESC, b) — PG records DESC with default NULLS FIRST (dev-notes T4)
+    const descCols = await fetchColumns(oidOf(`${S}.kd_desc_idx`));
+    check(descCols.columns[0]!.descending === true, "desc col0 descending");
+    check(descCols.columns[0]!.nullsFirst === true, "desc col0 nullsFirst");
+    check(descCols.columns[1]!.descending === false && descCols.columns[1]!.nullsFirst === false, "desc col1 indoption");
+
+    // 2) Guards ------------------------------------------------------------
+    const tableOid = Number((await q(`SELECT '${S}.kd_mix'::regclass::oid AS oid`)).rows[0].oid);
+    const tableRes = await app.inject({ method: "GET", url: `/api/indexes/${tableOid}/columns` });
+    check(tableRes.statusCode === 404, `table oid columns -> ${tableRes.statusCode}`);
+    check((tableRes.json() as { code: string }).code === "NOT_INDEX", "table oid code");
+    const hashRes = await app.inject({ method: "GET", url: `/api/indexes/${oidOf(`${S}.kd_expr_hash`)}/columns` });
+    check(hashRes.statusCode === 400, `hash columns -> ${hashRes.statusCode}`);
+    check((hashRes.json() as { code: string }).code === "INDEX_NOT_BTREE", "hash code");
+    const badOidRes = await app.inject({ method: "GET", url: "/api/indexes/abc/columns" });
+    check(badOidRes.statusCode === 400, `bad oid columns -> ${badOidRes.statusCode}`);
+    check((badOidRes.json() as { code: string }).code === "BAD_OID", "bad oid code");
+
+    // 3) Leaf / posting decode vs UTC ::text row values --------------------
+    const fetchPage = async (oid: number, blkno: number): Promise<ParsedBtreePage> => {
+      const res = await app.inject({ method: "GET", url: `/api/indexes/${oid}/pages/${blkno}` });
+      check(res.statusCode === 200, `GET page ${oid}/${blkno} -> ${res.statusCode} ${res.body}`);
+      return parseBtreePage(Buffer.from((res.json() as { pageBase64: string }).pageBase64, "base64"));
+    };
+
+    const compareLeaves = async (
+      indexQualified: string,
+      tableQualified: string,
+      tableColumns: string[],
+      meta: IndexColumnMeta[],
+      opts?: { expectPosting?: boolean },
+    ): Promise<number> => {
+      const oid = oidOf(indexQualified);
+      // ctid -> row values, preloaded once (UTC ::text) with stable aliases
+      const sel = tableColumns.map((c, i) => `${c}::text AS c${i}`).join(", ");
+      const rows = await q(`SELECT ctid::text AS ctid, ${sel} FROM ${tableQualified}`);
+      const byCtid = new Map<string, Array<string | null>>();
+      for (const r of rows.rows as Record<string, unknown>[]) {
+        byCtid.set(
+          String(r.ctid),
+          tableColumns.map((_, i) => (r[`c${i}`] as string | null) ?? null),
+        );
+      }
+      const blocks = Number((await q(`SELECT pg_relation_size($1::text) / 8192 AS b`, [indexQualified])).rows[0].b);
+      let n = 0;
+      let sawPosting = false;
+      for (let blk = 1; blk < blocks; blk++) {
+        const page = await fetchPage(oid, blk);
+        for (const t of page.tuples) {
+          if (t.isPivot) continue; // pivots compared separately (kd_dup)
+          const tid = t.isPosting ? (t.postingTids?.[0] ?? t.t_tid) : t.t_tid;
+          if (t.isPosting) sawPosting = true;
+          const row = byCtid.get(`(${tid.blockNumber},${tid.offsetNumber})`);
+          check(row !== undefined, `${indexQualified} blk${blk} lp${t.itemoffset}: no row at ${tid.blockNumber},${tid.offsetNumber}`);
+          const out = decodeIndexTupleKeys(page, t, meta);
+          for (let i = 0; i < meta.length; i++) {
+            const m = meta[i]!;
+            const want = row![i] === null ? null : kdNormalize(m.typname, row![i]!);
+            const got = out[i]!;
+            const gotText = got.status === "null" ? null : got.status === "value" ? got.display : `!${got.status}:${got.reason}`;
+            check(
+              gotText === want,
+              `${indexQualified} blk${blk} lp${t.itemoffset} attnum${m.attnum} (${m.typname}): decoded=${JSON.stringify(gotText)} sql=${JSON.stringify(want)}`,
+            );
+          }
+          n++;
+        }
+      }
+      if (opts?.expectPosting) check(sawPosting, `${indexQualified}: expected posting tuples`);
+      return n;
+    };
+
+    const metaOf = (c: ColsApiResponse): IndexColumnMeta[] =>
+      c.columns.map((x) => ({ attnum: x.attnum, name: x.name, typoid: x.typoid, typname: x.typname, kind: x.kind === "include" ? "include" : "key" }));
+
+    compared += await compareLeaves(`${S}.kd_p1_n_idx`, `${S}.kd_p1`, ["n"], metaOf(await fetchColumns(oidOf(`${S}.kd_p1_n_idx`))));
+    compared += await compareLeaves(`${S}.kd_p1_f4_idx`, `${S}.kd_p1`, ["f4"], metaOf(await fetchColumns(oidOf(`${S}.kd_p1_f4_idx`))));
+    compared += await compareLeaves(`${S}.kd_p1_f8_idx`, `${S}.kd_p1`, ["f8"], metaOf(await fetchColumns(oidOf(`${S}.kd_p1_f8_idx`))));
+    compared += await compareLeaves(`${S}.kd_p1_by_idx`, `${S}.kd_p1`, ["by"], metaOf(await fetchColumns(oidOf(`${S}.kd_p1_by_idx`))));
+    compared += await compareLeaves(`${S}.kd_sc_d_idx`, `${S}.kd_sc`, ["d"], metaOf(await fetchColumns(oidOf(`${S}.kd_sc_d_idx`))));
+    compared += await compareLeaves(`${S}.kd_sc_ts_idx`, `${S}.kd_sc`, ["ts"], metaOf(await fetchColumns(oidOf(`${S}.kd_sc_ts_idx`))));
+    compared += await compareLeaves(`${S}.kd_sc_tst_idx`, `${S}.kd_sc`, ["tst"], metaOf(await fetchColumns(oidOf(`${S}.kd_sc_tst_idx`))));
+    compared += await compareLeaves(`${S}.kd_sc_u_idx`, `${S}.kd_sc`, ["u"], metaOf(await fetchColumns(oidOf(`${S}.kd_sc_u_idx`))));
+    compared += await compareLeaves(`${S}.kd_sc_bo_idx`, `${S}.kd_sc`, ["bo"], metaOf(await fetchColumns(oidOf(`${S}.kd_sc_bo_idx`))));
+    compared += await compareLeaves(`${S}.kd_mix_idx`, `${S}.kd_mix`, ["a", "b"], metaOf(mixCols));
+    compared += await compareLeaves(`${S}.kd_dup_idx`, `${S}.kd_dup`, ["b"], metaOf(await fetchColumns(oidOf(`${S}.kd_dup_idx`))), { expectPosting: true });
+
+    // 4) Internal pivots with trailing heap TID: decoded key equals the SQL
+    //    row located at the tiebreaker TID (nbtree.h BTreeTupleGetHeapTID).
+    {
+      const dupQualified = `${S}.kd_dup_idx`;
+      const oid = oidOf(dupQualified);
+      const meta = metaOf(await fetchColumns(oid));
+      const rows = await q(`SELECT ctid::text AS ctid, b::text AS b FROM ${S}.kd_dup`);
+      const byCtid = new Map<string, string | null>();
+      for (const r of rows.rows as Record<string, unknown>[]) {
+        byCtid.set(String(r.ctid), (r.b as string | null) ?? null);
+      }
+      const blocks = Number((await q(`SELECT pg_relation_size($1::text) / 8192 AS b`, [dupQualified])).rows[0].b);
+      for (let blk = 1; blk < blocks; blk++) {
+        const page = await fetchPage(oid, blk);
+        if (page.pageType !== "internal") continue;
+        for (const t of page.tuples) {
+          if (!t.isPivot) continue;
+          const hasTid = (t.t_tid.offsetNumber & BT_PIVOT_HEAP_TID_ATTR) !== 0;
+          if (!hasTid) continue;
+          const view = new DataView(page.raw.buffer, page.raw.byteOffset, page.raw.byteLength);
+          const tidStart = t.range.end - 6; // TID occupies the LAST 6 bytes (oracle-frozen)
+          const block = view.getUint16(tidStart, true) * 0x10000 + view.getUint16(tidStart + 2, true);
+          const offset = view.getUint16(tidStart + 4, true);
+          const want = byCtid.get(`(${block},${offset})`) ?? null;
+          const out = decodeIndexTupleKeys(page, t, meta)[0]!;
+          const got = out.status === "null" ? null : out.status === "value" ? out.display : `!${out.status}`;
+          check(
+            got === (want === null ? null : kdNormalize("text", want)),
+            `pivot ${dupQualified} blk${blk} lp${t.itemoffset}: decoded=${JSON.stringify(got)} sql=${JSON.stringify(want)}`,
+          );
+          pivotTidCompared++;
+        }
+      }
+      check(pivotTidCompared > 0, "no pivot with trailing heap TID found on kd_dup internal pages");
+    }
+
+    // 5) Degradation contracts -------------------------------------------
+    const exprCols = await fetchColumns(oidOf(`${S}.kd_expr_idx`));
+    check(exprCols.hasExpression === true, "expression index hasExpression");
+
+    const jsCols = await fetchColumns(oidOf(`${S}.kd_js_idx`));
+    check(jsCols.columns[0]!.typname === "int4", "js col0 int4");
+    check(jsCols.columns[1]!.typname === "jsonb", "js col1 jsonb");
+    {
+      const oid = oidOf(`${S}.kd_js_idx`);
+      const blocks = Number((await q(`SELECT pg_relation_size($1::text) / 8192 AS b`, [`${S}.kd_js_idx`])).rows[0].b);
+      const page = await fetchPage(oid, Math.max(1, blocks - 1));
+      const t = page.tuples.find((x) => !x.isPivot) ?? page.tuples[0]!;
+      const out = decodeIndexTupleKeys(page, t, metaOf(jsCols));
+      check(out[0]!.status === "value", `js a decodes (${out[0]!.status})`);
+      check(out[1]!.status === "unsupported" && out[1]!.reason === "unsupported type: jsonb", `js j unsupported (${out[1]!.status}/${out[1]!.reason})`);
+    }
+    {
+      const only = await fetchColumns(oidOf(`${S}.kd_js_only_idx`));
+      check(only.columns[0]!.typname === "jsonb", "jsonb-only typname");
+      const oid = oidOf(`${S}.kd_js_only_idx`);
+      const blocks = Number((await q(`SELECT pg_relation_size($1::text) / 8192 AS b`, [`${S}.kd_js_only_idx`])).rows[0].b);
+      const page = await fetchPage(oid, Math.max(1, blocks - 1));
+      const t = page.tuples.find((x) => !x.isPivot) ?? page.tuples[0]!;
+      const out = decodeIndexTupleKeys(page, t, metaOf(only));
+      check(out[0]!.status === "unsupported", `jsonb-only unsupported (${out[0]!.status})`);
+    }
+
+    console.log(
+      `index-key-decode segment OK: columns endpoint (shape + guards NOT_INDEX/INDEX_NOT_BTREE/BAD_OID), ` +
+        `${compared} leaf/posting tuples == UTC ::text rows, ${pivotTidCompared} trailing-TID pivots == boundary rows, ` +
+        `DESC bits, expression/jsonb degradation`,
+    );
+  } finally {
+    try {
+      await client.query(`DROP SCHEMA IF EXISTS ${SMOKE_IXKD_SCHEMA} CASCADE`);
+    } catch (e) {
+      console.error(`index-key-decode cleanup failed; schema ${SMOKE_IXKD_SCHEMA} may be left behind`, e);
+    }
+    client.release();
+  }
+}
+
 function aiCheck(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(`Auto-install smoke failed: ${msg}`);
 }
@@ -438,6 +770,7 @@ async function main(): Promise<void> {
   }
 
   await btreeIndexSmoke(app, session);
+  await indexKeyDecodeSmoke(app, session);
   await autoInstallSmoke(app, session);
 
   console.log(`L3 smoke OK: ${target.qualifiedName} blk 0 length=${buf.length}`);
