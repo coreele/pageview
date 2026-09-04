@@ -14,7 +14,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| oid-numeric-guard | [spec.md](../features/oid-numeric-guard/spec.md) | skipped（fast，范围明确单点修复） | not-required | skipped（无模块边界决策） | none | 待定（fast 可 skipped，登记时默认 required 由调度时确认） | backlog | 待用户调度 |
+| oid-numeric-guard | [spec.md](../features/oid-numeric-guard/spec.md) | skipped（fast，范围明确单点修复） | not-required | skipped（无模块边界决策） | none | skipped（fast：单点守卫修复，L2 测试覆盖，登记时裁定） | backlog | Planner 编写 plan.md |
 
 阻塞原因: none
 恢复条件: none
