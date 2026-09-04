@@ -19,6 +19,8 @@ import {
   BTP_META,
   BTP_ROOT,
   BT_IS_POSTING,
+  BT_OFFSET_MASK,
+  BT_PIVOT_HEAP_TID_ATTR,
   BTREE_MAGIC,
   BTREE_METAPAGE_CONTENT_OFFSET,
   BTREE_SPECIAL_SIZE,
@@ -212,6 +214,23 @@ export type BuiltBtreeTuple = {
   pivot?: boolean;
   /** posting list tuple (leaf): tidBlock/tidOffset ignored — the header encodes count + list offset */
   posting?: Array<{ blockNumber: number; offsetNumber: number }>;
+  /**
+   * index-key-decode: pivot with an explicit nkeyatts (ip_posid = nkeyatts,
+   * direct per nbtree.h BTreeTupleSetNAtts). tidBlock is the downlink child
+   * block; tidOffset is ignored.
+   */
+  pivotNKeyAtts?: number;
+  /**
+   * index-key-decode: trailing heap TID tiebreaker for pivots — sets
+   * BT_PIVOT_HEAP_TID_ATTR and appends 6 packed bytes after the keys.
+   */
+  pivotHeapTid?: { blockNumber: number; offsetNumber: number };
+  /**
+   * index-key-decode: attnums considered PRESENT (non-NULL). Writes the
+   * inverted index null bitmap (fixed 4B allocation, data at MAXALIGN(12)=16)
+   * and sets INDEX_NULL_MASK.
+   */
+  presentAttnums?: number[];
 };
 
 export type BuildBtreePageOptions = {
@@ -234,11 +253,16 @@ export type BuildBtreePageOptions = {
   corruptLpOffset?: boolean;
 };
 
+function maxalign8(n: number): number {
+  return (n + 7) & ~7;
+}
+
 function packIndexTuple(t: BuiltBtreeTuple): { body: Uint8Array } {
   const key = t.keyBytes ?? new Uint8Array(8);
+  const dataIndex = t.presentAttnums !== undefined ? 16 : 8; // MAXALIGN(8+4)=16 with bitmap
   if (t.posting) {
-    const postingOffset = 8 + key.length; // MAXALIGN'd by caller via key length
-    const body = new Uint8Array(postingOffset + t.posting.length * 6);
+    const postingOffset = dataIndex + key.length;
+    const body = new Uint8Array(maxalign8(postingOffset + t.posting.length * 6));
     // t_tid reinterpreted: ip_blkid = posting list offset within the tuple,
     // ip_posid = TID count | BT_IS_POSTING (nbtree.h BTreeTupleSetPosting)
     writeU16(body, 0, (postingOffset >>> 16) & 0xffff);
@@ -252,23 +276,56 @@ function packIndexTuple(t: BuiltBtreeTuple): { body: Uint8Array } {
       o += 6;
     }
     let info = body.length | INDEX_ALT_TID_MASK;
-    if (t.nulls) info |= INDEX_NULL_MASK;
+    if (t.nulls || t.presentAttnums !== undefined) info |= INDEX_NULL_MASK;
     if (t.vars) info |= INDEX_VAR_MASK;
     writeU16(body, 6, info);
-    body.set(key, 8);
+    writeInvertedBitmap(body, t.presentAttnums);
+    body.set(key, dataIndex);
     return { body };
   }
-  const body = new Uint8Array(8 + key.length);
+  const heapTid = t.pivotHeapTid;
+  const tail = heapTid ? 6 : 0;
+  const body = new Uint8Array(
+    t.pivotNKeyAtts !== undefined || t.presentAttnums !== undefined
+      ? maxalign8(dataIndex + key.length + tail)
+      : 8 + key.length,
+  );
+  let posid = 0;
+  let altTid = false;
+  if (t.pivotNKeyAtts !== undefined) {
+    posid = t.pivotNKeyAtts & BT_OFFSET_MASK;
+    if (heapTid) posid |= BT_PIVOT_HEAP_TID_ATTR;
+    altTid = true;
+  } else {
+    posid = t.tidOffset;
+    altTid = t.pivot === true;
+  }
   writeU16(body, 0, (t.tidBlock >>> 16) & 0xffff);
   writeU16(body, 2, t.tidBlock & 0xffff);
-  writeU16(body, 4, t.tidOffset);
+  writeU16(body, 4, posid);
   let info = body.length;
-  if (t.pivot) info |= INDEX_ALT_TID_MASK;
-  if (t.nulls) info |= INDEX_NULL_MASK;
+  if (altTid) info |= INDEX_ALT_TID_MASK;
+  if (t.nulls || t.presentAttnums !== undefined) info |= INDEX_NULL_MASK;
   if (t.vars) info |= INDEX_VAR_MASK;
   writeU16(body, 6, info);
-  body.set(key, 8);
+  writeInvertedBitmap(body, t.presentAttnums);
+  body.set(key, dataIndex);
+  if (heapTid) {
+    const o = dataIndex + key.length;
+    writeU16(body, o, (heapTid.blockNumber >>> 16) & 0xffff);
+    writeU16(body, o + 2, heapTid.blockNumber & 0xffff);
+    writeU16(body, o + 4, heapTid.offsetNumber);
+  }
   return { body };
+}
+
+/** Inverted index null bitmap: bits SET for present (non-NULL) attnums. */
+function writeInvertedBitmap(body: Uint8Array, presentAttnums?: number[]): void {
+  if (presentAttnums === undefined) return;
+  for (const attnum of presentAttnums) {
+    const idx = 8 + ((attnum - 1) >> 3);
+    body[idx] = (body[idx] ?? 0) | (1 << ((attnum - 1) & 7));
+  }
 }
 
 export function buildBtreePage(options?: BuildBtreePageOptions): Uint8Array {

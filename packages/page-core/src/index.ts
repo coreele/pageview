@@ -85,3 +85,16 @@ export type {
   ParsedBtreePage,
 } from "./btree.js";
 export { deriveBtreeStructureFields } from "./btree-structure.js";
+// Index tuple key decoding (index-key-decode design §3, oracle-frozen rules)
+export {
+  decodeIndexTupleKeys,
+  KEY_COLUMN_SPECS,
+  INDEX_NULL_BITMAP_BYTES,
+  INDEX_NULL_DATA_OFFSET,
+  INDEX_PIVOT_HEAP_TID_BYTES,
+} from "./btree-decode.js";
+export type {
+  IndexColumnMeta,
+  DecodedKeyColumn,
+  DecodedKeyColumnStatus,
+} from "./btree-decode.js";
