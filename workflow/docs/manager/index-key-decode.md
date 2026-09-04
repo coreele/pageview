@@ -14,7 +14,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| index-key-decode | [spec.md](../features/index-key-decode/spec.md) | required（新增可见行为与 API 合同） | not-required（Analyst 发现歧义时升级） | required（解码层归属：page-core 字节层如何获得类型信息；server API 形状；类型→解码器映射的组织） | gui（详情面板键值展示） | required | backlog | Analyst 编写 Spec |
+| index-key-decode | [spec.md](../features/index-key-decode/spec.md) | required（新增可见行为与 API 合同） | approved（2026-08-31 两裁决后通过） | required（已满足：design.md + ui-design.md 已产出） | gui（详情面板键值展示） | required | planned | Developer 实施 T1–T9（源分支 index-key-decode） |
 
 阻塞原因: none
 恢复条件: none
