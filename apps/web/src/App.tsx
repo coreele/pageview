@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   annotateCtidBlocks,
+  decodeIndexTupleKeys,
   decodePageTuples,
   deriveBtreeStructureFields,
   deriveStructureFields,
@@ -33,6 +34,19 @@ import {
 import { HexDump } from "./HexDump";
 import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
 import { HeapPeekOverlay } from "./HeapPeekOverlay";
+import { findTupleBySelection } from "./indexDetail";
+import {
+  buildKeyValuesSection,
+  cacheAfterColumnsFailure,
+  cacheAfterColumnsOk,
+  columnsErrorOf,
+  deriveKeyColumnsState,
+  emptyColumnsCache,
+  shouldFetchColumns,
+  toIndexColumnMeta,
+  type IndexColumnsCache,
+  type KeyValuesSection,
+} from "./indexKeyDetail";
 import {
   closeHeapPeekSlot,
   heapPeekRequest,
@@ -59,14 +73,6 @@ import {
   navButtonTitle,
   toolbarNavEnabled,
 } from "./pageToolbarNav";
-import {
-  cacheAfterColumnsFailure,
-  cacheAfterColumnsOk,
-  columnsErrorOf,
-  emptyColumnsCache,
-  shouldFetchColumns,
-  type IndexColumnsCache,
-} from "./indexKeyDetail";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 
 type LoadState = "idle" | "connecting" | "loading-tables" | "loading-indexes" | "loading-page";
@@ -221,6 +227,25 @@ export function App() {
       ? deriveStructureFields(pageView.page)
       : deriveBtreeStructureFields(pageView.page);
   }, [pageView]);
+
+  // index-key-decode T6: key-values section for the selected tuple on the
+  // loaded B-tree page. Derived purely from cached metadata + parsed page;
+  // metapages have no section, and loading/failure degrade to notes only.
+  const keyValuesSection = useMemo<KeyValuesSection | null>(() => {
+    if (pageView?.kind !== "btree") return null;
+    if (pageView.page.pageType === "meta") return null;
+    const state = deriveKeyColumnsState(indexColumns, pageView.index.oid);
+    if (!state) return null;
+    if (state.kind !== "columns") return state;
+    const tuple = findTupleBySelection(pageView.page, selectedId);
+    if (!tuple) return null;
+    const decoded = decodeIndexTupleKeys(
+      pageView.page,
+      tuple,
+      toIndexColumnMeta(state.data.columns),
+    );
+    return buildKeyValuesSection(decoded, state.data);
+  }, [pageView, indexColumns, selectedId]);
 
   const toggleTheme = () => {
     const next: Theme = theme === "light" ? "dark" : "light";
@@ -1483,6 +1508,7 @@ export function App() {
                     selectedId={selectedId}
                     onSelect={onSelectStructure}
                     onLoadIndexBlock={loadIndexBlock}
+                    keyValues={keyValuesSection}
                     onJumpToHeap={
                       pageView?.kind === "btree"
                         ? (block) => openHeapPeek(heapPeekRequest(pageView.index, block))

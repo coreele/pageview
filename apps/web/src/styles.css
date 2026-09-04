@@ -1570,6 +1570,58 @@ input {
   vertical-align: 1px;
 }
 
+/* index-key-decode: key values block (above Key bytes hex; hex untouched) */
+.index-tuple-detail__key-values {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface) 75%, var(--diagram-bg));
+}
+
+.index-tuple-detail__key-values-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.key-values-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  /* ~8 visible rows before the block scrolls (ui-design density note) */
+  max-height: 11.5em;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.key-value-row {
+  word-break: break-all;
+}
+
+.key-value-row--null .key-value-row__null {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.key-value-row--degraded {
+  color: var(--warning);
+}
+
+.key-value-row__note {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.key-values-note {
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .index-tuple-detail__key .key-bytes {
   display: flex;
   flex-direction: column;

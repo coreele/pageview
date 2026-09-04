@@ -21,6 +21,7 @@ import { FlagBitStripSolo, InfomaskBitPair } from "./InfomaskBitStrip";
 import { siblingNav } from "./blockNav";
 import { findTupleBySelection, metapageRows } from "./indexDetail";
 import { IndexTupleDetail } from "./IndexTupleDetail";
+import type { KeyValuesSection } from "./indexKeyDetail";
 import { buildHexLayout } from "./hexLayout";
 import {
   freeBreakColumns,
@@ -597,6 +598,7 @@ export function BtreeStructureDetail({
   onSelect,
   onLoadIndexBlock,
   onJumpToHeap,
+  keyValues,
 }: {
   page: ParsedBtreePage;
   fields: StructureField[];
@@ -604,6 +606,8 @@ export function BtreeStructureDetail({
   onSelect: (id: string, range: ByteRange) => void;
   onLoadIndexBlock?: (blkno: number) => void;
   onJumpToHeap?: (blkno: number) => void;
+  /** index-key-decode T6: forwarded to IndexTupleDetail (prop pass-through). */
+  keyValues?: KeyValuesSection | null;
 }) {
   if (selectedId?.startsWith("itemid-")) {
     const item = page.itemIds.find(
@@ -764,6 +768,7 @@ export function BtreeStructureDetail({
         onSelectRange={onSelect}
         onLoadChildBlock={onLoadIndexBlock}
         onJumpHeapBlock={onJumpToHeap}
+        keyValues={keyValues}
       />
     );
   }

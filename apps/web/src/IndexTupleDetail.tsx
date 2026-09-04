@@ -1,5 +1,6 @@
 import type { ByteRange, BtreeIndexTuple, ParsedBtreePage } from "page-core";
 import { formatBytesPreview, tidRole, tInfoRows } from "./indexDetail";
+import type { KeyValuesSection } from "./indexKeyDetail";
 
 type Props = {
   page: ParsedBtreePage;
@@ -10,6 +11,12 @@ type Props = {
   onLoadChildBlock?: (blkno: number) => void;
   /** T8 wiring: leaf heap-TID jump to the owning table. */
   onJumpHeapBlock?: (blkno: number) => void;
+  /**
+   * index-key-decode T6: decoded key-values section (rows) or a degradation
+   * note (loading / metadata failure / expression index). null = no section
+   * (metapage). Rendered ABOVE the Key bytes hex block — hex stays untouched.
+   */
+  keyValues?: KeyValuesSection | null;
 };
 
 function tidText(t: { blockNumber: number; offsetNumber: number }): string {
@@ -27,6 +34,7 @@ export function IndexTupleDetail({
   onSelectRange,
   onLoadChildBlock,
   onJumpHeapBlock,
+  keyValues,
 }: Props) {
   const role = tidRole(page, tuple);
   const keyPreview = formatBytesPreview(page.raw, tuple.keyRange);
@@ -90,6 +98,59 @@ export function IndexTupleDetail({
           </div>
         ))}
       </div>
+
+      {keyValues && (
+        <div className="index-tuple-detail__key-values" aria-label="Key values">
+          <div className="index-tuple-detail__key-values-title">Key values</div>
+          {keyValues.kind === "rows" ? (
+            <div className="key-values-rows mono">
+              {keyValues.rows.map((row) => (
+                <div
+                  key={row.attnum}
+                  className={`key-value-row${row.kind === "null" ? " key-value-row--null" : ""}${row.kind === "degraded" ? " key-value-row--degraded" : ""}`}
+                >
+                  <span className="key-value-row__text">
+                    {row.attnum} {row.name} ({row.typname})
+                    {row.kind === "value" ? (
+                      <>
+                        {" = "}
+                        <span className="key-value-row__value">{row.display}</span>
+                      </>
+                    ) : row.kind === "null" ? (
+                      <>
+                        {" = "}
+                        <span className="key-value-row__null">NULL</span>
+                      </>
+                    ) : (
+                      <>
+                        {" — "}
+                        <span className="key-value-row__reason">{row.reason}</span>
+                      </>
+                    )}
+                    {row.kind !== "degraded" &&
+                      row.badges.map((b) => (
+                        <span key={b} className="detail-badge">
+                          {b}
+                        </span>
+                      ))}
+                  </span>
+                  {row.kind === "value" && row.truncation && (
+                    <span className="key-value-row__note">
+                      {" "}
+                      {row.truncation.total} chars total (showing first 64)
+                    </span>
+                  )}
+                  {row.kind === "degraded" && row.laterNote && (
+                    <span className="key-value-row__note"> {row.laterNote}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="key-values-note muted">{keyValues.note}</div>
+          )}
+        </div>
+      )}
 
       {keyPreview.total > 0 && (
         <div className="index-tuple-detail__key">
