@@ -1,0 +1,145 @@
+{
+  "index": "pageview_ikd.t_null_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 5,
+    "dead_items": 0,
+    "avg_item_size": 20,
+    "page_size": 8192,
+    "free_size": 8024,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,1)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "01 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": null
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,3)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "02 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,3)",
+      "tids": null
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,5)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "03 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,5)",
+      "tids": null
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,8)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "2a 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,8)",
+      "tids": null
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(16,8196)",
+      "itemlen": 40,
+      "nulls": true,
+      "vars": false,
+      "data": "",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": "{\"(0,2)\",\"(0,4)\",\"(0,6)\",\"(0,7)\"}"
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65692,
+    "tableQualified": "pageview_ikd.t_null",
+    "indnatts": 1,
+    "indnkeyatts": 1,
+    "indkey": [
+      1
+    ],
+    "indoption": "0",
+    "hasExpression": false,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "v",
+        "typoid": 23,
+        "typname": "int4",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,1)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        "1"
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,3)",
+      "htid": "(0,3)",
+      "firstTid": "(0,3)",
+      "values": [
+        "2"
+      ]
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,5)",
+      "htid": "(0,5)",
+      "firstTid": "(0,5)",
+      "values": [
+        "3"
+      ]
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,8)",
+      "htid": "(0,8)",
+      "firstTid": "(0,8)",
+      "values": [
+        "42"
+      ]
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(16,8196)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        null
+      ]
+    }
+  ]
+}

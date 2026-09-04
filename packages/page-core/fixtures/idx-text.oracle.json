@@ -1,0 +1,205 @@
+{
+  "index": "pageview_ikd.t_text_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 8,
+    "dead_items": 0,
+    "avg_item_size": 104,
+    "page_size": 8192,
+    "free_size": 7284,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,4)",
+      "itemlen": 80,
+      "nulls": false,
+      "vars": true,
+      "data": "8b 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 41 54 41 49 4c 00 00 00",
+      "dead": false,
+      "htid": "(0,4)",
+      "tids": null
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,5)",
+      "itemlen": 112,
+      "nulls": false,
+      "vars": true,
+      "data": "cb 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 42 00 00 00",
+      "dead": false,
+      "htid": "(0,5)",
+      "tids": null
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,6)",
+      "itemlen": 216,
+      "nulls": false,
+      "vars": true,
+      "data": "30 03 00 00 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 43 00 00 00 00",
+      "dead": false,
+      "htid": "(0,6)",
+      "tids": null
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,1)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": true,
+      "data": "0d 73 68 6f 72 74 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": null
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,8)",
+      "itemlen": 24,
+      "nulls": false,
+      "vars": true,
+      "data": "17 74 61 62 09 6e 6c 0a 63 72 0d 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,8)",
+      "tids": null
+    },
+    {
+      "itemoffset": 6,
+      "ctid": "(0,3)",
+      "itemlen": 40,
+      "nulls": false,
+      "vars": true,
+      "data": "37 75 6e 69 63 6f 64 65 3a 20 e4 bd a0 e5 a5 bd e4 b8 96 e7 95 8c 20 f0 9f 8c 8d 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,3)",
+      "tids": null
+    },
+    {
+      "itemoffset": 7,
+      "ctid": "(0,2)",
+      "itemlen": 32,
+      "nulls": false,
+      "vars": true,
+      "data": "2d 77 69 74 68 20 73 70 61 63 65 20 61 6e 64 20 27 71 75 6f 74 65 00 00",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": null
+    },
+    {
+      "itemoffset": 8,
+      "ctid": "(0,7)",
+      "itemlen": 312,
+      "nulls": false,
+      "vars": true,
+      "data": "c0 04 00 00 e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a e5 a4 9a",
+      "dead": false,
+      "htid": "(0,7)",
+      "tids": null
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65704,
+    "tableQualified": "pageview_ikd.t_text",
+    "indnatts": 1,
+    "indnkeyatts": 1,
+    "indkey": [
+      1
+    ],
+    "indoption": "0",
+    "hasExpression": false,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "s",
+        "typoid": 25,
+        "typname": "text",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,4)",
+      "htid": "(0,4)",
+      "firstTid": "(0,4)",
+      "values": [
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATAIL"
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,5)",
+      "htid": "(0,5)",
+      "firstTid": "(0,5)",
+      "values": [
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+      ]
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,6)",
+      "htid": "(0,6)",
+      "firstTid": "(0,6)",
+      "values": [
+        "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+      ]
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,1)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        "short"
+      ]
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,8)",
+      "htid": "(0,8)",
+      "firstTid": "(0,8)",
+      "values": [
+        "tab\tnl\ncr\r"
+      ]
+    },
+    {
+      "itemoffset": 6,
+      "ctid": "(0,3)",
+      "htid": "(0,3)",
+      "firstTid": "(0,3)",
+      "values": [
+        "unicode: 你好世界 🌍"
+      ]
+    },
+    {
+      "itemoffset": 7,
+      "ctid": "(0,2)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        "with space and 'quote"
+      ]
+    },
+    {
+      "itemoffset": 8,
+      "ctid": "(0,7)",
+      "htid": "(0,7)",
+      "firstTid": "(0,7)",
+      "values": [
+        "多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多多"
+      ]
+    }
+  ]
+}

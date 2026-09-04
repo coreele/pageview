@@ -1,0 +1,125 @@
+{
+  "index": "pageview_ikd.t_expr_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 4,
+    "dead_items": 0,
+    "avg_item_size": 16,
+    "page_size": 8192,
+    "free_size": 8068,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,1)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": true,
+      "data": "0d 61 6c 69 63 65 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": null
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,2)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": true,
+      "data": "09 62 6f 62 00 00 00 00",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": null
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,3)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": true,
+      "data": "11 63 68 61 72 6c 69 65",
+      "dead": false,
+      "htid": "(0,3)",
+      "tids": null
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,4)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": true,
+      "data": "09 64 65 65 00 00 00 00",
+      "dead": false,
+      "htid": "(0,4)",
+      "tids": null
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65710,
+    "tableQualified": "pageview_ikd.t_expr",
+    "indnatts": 1,
+    "indnkeyatts": 1,
+    "indkey": [
+      0
+    ],
+    "indoption": "0",
+    "hasExpression": true,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "lower",
+        "typoid": 25,
+        "typname": "text",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,1)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        null
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,2)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        null
+      ]
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,3)",
+      "htid": "(0,3)",
+      "firstTid": "(0,3)",
+      "values": [
+        null
+      ]
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,4)",
+      "htid": "(0,4)",
+      "firstTid": "(0,4)",
+      "values": [
+        null
+      ]
+    }
+  ]
+}

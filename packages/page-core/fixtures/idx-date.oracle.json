@@ -1,0 +1,205 @@
+{
+  "index": "pageview_ikd.t_date_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 8,
+    "dead_items": 0,
+    "avg_item_size": 16,
+    "page_size": 8192,
+    "free_size": 7988,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,8)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "00 00 00 80 00 00 00 00",
+      "dead": false,
+      "htid": "(0,8)",
+      "tids": null
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,5)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "f9 db f4 ff 00 00 00 00",
+      "dead": false,
+      "htid": "(0,5)",
+      "tids": null
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,1)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "ff ff ff ff 00 00 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": null
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,2)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "00 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": null
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,3)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "3b 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,3)",
+      "tids": null
+    },
+    {
+      "itemoffset": 6,
+      "ctid": "(0,4)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "e4 22 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,4)",
+      "tids": null
+    },
+    {
+      "itemoffset": 7,
+      "ctid": "(0,6)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "49 1d 0f 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,6)",
+      "tids": null
+    },
+    {
+      "itemoffset": 8,
+      "ctid": "(0,7)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "ff ff ff 7f 00 00 00 00",
+      "dead": false,
+      "htid": "(0,7)",
+      "tids": null
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65676,
+    "tableQualified": "pageview_ikd.t_date",
+    "indnatts": 1,
+    "indnkeyatts": 1,
+    "indkey": [
+      1
+    ],
+    "indoption": "0",
+    "hasExpression": false,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "d",
+        "typoid": 1082,
+        "typname": "date",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,8)",
+      "htid": "(0,8)",
+      "firstTid": "(0,8)",
+      "values": [
+        "-infinity"
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,5)",
+      "htid": "(0,5)",
+      "firstTid": "(0,5)",
+      "values": [
+        "0001-01-01"
+      ]
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,1)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        "1999-12-31"
+      ]
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,2)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        "2000-01-01"
+      ]
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,3)",
+      "htid": "(0,3)",
+      "firstTid": "(0,3)",
+      "values": [
+        "2000-02-29"
+      ]
+    },
+    {
+      "itemoffset": 6,
+      "ctid": "(0,4)",
+      "htid": "(0,4)",
+      "firstTid": "(0,4)",
+      "values": [
+        "2024-06-15"
+      ]
+    },
+    {
+      "itemoffset": 7,
+      "ctid": "(0,6)",
+      "htid": "(0,6)",
+      "firstTid": "(0,6)",
+      "values": [
+        "4712-01-01"
+      ]
+    },
+    {
+      "itemoffset": 8,
+      "ctid": "(0,7)",
+      "htid": "(0,7)",
+      "firstTid": "(0,7)",
+      "values": [
+        "infinity"
+      ]
+    }
+  ]
+}

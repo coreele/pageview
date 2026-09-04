@@ -1,0 +1,158 @@
+{
+  "index": "pageview_ikd.t_mixed_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 5,
+    "dead_items": 0,
+    "avg_item_size": 36,
+    "page_size": 8192,
+    "free_size": 7944,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,1)",
+      "itemlen": 40,
+      "nulls": false,
+      "vars": true,
+      "data": "01 00 00 00 33 01 00 00 20 01 00 00 80 0b 00 00 10 6b 00 00 00 20 00 00 00 00 80 01 00 00 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": null
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,2)",
+      "itemlen": 56,
+      "nulls": false,
+      "vars": true,
+      "data": "02 00 00 00 53 03 00 00 40 08 00 00 90 08 00 00 10 08 00 00 10 20 00 00 00 00 80 01 00 20 00 00 00 00 80 02 00 20 00 00 00 00 80 03 00 00 00 00",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": null
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,3)",
+      "itemlen": 24,
+      "nulls": false,
+      "vars": true,
+      "data": "03 00 00 00 19 01 00 00 50 03 00 00 80 73 74 72",
+      "dead": false,
+      "htid": "(0,3)",
+      "tids": null
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,4)",
+      "itemlen": 24,
+      "nulls": false,
+      "vars": true,
+      "data": "04 00 00 00 13 01 00 00 50 00 00 00 c0 00 00 00",
+      "dead": false,
+      "htid": "(0,4)",
+      "tids": null
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,5)",
+      "itemlen": 40,
+      "nulls": false,
+      "vars": true,
+      "data": "05 00 00 00 33 01 00 00 20 01 00 00 80 0b 00 00 10 6b 00 00 00 20 00 00 00 00 80 02 00 00 00 00",
+      "dead": false,
+      "htid": "(0,5)",
+      "tids": null
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65716,
+    "tableQualified": "pageview_ikd.t_mixed",
+    "indnatts": 2,
+    "indnkeyatts": 2,
+    "indkey": [
+      1,
+      2
+    ],
+    "indoption": "0 0",
+    "hasExpression": false,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "a",
+        "typoid": 23,
+        "typname": "int4",
+        "typmod": -1
+      },
+      {
+        "attnum": 2,
+        "name": "j",
+        "typoid": 3802,
+        "typname": "jsonb",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,1)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        "1",
+        "{\"k\": 1}"
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,2)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        "2",
+        "[1, 2, 3]"
+      ]
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,3)",
+      "htid": "(0,3)",
+      "firstTid": "(0,3)",
+      "values": [
+        "3",
+        "\"str\""
+      ]
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,4)",
+      "htid": "(0,4)",
+      "firstTid": "(0,4)",
+      "values": [
+        "4",
+        "null"
+      ]
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,5)",
+      "htid": "(0,5)",
+      "firstTid": "(0,5)",
+      "values": [
+        "5",
+        "{\"k\": 2}"
+      ]
+    }
+  ]
+}

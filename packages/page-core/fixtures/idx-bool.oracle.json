@@ -1,0 +1,85 @@
+{
+  "index": "pageview_ikd.t_bool_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 2,
+    "dead_items": 0,
+    "avg_item_size": 36,
+    "page_size": 8192,
+    "free_size": 8068,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(16,8194)",
+      "itemlen": 32,
+      "nulls": false,
+      "vars": false,
+      "data": "00 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": "{\"(0,2)\",\"(0,4)\"}"
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(16,8195)",
+      "itemlen": 40,
+      "nulls": false,
+      "vars": false,
+      "data": "01 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": "{\"(0,1)\",\"(0,3)\",\"(0,5)\"}"
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65672,
+    "tableQualified": "pageview_ikd.t_bool",
+    "indnatts": 1,
+    "indnkeyatts": 1,
+    "indkey": [
+      1
+    ],
+    "indoption": "0",
+    "hasExpression": false,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "v",
+        "typoid": 16,
+        "typname": "bool",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(16,8194)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        "false"
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(16,8195)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        "true"
+      ]
+    }
+  ]
+}

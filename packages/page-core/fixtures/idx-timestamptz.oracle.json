@@ -1,0 +1,165 @@
+{
+  "index": "pageview_ikd.t_tstz_idx",
+  "blkno": 1,
+  "btMetap": null,
+  "btMetapError": null,
+  "btPageStats": {
+    "blkno": "1",
+    "type": "l",
+    "live_items": 6,
+    "dead_items": 0,
+    "avg_item_size": 16,
+    "page_size": 8192,
+    "free_size": 8028,
+    "btpo_prev": "0",
+    "btpo_next": "0",
+    "btpo_level": "0",
+    "btpo_flags": 3
+  },
+  "btPageStatsError": null,
+  "btPageItems": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,6)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "00 00 00 00 00 00 00 80",
+      "dead": false,
+      "htid": "(0,6)",
+      "tids": null
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,4)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "14 46 ae 50 09 a3 fc ff",
+      "dead": false,
+      "htid": "(0,4)",
+      "tids": null
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,1)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "00 00 00 00 00 00 00 00",
+      "dead": false,
+      "htid": "(0,1)",
+      "tids": null
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,3)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "ff 1f 9d b4 06 00 00 00",
+      "dead": false,
+      "htid": "(0,3)",
+      "tids": null
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,2)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "40 96 94 a7 f3 b1 02 00",
+      "dead": false,
+      "htid": "(0,2)",
+      "tids": null
+    },
+    {
+      "itemoffset": 6,
+      "ctid": "(0,5)",
+      "itemlen": 16,
+      "nulls": false,
+      "vars": false,
+      "data": "ff ff ff ff ff ff ff 7f",
+      "dead": false,
+      "htid": "(0,5)",
+      "tids": null
+    }
+  ],
+  "btPageItemsError": null,
+  "indexColumns": {
+    "oid": 65684,
+    "tableQualified": "pageview_ikd.t_tstz",
+    "indnatts": 1,
+    "indnkeyatts": 1,
+    "indkey": [
+      1
+    ],
+    "indoption": "0",
+    "hasExpression": false,
+    "columns": [
+      {
+        "attnum": 1,
+        "name": "t",
+        "typoid": 1184,
+        "typname": "timestamptz",
+        "typmod": -1
+      }
+    ]
+  },
+  "tableRows": [
+    {
+      "itemoffset": 1,
+      "ctid": "(0,6)",
+      "htid": "(0,6)",
+      "firstTid": "(0,6)",
+      "values": [
+        "-infinity"
+      ]
+    },
+    {
+      "itemoffset": 2,
+      "ctid": "(0,4)",
+      "htid": "(0,4)",
+      "firstTid": "(0,4)",
+      "values": [
+        "1970-01-01 12:34:56.789012+00"
+      ]
+    },
+    {
+      "itemoffset": 3,
+      "ctid": "(0,1)",
+      "htid": "(0,1)",
+      "firstTid": "(0,1)",
+      "values": [
+        "2000-01-01 00:00:00+00"
+      ]
+    },
+    {
+      "itemoffset": 4,
+      "ctid": "(0,3)",
+      "htid": "(0,3)",
+      "firstTid": "(0,3)",
+      "values": [
+        "2000-01-01 07:59:59.999999+00"
+      ]
+    },
+    {
+      "itemoffset": 5,
+      "ctid": "(0,2)",
+      "htid": "(0,2)",
+      "firstTid": "(0,2)",
+      "values": [
+        "2024-01-15 05:00:00.123456+00"
+      ]
+    },
+    {
+      "itemoffset": 6,
+      "ctid": "(0,5)",
+      "htid": "(0,5)",
+      "firstTid": "(0,5)",
+      "values": [
+        "infinity"
+      ]
+    }
+  ]
+}
