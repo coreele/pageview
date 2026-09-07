@@ -62,3 +62,15 @@
 | M8 LSN `%2F`/`/` round-trip | 待浏览器（解析层已单测） | Pending |
 | M9 P1 抽核（规范化/未知参数/单 LSN/块 0/守卫/不一致） | 待浏览器（判定层已单测） | Pending |
 | M10 并排对照 / 分享 | 待浏览器 | Pending |
+
+## QA 修复回执（D1，2026-09-07）
+
+| 缺陷 ID | 处理 | 摘要 | 验证 | 建议复测 |
+|---|---|---|---|---|
+| D1 | 已修复 | 源分支 `url-deeplink` **fast-forward** 至 `6dd36e0`（未另 cherry-pick，避免与 `e2e-playwright` 重复提交）。`refreshTables` / `refreshIndexes` 仅在 `preserveRawUrlRef` 为假时 `setError(null)`，已连接自动刷新不再清掉 `BAD_URL_PARAM`。 | 见下 | Review 范围：App.tsx 两守卫 + P0-8。QA 轮次 3：`pnpm exec playwright test e2e/m2-m4-m5.spec.ts -g "BAD_URL_PARAM frozen"` + `pnpm test:e2e`（套件在 `e2e-playwright`） |
+
+TDD：红测已由 QA 轮次 2 隔离探针完成（`d452978` 的 `App.tsx` → M4 `role=alert` 不可见）。源分支无 Playwright（属 `e2e-playwright`），本步不引入套件。绿=合入已在含本提交的树上证实 M4 通过的 `6dd36e0`。
+
+本步 L2/L3（`url-deeplink` @ `6dd36e0`）：`pnpm test` **450**（13+158+81+198）；`pnpm -r typecheck` / `pnpm -r build` 四包 Done；`pnpm test:integration` exit 0。Playwright M4：本分支无 `e2e/`，未跑。原因：套件在 `e2e-playwright`。风险：合入指针错误则 P0-8 仍红。恢复：QA 轮次 3 在含 `6dd36e0` 与套件的树上复跑。
+
+复审范围：`apps/web/src/App.tsx` 两处 `if (!preserveRawUrlRef.current) setError(null)`；不触及 `urlState.ts`。
