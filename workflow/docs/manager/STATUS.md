@@ -11,7 +11,7 @@
 | oid-numeric-guard | oid-numeric-guard | done | [workflow/docs/features/oid-numeric-guard/](../features/oid-numeric-guard/) | 已授权合并（QA Pass；Review skipped-fast）；待 FF 合入 main |
 | index-key-decode | index-key-decode | done | [workflow/docs/features/index-key-decode/](../features/index-key-decode/) | 已授权合并（QA 轮次 1 Pass + Review Approve）；待 FF 合入 main |
 | url-deeplink | url-deeplink | done | [workflow/docs/features/url-deeplink/](../features/url-deeplink/) | 已授权合并（QA 轮次 3 Pass + 复审 Approve）；待 FF 合入 main |
-| e2e-playwright | e2e-playwright | qa | [workflow/docs/features/e2e-playwright/](../features/e2e-playwright/) | QA Pass；待合并授权（url-deeplink 已授权合入） |
+| e2e-playwright | e2e-playwright | done | [workflow/docs/features/e2e-playwright/](../features/e2e-playwright/) | 已授权合并（QA Pass + Review Approve）；已 rebase 到 main，待 FF |
 | auto-install-extensions | auto-install-extensions | done | [workflow/docs/features/auto-install-extensions/](../features/auto-install-extensions/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | column-align-pad | column-align-pad | done | [workflow/docs/features/column-align-pad/](../features/column-align-pad/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | next-page-btn | next-page-btn | done | [workflow/docs/features/next-page-btn/](../features/next-page-btn/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |

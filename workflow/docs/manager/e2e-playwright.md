@@ -14,7 +14,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| e2e-playwright | [spec.md](../features/e2e-playwright/spec.md) | skipped（纯测试基础设施：无产品行为/公开接口/错误合同变更；验收以 Plan 可测条目定义） | not-required | required（已满足：design.md 已产出） | none（不触碰产品 UI） | required | developing | Developer 实施 T1–T7 |
+| e2e-playwright | [spec.md](../features/e2e-playwright/spec.md) | skipped（纯测试基础设施：无产品行为/公开接口/错误合同变更；验收以 Plan 可测条目定义） | not-required | required（已满足：design.md 已产出） | none（不触碰产品 UI） | required | done | 已授权合并（QA Pass + Review Approve）；已 rebase 到 main，待 FF |
 
 阻塞原因: none
 恢复条件: none
@@ -25,3 +25,9 @@
 - 2026-09-04 Manager 登记。背景：url-deeplink QA 轮次 1 Blocked（M1–M10 需真实浏览器，Plan 禁止 L2 替代）；用户裁决恢复路径 B——先建 Playwright 无头能力，E2E 自动化 M1–M10 后回补 QA 轮次 2。前置事实：环境无 chromium/jsdom；CI 现有 unit+integration 两 job（postgres:16 超级用户）；本地 PG16.11 socket /tmp:5432（pg_ctl -D ~/pgdata 启动）。约束提醒：E2E 段必须解决 M3（临时移除 .env 的连接面板流）与 PG 依赖的稳定性（种子幂等/自清理，沿 integration-smoke 先例）。
 - 2026-09-07 Planner 已产出 `design.md` + `plan.md`。用户要求继续 url-deeplink；实现与 QA 轮次 2 仍被路径 B 挡住。Manager 将本项从 backlog/planning 对齐为 `awaiting-plan-approval`（产物已齐）。待确认：Plan 正文 + 源分支基线（记录现写自 main 创建；Plan 建议自 `url-deeplink` tip，否则 M1–M10 必红）。
 - 2026-09-07 用户确认 Plan（确认后紧接调度 Developer）+ 源分支自 `url-deeplink` tip 创建。状态 `awaiting-plan-approval` → `planned` → `developing`。
+- 2026-09-07 用户确认调度 Reviewer。Developer T1–T7 已提交（`6dd36e0`、`33dc7d5`）。状态 `developing` → `reviewing`。
+- 2026-09-07 Reviewer Approve（`review.md` 工作区未提交）。用户确认调度 QA。状态 `reviewing` → `qa`。
+- 2026-09-07 QA 轮次 1 Pass（`qa-report.md` 工作区未提交）。保持 `qa`，待用户合并授权。合入顺序：先 `url-deeplink` 入 `main`。用户选择下一步：调度 `url-deeplink` QA 轮次 2。Actions `e2e` 实跑仍为合入前补认。
+- 2026-09-07 `url-deeplink` QA 轮次 2 Fail（D1）。本项合并仍须等 `url-deeplink` 源分支纳入 `6dd36e0` 并重新 QA Pass + 授权后再合入 `main`。本项状态保持 `qa`。
+- 2026-09-07 用户授权 `url-deeplink` 合入 `main`。本项仍 `qa`（Pass），待单独合并授权。Actions `e2e` 实跑仍为合入前补认。
+- 2026-09-07 用户授权本项合入，并要求 **rebase** 处理与 `main` 的分叉。已将 `33dc7d5` replay 到 `main`（冲突文件 `STATUS.md` / `url-deeplink.md` 保留 main 侧）。状态 `qa` → `done`。本提交纳入未入库 `review.md` / `qa-report.md`。随后 FF 合入 `main`。
