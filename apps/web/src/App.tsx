@@ -320,7 +320,7 @@ export function App() {
 
   const refreshTables = useCallback(async () => {
     setLoadState("loading-tables");
-    setError(null);
+    if (!preserveRawUrlRef.current) setError(null);
     try {
       const rows = await listTables();
       setTables(rows);
@@ -372,7 +372,7 @@ export function App() {
 
   const refreshIndexes = useCallback(async () => {
     setLoadState("loading-indexes");
-    setError(null);
+    if (!preserveRawUrlRef.current) setError(null);
     try {
       const rows = await listIndexes();
       setIndexes(rows);
