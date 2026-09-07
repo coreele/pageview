@@ -74,6 +74,13 @@ import {
   toolbarNavEnabled,
 } from "./pageToolbarNav";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
+import {
+  isDefaultUrlState,
+  parseUrlState,
+  planRestoreActions,
+  type RestoreCtx,
+  type UrlState,
+} from "./urlState";
 
 type LoadState = "idle" | "connecting" | "loading-tables" | "loading-indexes" | "loading-page";
 type AppMode = "page" | "wal";
@@ -164,6 +171,27 @@ export function App() {
   const [indexes, setIndexes] = useState<IndexRow[]>([]);
   const [selectedIndexOid, setSelectedIndexOid] = useState<number | null>(null);
   const [indexesFetched, setIndexesFetched] = useState(false);
+
+  // url-deeplink (design decision 3): the mount parse runs once in a state
+  // initializer (pure; StrictMode double-run harmless). A legal non-default
+  // URL becomes pendingRestore; an invalid one raises BAD_URL_PARAM in the
+  // mount effect below and keeps the default view usable (P0-8).
+  const [tablesFetched, setTablesFetched] = useState(false);
+  const [initialUrlParse] = useState(() => parseUrlState(window.location.search));
+  const [pendingRestore, setPendingRestore] = useState<UrlState | null>(() =>
+    initialUrlParse.ok && !isDefaultUrlState(initialUrlParse.state)
+      ? initialUrlParse.state
+      : null,
+  );
+  /** Last pendingRestore object whose inputs+action were applied — guards
+   * against StrictMode double-firing the auto-load (design decision 3). */
+  const restoreEpochRef = useRef<UrlState | null>(null);
+  /** Deep-link LSN(s) suppress the first recent-20 prefill entry into wal mode
+   * (P0-6); consumed once, then prefill behavior is unchanged. */
+  const walPrefillSuppressedRef = useRef(false);
+  /** Set only when the mount parse failed: while set, an empty sync target
+   * must not wipe the raw URL from the address bar (P0-8). */
+  const preserveRawUrlRef = useRef(false);
 
   // index-key-decode: per-oid index column metadata cache (design §5). The
   // ref mirrors the state for synchronous fetch decisions (loadIndexBlk fires
@@ -275,6 +303,9 @@ export function App() {
       setError(e as AppError);
     } finally {
       setLoadState("idle");
+      // url-deeplink: the restore effect gates on this flag (finally, so a
+      // failed fetch still un-gates and the object layer answers).
+      setTablesFetched(true);
     }
   }, []);
 
@@ -346,6 +377,16 @@ export function App() {
     })();
   }, [refreshTables]);
 
+  // url-deeplink: a malformed URL raises BAD_URL_PARAM through the existing
+  // error panel; the app stays usable on the default view and the raw URL is
+  // kept in the address bar until the first view action (P0-8, ui-design).
+  useEffect(() => {
+    if (!initialUrlParse.ok) {
+      setError(initialUrlParse.error);
+      preserveRawUrlRef.current = true;
+    }
+  }, [initialUrlParse]);
+
   const onConnect = async (e: FormEvent) => {
     e.preventDefault();
     setLoadState("connecting");
@@ -369,6 +410,7 @@ export function App() {
       setIndexes([]);
       setSelectedIndexOid(null);
       setIndexesFetched(false);
+      setTablesFetched(false);
       clearIndexColumns();
       await refreshTables();
     } catch (err) {
@@ -662,8 +704,15 @@ export function App() {
   );
 
   // Prefill recent ~20 window when entering WAL (connected). Does not auto-Load.
+  // url-deeplink: a restore carrying any deep-link LSN skips this prefill once
+  // so it never overwrites the restored inputs (P0-6); later re-entries into
+  // wal mode keep the existing prefill behavior.
   useEffect(() => {
     if (!connected || mode !== "wal") return;
+    if (walPrefillSuppressedRef.current) {
+      walPrefillSuppressedRef.current = false;
+      return;
+    }
     let cancelled = false;
     (async () => {
       setWalFilling(true);
@@ -710,6 +759,15 @@ export function App() {
       setWalPhase("error");
       return;
     }
+    await loadWalRange(start, end);
+  };
+
+  /**
+   * url-deeplink: the load half of onWalLoad with direct arguments — the
+   * restore path must pass deep-link LSNs explicitly instead of reading the
+   * (possibly stale) input state (design decision 3). Behavior unchanged.
+   */
+  const loadWalRange = async (start: string, end: string) => {
     setWalPhase("loading");
     setError(null);
     try {
@@ -746,6 +804,104 @@ export function App() {
       setWalFilling(false);
     }
   };
+
+  // url-deeplink (design decision 3): single restore effect for startup,
+  // F5 and popstate. Gated on connected (P0-7: connect panel stays on top,
+  // params kept) and on the list flags planRestoreActions waits for; both
+  // .env auto-connect and the manual connect form converge here because
+  // onConnect does not clear pendingRestore — the effect replays idempotently.
+  const restoreCtx: RestoreCtx = {
+    connected,
+    tablesFetched,
+    tables,
+    indexesFetched,
+    indexes,
+  };
+  useEffect(() => {
+    if (pendingRestore == null || !connected) return;
+    const plan = planRestoreActions(pendingRestore, restoreCtx);
+    if (plan.type === "wait") {
+      // Entering index mode kicks the lazy index fetch whose indexesFetched
+      // flag un-gates the next run of this effect (design decision 3).
+      if (
+        pendingRestore.mode === "page" &&
+        pendingRestore.kind === "index" &&
+        relationKind !== "index"
+      ) {
+        if (mode !== "page") {
+          setMode("page");
+          setError(null);
+        }
+        onSwitchRelationKind("index");
+      }
+      return;
+    }
+    // Fire each pendingRestore object exactly once (StrictMode double-run).
+    if (restoreEpochRef.current === pendingRestore) return;
+    restoreEpochRef.current = pendingRestore;
+
+    const state = pendingRestore;
+    // 1) input-side restoration, mirroring the runtime handlers (mode/kind
+    //    switch semantics, indexSelectionSurvives for the index selection,
+    //    the empty-table branch of onSelectTable). A fresh wal entry with a
+    //    deep-link LSN suppresses the recent-20 prefill once (P0-6).
+    if (state.mode === "wal") {
+      setMode("wal");
+      setError(null);
+      setWalRangeMeta(null);
+      resetPageView();
+      setSchema(null);
+      setSelectedOid(state.table);
+      if (state.startLsn != null || state.endLsn != null) {
+        walPrefillSuppressedRef.current = true;
+      }
+      setWalStartLsn(state.startLsn ?? "");
+      setWalEndLsn(state.endLsn ?? "");
+    } else {
+      setMode("page");
+      setRelationKind(state.kind);
+      setWalRangeMeta(null);
+      setWalRecords([]);
+      setWalNewLsns(new Set());
+      setWalPhase("idle");
+      resetPageView();
+      setSchema(null);
+      setSelectedOid(state.table);
+      if (state.kind === "index") {
+        const filtered = filterIndexesByTable(indexes, state.table);
+        setSelectedIndexOid(indexSelectionSurvives(state.index, filtered) ? state.index : null);
+        setBlkno(state.blkno ?? 0);
+      } else {
+        const t = state.table != null ? tables.find((x) => x.oid === state.table) : null;
+        if (!(t != null && t.blocks === 0)) setBlkno(state.blkno ?? 0);
+      }
+    }
+    // 2) execute the planned action through the existing load paths; object
+    //    layer failures surface via the existing error contracts (P0-9/P0-10).
+    switch (plan.type) {
+      case "load-table":
+        void loadBlk(plan.oid, plan.blkno);
+        break;
+      case "load-index":
+        void loadIndexBlk(plan.oid, plan.blkno);
+        break;
+      case "load-wal":
+        void loadWalRange(plan.startLsn, plan.endLsn);
+        break;
+      default:
+        break;
+    }
+    setPendingRestore(null);
+  }, [
+    pendingRestore,
+    connected,
+    tables,
+    tablesFetched,
+    indexes,
+    indexesFetched,
+    mode,
+    relationKind,
+  ]);
 
   const connSummary =
     connected && session
