@@ -85,6 +85,16 @@ export type {
   ParsedBtreePage,
 } from "./btree.js";
 export { deriveBtreeStructureFields } from "./btree-structure.js";
+export {
+  btreeDownlinks,
+  btreeTreeNodeSummary,
+  pathFromCache,
+} from "./btree-tree.js";
+export type {
+  BtreeTreeChip,
+  BtreeTreeNodeSummary,
+  PathFromCacheResult,
+} from "./btree-tree.js";
 // Index tuple key decoding (index-key-decode design §3, oracle-frozen rules)
 export {
   decodeIndexTupleKeys,

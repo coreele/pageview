@@ -34,6 +34,23 @@ import {
 import { HexDump } from "./HexDump";
 import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
 import { HeapPeekOverlay } from "./HeapPeekOverlay";
+import { BtreeTreePanel } from "./BtreeTreePanel";
+import {
+  EMPTY_BTREE_TREE,
+  markLoading,
+  pendingFetches,
+  putError,
+  putReady,
+  resetBtreeTree,
+  retryNode,
+  seedCurrentPage,
+  setTreeCollapsed,
+  toggleExpanded,
+  treeChromeVisible,
+  visibleTree,
+  withPathExpansion,
+  type BtreeTreeState,
+} from "./btreeTree";
 import { findTupleBySelection } from "./indexDetail";
 import {
   buildKeyValuesSection,
@@ -167,6 +184,9 @@ export function App() {
   const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
   const [hexCollapsed, setHexCollapsed] = useState(false);
   const [detailCollapsed, setDetailCollapsed] = useState(false);
+  const [btreeTree, setBtreeTree] = useState<BtreeTreeState>(EMPTY_BTREE_TREE);
+  const treeInflightRef = useRef(new Set<number>());
+  const loadedBlknoRef = useRef<number | null>(null);
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
   const hexLocateNonceRef = useRef(0);
   const hexLocateHandledNonceRef = useRef(0);
@@ -312,6 +332,8 @@ export function App() {
     setPrevRaw(null);
     setDiffIds(new Set());
     setHexLocate(null);
+    treeInflightRef.current.clear();
+    setBtreeTree(resetBtreeTree());
     // url-deeplink: invalidating the page view drops blkno from the URL
     // (selection/switch sync) — never called from a Load-failure path, so a
     // failed Load keeps the previous view's URL (P0-13).
@@ -619,6 +641,67 @@ export function App() {
     if (selectedIndexOid == null) return;
     setBlkno(target);
     void loadIndexBlk(selectedIndexOid, target);
+  };
+
+  loadedBlknoRef.current = loadedBlkno;
+
+  useEffect(() => {
+    if (btreeTree.collapsed || pageView?.kind !== "btree" || loadedBlkno == null) return;
+    setBtreeTree((s) =>
+      withPathExpansion(seedCurrentPage(s, loadedBlkno, pageView.page), loadedBlkno),
+    );
+  }, [btreeTree.collapsed, pageView, loadedBlkno]);
+
+  const treePendingKey =
+    !btreeTree.collapsed && pageView?.kind === "btree" ? pendingFetches(btreeTree).join(",") : "";
+
+  useEffect(() => {
+    if (!treePendingKey || selectedIndexOid == null || pageView?.kind !== "btree") return;
+    const plan = treePendingKey
+      .split(",")
+      .map(Number)
+      .filter((b) => !treeInflightRef.current.has(b));
+    if (plan.length === 0) return;
+    for (const b of plan) treeInflightRef.current.add(b);
+    setBtreeTree((s) => markLoading(s, plan));
+    const oid = selectedIndexOid;
+    void (async () => {
+      for (const blk of plan) {
+        try {
+          const rawPage = await fetchIndexPage(oid, blk);
+          const bytes = Uint8Array.from(atob(rawPage.pageBase64), (c) => c.charCodeAt(0));
+          const parsed = parseBtreePage(bytes);
+          setBtreeTree((s) =>
+            withPathExpansion(putReady(s, blk, parsed), loadedBlknoRef.current ?? blk),
+          );
+        } catch (err) {
+          setBtreeTree((s) => putError(s, blk, err as AppError));
+        } finally {
+          treeInflightRef.current.delete(blk);
+        }
+      }
+    })();
+  }, [treePendingKey, selectedIndexOid, pageView?.kind]);
+
+  const btreeTreeView = useMemo(() => {
+    if (pageView?.kind !== "btree" || loadedBlkno == null) {
+      return { rows: [], orphan: null };
+    }
+    return visibleTree(btreeTree, loadedBlkno);
+  }, [pageView, loadedBlkno, btreeTree]);
+
+  const onTreeToggleExpand = (target: number) => {
+    setBtreeTree((s) => toggleExpanded(s, target));
+  };
+
+  const onTreeActivate = (target: number) => {
+    if (loadedBlkno === target) return;
+    loadIndexBlock(target);
+  };
+
+  const onTreeRetry = (target: number) => {
+    treeInflightRef.current.delete(target);
+    setBtreeTree((s) => retryNode(s, target));
   };
 
   /**
@@ -1052,6 +1135,8 @@ export function App() {
               setMode("wal");
               setError(null);
               setWalRangeMeta(null);
+              treeInflightRef.current.clear();
+              setBtreeTree(resetBtreeTree());
               // url-deeplink: the wal view resets on entry — drop its URL side.
               setUrlLoaded((u) => ({ ...u, startLsn: null, endLsn: null }));
             }}
@@ -1541,6 +1626,17 @@ export function App() {
                 {hexCollapsed ? "Show hex" : "Collapse hex"}
               </button>
             )}
+            {mode === "page" && treeChromeVisible(pageView?.kind) && (
+              <button
+                className="chrome-tree"
+                type="button"
+                aria-expanded={!btreeTree.collapsed}
+                aria-controls="btree-tree-panel"
+                onClick={() => setBtreeTree((s) => setTreeCollapsed(s, !s.collapsed))}
+              >
+                {btreeTree.collapsed ? "Show tree" : "Collapse tree"}
+              </button>
+            )}
           </div>
         )}
         <button
@@ -1740,7 +1836,19 @@ export function App() {
         )}
 
         {connected && mode === "page" && btreePage && pageView?.kind === "btree" && (
-          <div className="main-split" data-hex={hexCollapsed ? "collapsed" : "expanded"}>
+          <div
+            className="main-split"
+            data-hex={hexCollapsed ? "collapsed" : "expanded"}
+            data-tree={btreeTree.collapsed ? "collapsed" : "expanded"}
+          >
+            {!btreeTree.collapsed && (
+              <BtreeTreePanel
+                tree={btreeTreeView}
+                onToggleExpand={onTreeToggleExpand}
+                onActivate={onTreeActivate}
+                onRetry={onTreeRetry}
+              />
+            )}
             <section className="pane pane-structure" aria-label="Index page structure">
               {loadState === "loading-page" && (
                 <div className="muted">

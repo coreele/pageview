@@ -1769,6 +1769,106 @@ input {
     min-height: 0;
     max-height: none;
   }
+
+  .main-paged .main-split[data-tree="expanded"][data-hex="expanded"] {
+    grid-template-columns: minmax(180px, 0.28fr) minmax(280px, 0.44fr) minmax(240px, 0.28fr);
+  }
+
+  .main-paged .main-split[data-tree="expanded"][data-hex="collapsed"] {
+    grid-template-columns: minmax(180px, 0.32fr) minmax(0, 1fr);
+  }
+
+  .main-paged .pane-tree {
+    max-width: 22rem;
+    overflow: auto;
+    min-height: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.45rem 0.35rem;
+  }
+}
+
+.pane-tree {
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.45rem 0.35rem;
+}
+
+.btree-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1.55rem;
+}
+
+.btree-tree-row[data-current="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  border-radius: 3px;
+}
+
+.btree-tree-expander,
+.btree-tree-label,
+.btree-tree-retry {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0.1rem 0.2rem;
+}
+
+.btree-tree-expander {
+  width: 1.25rem;
+  flex: 0 0 1.25rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.btree-tree-expander--leaf {
+  cursor: default;
+}
+
+.btree-tree-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem;
+  text-align: left;
+  min-width: 0;
+}
+
+.btree-tree-kind,
+.btree-tree-chip {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.btree-tree-chip {
+  letter-spacing: 0.02em;
+}
+
+.btree-tree-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: 0.35rem;
+  font-size: 0.72rem;
+  color: var(--danger);
+}
+
+.btree-tree-orphan {
+  margin-top: 0.55rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 959px) {
+  .main-paged .pane-tree {
+    max-width: none;
+  }
 }
 
 /* WAL mode: visual alignment with Page cards; behavior unchanged */
