@@ -19,8 +19,10 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 待 FF 合入 main | | | |
 
 ## 进度笔记
 
 - 2026-09-07 Manager 登记。用户：「依然失败，CI取消 e2e」。路径 `fast`：删除 CI job，范围明确。Spec/Design skipped。Review skipped：YAML 与 README 对照即可。Plan 齐备后进入 `developing`。
+- 2026-09-07 Developer：删除 ci.yml `e2e` job；README 改为两 job。提交 `6e30d03`。Review skipped → QA Pass。进入 `merge-approval`。
+- 2026-09-07 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入 `dev-notes.md` / `qa-report.md`。

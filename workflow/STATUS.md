@@ -8,10 +8,10 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 1 | ci-drop-e2e |
+| 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 0 | — |
+| 待归档 | 1 | ci-drop-e2e |
 | 已归档 | 20 | add-ci，auto-install-extensions，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
 
 ## 等待用户
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| ci-drop-e2e | developing | fast | Developer 实施 | 从 GitHub Actions 移除仍失败的 e2e job |
+| — | | | | |
 
 ## 待办
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| — | | |
+| ci-drop-e2e | ci-drop-e2e → main | 待 FF 合入 |
 
 ## 归档索引
 
