@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildUrlState, parseUrlState, type UrlState } from "./urlState";
+import type { IndexRowLike } from "./indexView";
+import {
+  buildUrlState,
+  parseUrlState,
+  planRestoreActions,
+  type RestoreCtx,
+  type UrlState,
+} from "./urlState";
 
 function st(overrides: Partial<UrlState> = {}): UrlState {
   return {
@@ -211,5 +218,148 @@ describe("round-trip: parse(build(s)) === s", () => {
     const raw = parseUrlState("?mode=wal&startLsn=0/16B3748&endLsn=0/16B4000");
     expect(encoded).toEqual(raw);
     expect(encoded.ok && encoded.state.startLsn).toBe("0/16B3748");
+  });
+});
+
+function idx(overrides: Partial<IndexRowLike> = {}): IndexRowLike {
+  return {
+    oid: 24576,
+    qualifiedName: "public.orders_oid_idx",
+    accessMethod: "btree",
+    blocks: 12,
+    tableOid: 16384,
+    tableQualifiedName: "public.orders",
+    valid: true,
+    ...overrides,
+  };
+}
+
+function ctx(overrides: Partial<RestoreCtx> = {}): RestoreCtx {
+  return {
+    connected: true,
+    tablesFetched: true,
+    tables: [
+      { oid: 16384, blocks: 5 },
+      { oid: 16390, blocks: 0 },
+    ],
+    indexesFetched: true,
+    indexes: [
+      idx(),
+      idx({ oid: 24580, qualifiedName: "public.orders_hash_idx", accessMethod: "hash", blocks: 3 }),
+      idx({ oid: 24590, qualifiedName: "public.events_ts_idx", tableOid: 16400, tableQualifiedName: "public.events" }),
+    ],
+    ...overrides,
+  };
+}
+
+describe("planRestoreActions — wait gating (design decision 3)", () => {
+  it("waits while not connected (P0-7: params kept, connect panel unaffected)", () => {
+    const action = planRestoreActions(st({ table: 16384, blkno: 5 }), ctx({ connected: false }));
+    expect(action).toEqual({ type: "wait" });
+  });
+
+  it("page+table waits for tablesFetched", () => {
+    const action = planRestoreActions(st({ table: 16384 }), ctx({ tablesFetched: false }));
+    expect(action).toEqual({ type: "wait" });
+  });
+
+  it("page+index waits for indexesFetched (even without an index param)", () => {
+    const action = planRestoreActions(st({ kind: "index", table: 16384 }), ctx({ indexesFetched: false }));
+    expect(action).toEqual({ type: "wait" });
+  });
+
+  it("wal does not wait on list flags once connected", () => {
+    const action = planRestoreActions(
+      st({ mode: "wal", startLsn: "0/1", endLsn: "0/2" }),
+      ctx({ tablesFetched: false, indexesFetched: false }),
+    );
+    expect(action.type).toBe("load-wal");
+  });
+});
+
+describe("planRestoreActions — load branches (Spec restore decision table)", () => {
+  it("page+table+blkno loads the block; blkno defaults to 0 when absent", () => {
+    expect(planRestoreActions(st({ table: 16384, blkno: 5 }), ctx())).toEqual({
+      type: "load-table",
+      oid: 16384,
+      blkno: 5,
+    });
+    expect(planRestoreActions(st({ table: 16384 }), ctx())).toEqual({
+      type: "load-table",
+      oid: 16384,
+      blkno: 0,
+    });
+  });
+
+  it("page+index (B-tree, in filter) loads with blkno defaulting to 0", () => {
+    expect(planRestoreActions(st({ kind: "index", table: 16384, index: 24576, blkno: 1 }), ctx())).toEqual({
+      type: "load-index",
+      oid: 24576,
+      blkno: 1,
+    });
+    expect(planRestoreActions(st({ kind: "index", index: 24576 }), ctx())).toEqual({
+      type: "load-index",
+      oid: 24576,
+      blkno: 0,
+    });
+  });
+
+  it("wal with both LSNs loads the range", () => {
+    expect(planRestoreActions(st({ mode: "wal", startLsn: "0/1", endLsn: "0/2" }), ctx())).toEqual({
+      type: "load-wal",
+      startLsn: "0/1",
+      endLsn: "0/2",
+    });
+  });
+
+  it("table not in the list still loads (server answers NOT_HEAP_TABLE, P0-9)", () => {
+    expect(planRestoreActions(st({ table: 99999 }), ctx())).toEqual({
+      type: "load-table",
+      oid: 99999,
+      blkno: 0,
+    });
+  });
+
+  it("index not in the list at all still loads (client NOT_INDEX, P0-9)", () => {
+    expect(planRestoreActions(st({ kind: "index", table: 16384, index: 99999 }), ctx())).toEqual({
+      type: "load-index",
+      oid: 99999,
+      blkno: 0,
+    });
+  });
+});
+
+describe("planRestoreActions — no-load branches (guards and partial params)", () => {
+  it("0-block table: guard, no request (existing empty-relation panel)", () => {
+    expect(planRestoreActions(st({ table: 16390, blkno: 0 }), ctx())).toEqual({ type: "none" });
+  });
+
+  it("non-B-tree index in the list: guard, no request (canLoadIndex)", () => {
+    expect(planRestoreActions(st({ kind: "index", table: 16384, index: 24580 }), ctx())).toEqual({
+      type: "none",
+    });
+  });
+
+  it("inconsistent filter (index exists but under another table): filter wins, index dropped silently", () => {
+    expect(planRestoreActions(st({ kind: "index", table: 16384, index: 24590 }), ctx())).toEqual({
+      type: "none",
+    });
+  });
+
+  it("no table param: input-side only", () => {
+    expect(planRestoreActions(st({ blkno: 5 }), ctx())).toEqual({ type: "none" });
+  });
+
+  it("kind=index without index param: input-side only (filter restored)", () => {
+    expect(planRestoreActions(st({ kind: "index", table: 16384 }), ctx())).toEqual({ type: "none" });
+  });
+
+  it("single LSN: input-side only, no auto-load (P1)", () => {
+    expect(planRestoreActions(st({ mode: "wal", startLsn: "0/1" }), ctx())).toEqual({ type: "none" });
+    expect(planRestoreActions(st({ mode: "wal", endLsn: "0/2" }), ctx())).toEqual({ type: "none" });
+  });
+
+  it("bare wal mode: input-side only", () => {
+    expect(planRestoreActions(st({ mode: "wal" }), ctx())).toEqual({ type: "none" });
   });
 });

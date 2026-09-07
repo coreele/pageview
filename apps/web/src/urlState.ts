@@ -18,6 +18,7 @@
  * by the existing Load-time `BAD_LSN` contract.
  */
 import type { AppError } from "./api";
+import { canLoadIndex, filterIndexesByTable, type IndexRowLike } from "./indexView";
 
 export type UrlState = {
   mode: "page" | "wal";
@@ -34,6 +35,26 @@ export type UrlState = {
 };
 
 export type ParseResult = { ok: true; state: UrlState } | { ok: false; error: AppError };
+
+/** Structural subset of api.TableRow needed by the restore planner. */
+export type RestoreTableRef = { oid: number; blocks: number };
+
+/** Everything the restore planner needs from the App (kept structural so the App passes its live state). */
+export type RestoreCtx = {
+  connected: boolean;
+  tablesFetched: boolean;
+  tables: readonly RestoreTableRef[];
+  indexesFetched: boolean;
+  indexes: readonly IndexRowLike[];
+};
+
+/** What the restore effect should do for a pending UrlState (design decision 3). */
+export type RestoreAction =
+  | { type: "wait" }
+  | { type: "load-table"; oid: number; blkno: number }
+  | { type: "load-index"; oid: number; blkno: number }
+  | { type: "load-wal"; startLsn: string; endLsn: string }
+  | { type: "none" };
 
 const OID_MAX = 4294967295;
 /** wal-core LSN_RE (packages/wal-core/src/index.ts), applied after trim. */
@@ -180,4 +201,48 @@ export function buildUrlState(state: UrlState): string {
     if (state.blkno != null) params.set("blkno", String(state.blkno));
   }
   return `?${params.toString()}`;
+}
+
+/**
+ * Pure restore planner (design decision 3): decides what the restore effect
+ * should do for a pending deep-link state. All wait/guard/drop judgements
+ * live here and are unit-tested; the App only executes the action.
+ *
+ * - `wait`: not connected yet (P0-7), or the list the decision needs is not
+ *   fetched (page+table needs tablesFetched, page+index needs indexesFetched).
+ * - `load-table`: missing blkno defaults to 0; a listed 0-block table stays a
+ *   no-load (existing empty-relation guard); an unlisted oid still loads so
+ *   the server answers NOT_HEAP_TABLE (P0-9).
+ * - `load-index`: reuses filterIndexesByTable/canLoadIndex — an index listed
+ *   under a different table than the filter is dropped silently (runtime
+ *   indexSelectionSurvives semantics), a listed non-B-tree never loads
+ *   (guard), an unlisted oid still loads so the client answers NOT_INDEX.
+ * - `load-wal`: both LSNs present; start<=end is Load's existing BAD_LSN job.
+ * - `none`: input-side restoration only (missing table/index, single LSN,
+ *   guards, inconsistent filter).
+ */
+export function planRestoreActions(state: UrlState, ctx: RestoreCtx): RestoreAction {
+  if (!ctx.connected) return { type: "wait" };
+  if (state.mode === "wal") {
+    if (state.startLsn != null && state.endLsn != null) {
+      return { type: "load-wal", startLsn: state.startLsn, endLsn: state.endLsn };
+    }
+    return { type: "none" };
+  }
+  if (state.kind === "table") {
+    if (!ctx.tablesFetched) return { type: "wait" };
+    if (state.table == null) return { type: "none" };
+    const table = ctx.tables.find((t) => t.oid === state.table) ?? null;
+    if (table != null && table.blocks === 0) return { type: "none" };
+    return { type: "load-table", oid: state.table, blkno: state.blkno ?? 0 };
+  }
+  if (!ctx.indexesFetched) return { type: "wait" };
+  if (state.index == null) return { type: "none" };
+  const index = ctx.indexes.find((i) => i.oid === state.index) ?? null;
+  if (index != null) {
+    const filtered = filterIndexesByTable([...ctx.indexes], state.table);
+    if (!filtered.some((i) => i.oid === state.index)) return { type: "none" };
+    if (!canLoadIndex(index)) return { type: "none" };
+  }
+  return { type: "load-index", oid: state.index, blkno: state.blkno ?? 0 };
 }
