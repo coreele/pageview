@@ -19,8 +19,12 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 T1–T3 | | | |
+| done | 待 FF 合入 main | | | |
 
 ## 进度笔记
 
 - 2026-09-07 Manager 登记。路径 `fast`：CI 单点工具链失败，症状与验收明确。Spec skipped：无产品行为/公开接口合同变更。Design skipped：无模块边界或选型决策。Review skipped：fast，以命令级复现与修复证据验收。用户贴出 Actions 日志即启动。
+- 2026-09-07 Planner 完成 `plan.md`。进入 `developing`。第一阶段文档提交后调度 Developer。
+- 2026-09-07 Developer：`playwright.config.ts` 改为 tsx；提交 `e9a49df`。Review skipped → QA。
+- 2026-09-07 QA 轮次 1 Pass（`e9a49df`）。进入 `merge-approval`，待用户授权合并。
+- 2026-09-07 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入 `dev-notes.md` / `qa-report.md`。
