@@ -38,6 +38,7 @@
 ### 共用
 
 - **浅色 / 深色** 主题
+- **深链**：地址栏实时反映当前视图——复制分享、收藏书签或新标签页打开即可直达同一表/索引页或 WAL 区间（连接后自动还原加载），如 `?mode=page&kind=table&table=<oid>&blkno=<n>`
 
 ## 环境要求
 
@@ -115,5 +116,6 @@ Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 | Connection refused | 检查 host/port/凭证；确认 Postgres 在本机监听 |
 | `BLKNO_OUT_OF_RANGE` | 使用 `blkno` 在 `0 .. relpages-1` 范围内 |
 | `BAD_OID` | 构造 URL 时使用从表/索引列表取得的 oid（整数 `1..4294967295`） |
+| `BAD_URL_PARAM` | 按消息提示修正或移除地址栏中非法的 URL 参数后刷新——应用仍可在默认视图正常使用 |
 | `INDEX_NOT_BTREE` | 索引页仅支持 B-tree；请改选访问方法为 `btree` 的索引，或浏览其所属表 |
 | `get_raw_page` / walinspect 权限不足 | 使用具备权限的角色 |

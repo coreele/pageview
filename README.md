@@ -38,6 +38,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 ### Shared
 
 - **Light / dark** theme
+- **Deep links**: the address bar mirrors the current view — copy, bookmark, or open it in a new tab to land on the same table/index page or WAL range (restored and auto-loaded once connected), e.g. `?mode=page&kind=table&table=<oid>&blkno=<n>`
 
 ## Requirements
 
@@ -118,5 +119,6 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 | Connection refused | Check host/port/credentials; Postgres listening on localhost |
 | `BLKNO_OUT_OF_RANGE` | Use `blkno` in `0 .. relpages-1` |
 | `BAD_OID` | Use an oid (integer `1..4294967295`) copied from the table/index list when building the URL |
+| `BAD_URL_PARAM` | Fix or remove the invalid URL parameter shown in the message from the address bar, then reload — the app stays usable on the default view |
 | `INDEX_NOT_BTREE` | Index pages support B-tree only; pick an index with access method `btree`, or browse its owning table |
 | `get_raw_page` / walinspect denied | Use a privileged role |
