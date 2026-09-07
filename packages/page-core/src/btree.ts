@@ -20,7 +20,7 @@ import { LP_DEAD, LP_NORMAL, LP_REDIRECT, LP_UNUSED } from "./flags.js";
 
 // ---------------------------------------------------------------------------
 // Frozen layout constants (oracle-verified; deviations from design §4 noted
-// in workflow/docs/features/index-viewer/dev-notes.md)
+// in workflow/archive/2026/index-viewer/dev-notes.md)
 // ---------------------------------------------------------------------------
 
 /** BTREE_MAGIC (nbtree.h) — 0x053162 = 340322. */

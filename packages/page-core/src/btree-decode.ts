@@ -8,7 +8,7 @@
  *
  * Layout rules frozen against PG 16.11 real captures + server headers
  * (itup.h / nbtree.h); deviations from design §3 are recorded in
- * workflow/docs/features/index-key-decode/dev-notes.md:
+ * workflow/archive/2026/index-key-decode/dev-notes.md:
  *   - null bitmap allocates a FIXED sizeof(IndexAttributeBitMapData) = 4 bytes
  *     (INDEX_MAX_KEYS = 32), attribute data starts at MAXALIGN(8+4) = 16
  *   - bitmap bits are INVERTED vs heap: set = value present, clear = NULL

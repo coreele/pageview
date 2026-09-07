@@ -1,0 +1,73 @@
+# 看板
+
+> 由 Manager 唯一维护。本文件是**当前 Git 分支 / 工作树的看板视图**，不是跨分支全局数据库；并行工作项使用独立 `git worktree`。流程与状态定义见 [WORKFLOW.md](WORKFLOW.md)，本文件不重复定义规则。
+> 活跃工作项记录 `workflow/workspace/<id>/main.md`，归档记录 `workflow/archive/<年>/<id>/main.md`。
+
+## 概览
+
+| 泳道 | 数量 | 工作项 |
+|---|---|---|
+| 等待用户 | 0 | — |
+| 进行中 | 0 | — |
+| 待办 | 0 | — |
+| 阻塞 | 0 | — |
+| 待归档 | 0 | — |
+| 已归档 | 19 | add-ci，auto-install-extensions，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
+
+## 等待用户
+
+> 流程已停住，需要你回话才能继续。
+
+| 工作项 | 等待什么 | 停在此处自 | 摘要 |
+|---|---|---|---|
+| — | | | |
+
+## 进行中
+
+| 工作项 | 状态 | 路径 | 下一步 | 摘要 |
+|---|---|---|---|---|
+| — | | | | |
+
+## 待办
+
+| 工作项 | 路径 | 下一步 | 摘要 |
+|---|---|---|---|
+| — | | | |
+
+## 阻塞
+
+| 工作项 | 阻塞原因 | 恢复条件 | 恢复后目标 |
+|---|---|---|---|
+| — | | | |
+
+## 待归档
+
+> `done` 但尚未确认合入。确认后移入归档索引。
+
+| 工作项 | 源分支 → 目标分支 | 待确认事项 |
+|---|---|---|
+| — | | |
+
+## 归档索引
+
+| 工作项 | 结果 | 记录 |
+|---|---|---|
+| add-ci | archived | `workflow/archive/2026/add-ci/main.md` |
+| auto-install-extensions | archived | `workflow/archive/2026/auto-install-extensions/main.md` |
+| column-align-pad | archived | `workflow/archive/2026/column-align-pad/main.md` |
+| deleted-tuple-color | cancelled | `workflow/archive/2026/deleted-tuple-color/main.md` |
+| detail-panel-polish | archived | `workflow/archive/2026/detail-panel-polish/main.md` |
+| e2e-playwright | archived | `workflow/archive/2026/e2e-playwright/main.md` |
+| fix-dev-web-page-core | archived | `workflow/archive/2026/fix-dev-web-page-core/main.md` |
+| hex-collapse | archived | `workflow/archive/2026/hex-collapse/main.md` |
+| index-key-decode | archived | `workflow/archive/2026/index-key-decode/main.md` |
+| index-viewer | archived | `workflow/archive/2026/index-viewer/main.md` |
+| infomask-detail | archived | `workflow/archive/2026/infomask-detail/main.md` |
+| layout-chrome-split | archived | `workflow/archive/2026/layout-chrome-split/main.md` |
+| next-page-btn | archived | `workflow/archive/2026/next-page-btn/main.md` |
+| oid-numeric-guard | archived | `workflow/archive/2026/oid-numeric-guard/main.md` |
+| page-diagram-32b | archived | `workflow/archive/2026/page-diagram-32b/main.md` |
+| pd-flags-tuple-view | archived | `workflow/archive/2026/pd-flags-tuple-view/main.md` |
+| pg-page-viewer | archived | `workflow/archive/2026/pg-page-viewer/main.md` |
+| url-deeplink | archived | `workflow/archive/2026/url-deeplink/main.md` |
+| wal-viewer | archived | `workflow/archive/2026/wal-viewer/main.md` |

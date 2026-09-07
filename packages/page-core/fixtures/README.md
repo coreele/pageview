@@ -63,7 +63,7 @@ For `--index` with `blkno > 0` the oracle JSON additionally contains
 
 These are consumed by `tests/btree-oracle.test.ts` (decode assertions) and
 freeze the key-area layout rules recorded in
-`workflow/docs/features/index-key-decode/dev-notes.md`.
+`workflow/archive/2026/index-key-decode/dev-notes.md`.
 
 ### Captured B-tree scenes (committed)
 
@@ -108,7 +108,7 @@ ANALYZE pageview_fx.demo_dup; ANALYZE pageview_fx.demo_uniq;
 `ANALYZE` to let the dedup path see duplicates) produce posting tuples.
 
 Seed sketch for the `pageview_ikd` scenes (operator runs manually; the capture
-script never does — see `workflow/docs/features/index-key-decode/dev-notes.md`
+script never does — see `workflow/archive/2026/index-key-decode/dev-notes.md`
 for the frozen rules these captures verify):
 
 ```sql

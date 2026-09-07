@@ -3,7 +3,7 @@
  *
  * Byte layout frozen against PG 16.11 real captures + server headers
  * (itup.h / nbtree.h); deviations from design §3 are recorded in
- * workflow/docs/features/index-key-decode/dev-notes.md:
+ * workflow/archive/2026/index-key-decode/dev-notes.md:
  *   - null bitmap allocates a fixed 4B (INDEX_MAX_KEYS), data starts at
  *     MAXALIGN(8+4)=16 when INDEX_NULL_MASK is set
  *   - bitmap bits are INVERTED vs heap: set = value present, clear = NULL
