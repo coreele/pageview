@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | fix-e2e-wal-core-ts |
-| 已归档 | 19 | add-ci，auto-install-extensions，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 20 | add-ci，auto-install-extensions，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| fix-e2e-wal-core-ts | fix-e2e-wal-core-ts → main | 待 FF 合入 |
+| — | | |
 
 ## 归档索引
 
@@ -59,6 +59,7 @@
 | detail-panel-polish | archived | `workflow/archive/2026/detail-panel-polish/main.md` |
 | e2e-playwright | archived | `workflow/archive/2026/e2e-playwright/main.md` |
 | fix-dev-web-page-core | archived | `workflow/archive/2026/fix-dev-web-page-core/main.md` |
+| fix-e2e-wal-core-ts | archived | `workflow/archive/2026/fix-e2e-wal-core-ts/main.md` |
 | hex-collapse | archived | `workflow/archive/2026/hex-collapse/main.md` |
 | index-key-decode | archived | `workflow/archive/2026/index-key-decode/main.md` |
 | index-viewer | archived | `workflow/archive/2026/index-viewer/main.md` |

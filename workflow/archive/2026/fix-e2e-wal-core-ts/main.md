@@ -7,7 +7,7 @@
 文档影响: README / README.zh-CN Development 节若写死 `node dist` 则同步；否则 N/A。
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/fix-e2e-wal-core-ts/`。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/fix-e2e-wal-core-ts/`。
 
 ## 门禁
 
@@ -19,7 +19,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 待 FF 合入 main | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -28,3 +28,4 @@
 - 2026-09-07 Developer：`playwright.config.ts` 改为 tsx；提交 `e9a49df`。Review skipped → QA。
 - 2026-09-07 QA 轮次 1 Pass（`e9a49df`）。进入 `merge-approval`，待用户授权合并。
 - 2026-09-07 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入 `dev-notes.md` / `qa-report.md`。
+- 2026-09-07 FF 合入 `main`（`4f4ce1f..94d9adb`）。归档至 `workflow/archive/2026/fix-e2e-wal-core-ts/`。
