@@ -75,6 +75,8 @@ import {
 } from "./pageToolbarNav";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 import {
+  buildUrlState,
+  defaultUrlState,
   isDefaultUrlState,
   parseUrlState,
   planRestoreActions,
@@ -90,6 +92,9 @@ type RelationKind = "table" | "index";
 type PageView =
   | { kind: "heap"; page: ParsedPage }
   | { kind: "btree"; page: ParsedBtreePage; index: IndexRow };
+/** url-deeplink: loaded-side URL snapshot (design decision 2). */
+type UrlLoaded = { blkno: number | null; startLsn: string | null; endLsn: string | null };
+const EMPTY_URL_LOADED: UrlLoaded = { blkno: null, startLsn: null, endLsn: null };
 
 function PageToolbarNavButtons({
   enabled,
@@ -193,6 +198,22 @@ export function App() {
    * must not wipe the raw URL from the address bar (P0-8). */
   const preserveRawUrlRef = useRef(false);
 
+  // url-deeplink (design decision 2): URL/history sync state. urlLoaded is the
+  // loaded-side snapshot (blkno / WAL range) — written ONLY at the three
+  // Load-success commit points and cleared on selection-side invalidation, so
+  // a failed Load keeps the previous view's URL (P0-13) while selections and
+  // switches drop the stale params immediately. markUrlPush arms the next
+  // central sync to pushState (one history entry per successful Load); the
+  // tick re-triggers the effect even when the target string is unchanged
+  // (same-block Refresh consumes the flag without writing).
+  const [urlLoaded, setUrlLoaded] = useState<UrlLoaded>(EMPTY_URL_LOADED);
+  const urlPushPendingRef = useRef(false);
+  const [urlSyncTick, setUrlSyncTick] = useState(0);
+  const markUrlPush = () => {
+    urlPushPendingRef.current = true;
+    setUrlSyncTick((t) => t + 1);
+  };
+
   // index-key-decode: per-oid index column metadata cache (design §5). The
   // ref mirrors the state for synchronous fetch decisions (loadIndexBlk fires
   // the request without awaiting); successes are sticky per oid, failures are
@@ -291,6 +312,10 @@ export function App() {
     setPrevRaw(null);
     setDiffIds(new Set());
     setHexLocate(null);
+    // url-deeplink: invalidating the page view drops blkno from the URL
+    // (selection/switch sync) — never called from a Load-failure path, so a
+    // failed Load keeps the previous view's URL (P0-13).
+    setUrlLoaded((u) => ({ ...u, blkno: null }));
   }, []);
 
   const refreshTables = useCallback(async () => {
@@ -481,6 +506,9 @@ export function App() {
       setSelectedId(null);
       setHighlight(null);
       setHexLocate(null);
+      // url-deeplink: Load-success commit point 1/3 (design decision 2).
+      setUrlLoaded((u) => ({ ...u, blkno: block }));
+      markUrlPush();
     } catch (err) {
       setError(err as AppError);
       if (!opts?.refresh) {
@@ -548,6 +576,9 @@ export function App() {
       setSelectedId(null);
       setHighlight(null);
       setHexLocate(null);
+      // url-deeplink: Load-success commit point 2/3 (design decision 2).
+      setUrlLoaded((u) => ({ ...u, blkno: block }));
+      markUrlPush();
     } catch (err) {
       setError(err as AppError);
       if (!opts?.refresh) {
@@ -564,6 +595,8 @@ export function App() {
     setPageView(null);
     setLoadedBlkno(null);
     setDiffIds(new Set());
+    // url-deeplink: new selection invalidates the loaded block's URL param.
+    setUrlLoaded((u) => ({ ...u, blkno: null }));
     const t = tables.find((x) => x.oid === oid);
     if (t && t.blocks === 0) {
       setError(null);
@@ -699,6 +732,9 @@ export function App() {
       setWalRecords(data.records);
       setWalPhase("loaded");
       setWalRangeMeta({ startLsn: data.startLsn, endLsn: data.endLsn, count: data.count });
+      // url-deeplink: Load-success commit point 3/3 (design decision 2).
+      setUrlLoaded((u) => ({ ...u, startLsn: data.startLsn, endLsn: data.endLsn }));
+      markUrlPush();
     },
     [walRecords],
   );
@@ -849,6 +885,8 @@ export function App() {
       setMode("wal");
       setError(null);
       setWalRangeMeta(null);
+      // url-deeplink: reset the wal URL side (page side via resetPageView).
+      setUrlLoaded((u) => ({ ...u, startLsn: null, endLsn: null }));
       resetPageView();
       setSchema(null);
       setSelectedOid(state.table);
@@ -864,6 +902,8 @@ export function App() {
       setWalRecords([]);
       setWalNewLsns(new Set());
       setWalPhase("idle");
+      // url-deeplink: reset the wal URL side (page side via resetPageView).
+      setUrlLoaded((u) => ({ ...u, startLsn: null, endLsn: null }));
       resetPageView();
       setSchema(null);
       setSelectedOid(state.table);
@@ -875,6 +915,15 @@ export function App() {
         const t = state.table != null ? tables.find((x) => x.oid === state.table) : null;
         if (!(t != null && t.blocks === 0)) setBlkno(state.blkno ?? 0);
       }
+    }
+    // url-deeplink: the loaded-side snapshot follows the plan optimistically —
+    // an in-flight restore keeps the deep-link query (no intermediate replace
+    // eating the initial history entry) and a failed auto-load keeps the
+    // requested view in the address bar (P0-13 semantics).
+    if (plan.type === "load-table" || plan.type === "load-index") {
+      setUrlLoaded((u) => ({ ...u, blkno: plan.blkno }));
+    } else if (plan.type === "load-wal") {
+      setUrlLoaded((u) => ({ ...u, startLsn: plan.startLsn, endLsn: plan.endLsn }));
     }
     // 2) execute the planned action through the existing load paths; object
     //    layer failures surface via the existing error contracts (P0-9/P0-10).
@@ -902,6 +951,67 @@ export function App() {
     mode,
     relationKind,
   ]);
+
+  // url-deeplink (design decision 2): central URL sync. The target query is
+  // derived from the selection side (mode/kind/table/index) plus the loaded
+  // side (urlLoaded snapshot — Load-success commit points only); transient
+  // state never participates. Not ready until the pending restore settles
+  // (syncReady), so a deep link is never replaced away mid-restore. Equal
+  // target/address writes nothing (same-block Refresh adds no history entry);
+  // otherwise push (Load success armed the flag) or replace (selection-class
+  // change — no new history). All writes are in-SPA history operations.
+  const syncReady = pendingRestore == null;
+  const targetQuery = useMemo(
+    () =>
+      buildUrlState({
+        mode,
+        kind: relationKind,
+        table: selectedOid,
+        index: selectedIndexOid,
+        blkno: urlLoaded.blkno,
+        startLsn: urlLoaded.startLsn,
+        endLsn: urlLoaded.endLsn,
+      }),
+    [mode, relationKind, selectedOid, selectedIndexOid, urlLoaded],
+  );
+  useEffect(() => {
+    if (!syncReady) return;
+    // P0-8: after BAD_URL_PARAM the raw URL stays in the address bar until the
+    // first view action (which always yields a non-empty canonical target).
+    if (preserveRawUrlRef.current) {
+      if (targetQuery === "") return;
+      preserveRawUrlRef.current = false;
+    }
+    if (targetQuery === window.location.search) {
+      urlPushPendingRef.current = false;
+      return;
+    }
+    const url = targetQuery === "" ? window.location.pathname : targetQuery;
+    if (urlPushPendingRef.current) {
+      window.history.pushState({}, "", url);
+    } else {
+      window.history.replaceState({}, "", url);
+    }
+    urlPushPendingRef.current = false;
+  }, [syncReady, targetQuery, urlSyncTick]);
+
+  // url-deeplink: browser back/forward reuses the restore path (P0-11 — the
+  // address already changed, so the derived target matches and the sync never
+  // writes back; no loop). A malformed address is handled like the mount path.
+  useEffect(() => {
+    const onPopState = () => {
+      const res = parseUrlState(window.location.search);
+      if (res.ok) {
+        setPendingRestore(res.state);
+      } else {
+        setPendingRestore(defaultUrlState());
+        setError(res.error);
+        preserveRawUrlRef.current = true;
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   const connSummary =
     connected && session
@@ -942,6 +1052,8 @@ export function App() {
               setMode("wal");
               setError(null);
               setWalRangeMeta(null);
+              // url-deeplink: the wal view resets on entry — drop its URL side.
+              setUrlLoaded((u) => ({ ...u, startLsn: null, endLsn: null }));
             }}
           >
             WAL
