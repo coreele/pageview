@@ -18,6 +18,9 @@ coverage/
 
 # Local QA / Playwright scratch dirs
 .tmp-*
+playwright-report/
+test-results/
+e2e/.seed.json
 
 # Logs
 *.log

@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "esModuleInterop": true,
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types", "./apps/server/node_modules/@types"],
+    "noUncheckedIndexedAccess": true
+  },
+  "include": ["e2e/**/*.ts", "playwright.config.ts"]
+}

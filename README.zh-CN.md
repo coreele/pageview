@@ -93,7 +93,15 @@ pnpm --filter web test
 pnpm -r typecheck
 pnpm -r build
 pnpm test:integration   # 需要 .env；Page 路径 L3（heap + 自建种子的 B-tree oracle 冒烟）
+pnpm test:wal           # 需要 .env + PG 16+ 与 pg_walinspect；WAL 路径 L3
+pnpm exec playwright install chromium   # 一次性；捆绑浏览器，无需 sudo
+pnpm test:e2e           # 需要可达 PG + .env/DATABASE_URL；无头跑 M1–M10
 ```
+
+CI 在 push / pull_request 上跑三个 job（见 `.github/workflows/ci.yml`）：
+`unit` 做 typecheck + 单测 + 构建（无数据库）；`integration` 拉起 `postgres:16`
+并安装两个扩展后跑两条 smoke；`e2e` 使用同样的 Postgres 服务外加 Chromium，
+执行 `pnpm test:e2e`。
 
 Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 

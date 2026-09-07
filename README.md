@@ -91,12 +91,15 @@ pnpm -r typecheck
 pnpm -r build
 pnpm test:integration    # needs .env; Page path L3 (heap + self-seeded B-tree oracle smoke)
 pnpm test:wal            # needs .env + PG 16+ with pg_walinspect; WAL path L3
+pnpm exec playwright install chromium   # once; bundled browser, no sudo
+pnpm test:e2e            # needs reachable PG + .env/DATABASE_URL; headless M1–M10
 ```
 
-CI runs both paths on push and pull_request (see `.github/workflows/ci.yml`):
+CI runs three jobs on push and pull_request (see `.github/workflows/ci.yml`):
 the `unit` job runs typecheck + tests + build without a database; the
 `integration` job brings up a `postgres:16` service with both extensions and
-runs the two smoke scripts.
+runs the two smoke scripts; the `e2e` job uses the same Postgres service plus
+Chromium and runs `pnpm test:e2e`.
 
 Fixture capture: see `packages/page-core/fixtures/README.md`.
 

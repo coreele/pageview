@@ -11,9 +11,13 @@
     "dev:web": "pnpm --filter web dev",
     "capture-fixtures": "pnpm --filter server exec tsx ../../scripts/capture-fixtures.ts",
     "test:integration": "pnpm --filter server test:integration",
-    "test:wal": "pnpm --filter server test:wal"
+    "test:wal": "pnpm --filter server test:wal",
+    "test:e2e": "pnpm --filter server build && pnpm --filter web build && pnpm --filter server exec tsc --noEmit -p ../../tsconfig.e2e.json && playwright test"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
   }
 }
