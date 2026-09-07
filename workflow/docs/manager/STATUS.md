@@ -10,6 +10,7 @@
 | index-viewer | index-viewer | done | [workflow/docs/features/index-viewer/](../features/index-viewer/) | 已授权合并（QA 轮次 7 Pass + 复审 Approve）；待 FF 合入 main |
 | oid-numeric-guard | oid-numeric-guard | done | [workflow/docs/features/oid-numeric-guard/](../features/oid-numeric-guard/) | 已授权合并（QA Pass；Review skipped-fast）；待 FF 合入 main |
 | index-key-decode | index-key-decode | done | [workflow/docs/features/index-key-decode/](../features/index-key-decode/) | 已授权合并（QA 轮次 1 Pass + Review Approve）；待 FF 合入 main |
+| url-deeplink | url-deeplink | awaiting-plan-approval | [workflow/docs/features/url-deeplink/](../features/url-deeplink/) | 待用户确认 plan.md |
 | auto-install-extensions | auto-install-extensions | done | [workflow/docs/features/auto-install-extensions/](../features/auto-install-extensions/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | column-align-pad | column-align-pad | done | [workflow/docs/features/column-align-pad/](../features/column-align-pad/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | next-page-btn | next-page-btn | done | [workflow/docs/features/next-page-btn/](../features/next-page-btn/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
