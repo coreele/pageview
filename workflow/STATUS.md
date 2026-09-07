@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | ci-drop-e2e |
-| 已归档 | 20 | add-ci，auto-install-extensions，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 21 | add-ci，auto-install-extensions，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| ci-drop-e2e | ci-drop-e2e → main | 待 FF 合入 |
+| — | | |
 
 ## 归档索引
 
@@ -54,6 +54,7 @@
 |---|---|---|
 | add-ci | archived | `workflow/archive/2026/add-ci/main.md` |
 | auto-install-extensions | archived | `workflow/archive/2026/auto-install-extensions/main.md` |
+| ci-drop-e2e | archived | `workflow/archive/2026/ci-drop-e2e/main.md` |
 | column-align-pad | archived | `workflow/archive/2026/column-align-pad/main.md` |
 | deleted-tuple-color | cancelled | `workflow/archive/2026/deleted-tuple-color/main.md` |
 | detail-panel-polish | archived | `workflow/archive/2026/detail-panel-polish/main.md` |
