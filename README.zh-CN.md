@@ -98,10 +98,9 @@ pnpm exec playwright install chromium   # 一次性；捆绑浏览器，无需 s
 pnpm test:e2e           # 需要可达 PG + .env/DATABASE_URL；无头跑 M1–M10
 ```
 
-CI 在 push / pull_request 上跑三个 job（见 `.github/workflows/ci.yml`）：
+CI 在 push / pull_request 上跑两个 job（见 `.github/workflows/ci.yml`）：
 `unit` 做 typecheck + 单测 + 构建（无数据库）；`integration` 拉起 `postgres:16`
-并安装两个扩展后跑两条 smoke；`e2e` 使用同样的 Postgres 服务外加 Chromium，
-执行 `pnpm test:e2e`。
+并安装两个扩展后跑两条 smoke。Playwright（`pnpm test:e2e`）仅本地跑。
 
 Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 

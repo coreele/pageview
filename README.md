@@ -95,11 +95,10 @@ pnpm exec playwright install chromium   # once; bundled browser, no sudo
 pnpm test:e2e            # needs reachable PG + .env/DATABASE_URL; headless M1–M10
 ```
 
-CI runs three jobs on push and pull_request (see `.github/workflows/ci.yml`):
+CI runs two jobs on push and pull_request (see `.github/workflows/ci.yml`):
 the `unit` job runs typecheck + tests + build without a database; the
 `integration` job brings up a `postgres:16` service with both extensions and
-runs the two smoke scripts; the `e2e` job uses the same Postgres service plus
-Chromium and runs `pnpm test:e2e`.
+runs the two smoke scripts. Playwright (`pnpm test:e2e`) is local-only.
 
 Fixture capture: see `packages/page-core/fixtures/README.md`.
 
