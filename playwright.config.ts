@@ -26,7 +26,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "node dist/index.js",
+      command: "pnpm exec tsx src/index.ts",
       cwd: "apps/server",
       url: "http://127.0.0.1:8787/api/session",
       reuseExistingServer: !isCI,
