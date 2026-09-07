@@ -1771,21 +1771,19 @@ input {
   }
 
   .main-paged .main-split[data-tree="expanded"][data-hex="expanded"] {
-    grid-template-columns: minmax(180px, 0.28fr) minmax(280px, 0.44fr) minmax(240px, 0.28fr);
+    grid-template-columns: fit-content(13rem) minmax(0, 1fr) minmax(240px, 0.45fr);
   }
 
   .main-paged .main-split[data-tree="expanded"][data-hex="collapsed"] {
-    grid-template-columns: minmax(180px, 0.32fr) minmax(0, 1fr);
+    grid-template-columns: fit-content(13rem) minmax(0, 1fr);
   }
 
   .main-paged .pane-tree {
-    max-width: 22rem;
+    width: max-content;
+    max-width: 13rem;
+    min-width: 10.5rem;
     overflow: auto;
     min-height: 0;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 0.45rem 0.35rem;
   }
 }
 
