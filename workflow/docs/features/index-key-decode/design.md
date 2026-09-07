@@ -121,3 +121,13 @@ loadIndexBlk(oid, blk)
 | 日期 | 摘要 |
 |---|---|
 | 2026-08-31 | 初稿：解码层归属 page-core 独立模块（方案 A）；typoid 策略映射；步进规则（无逐列对齐、小端、pivot 尾 TID）冻结待 oracle；两查询 + 守卫镜像的端点；web 缓存解耦；synthetic/实捕/CI 三层 oracle |
+
+## 修订记录（2026-08-31，T2 oracle 冻结后由 Manager 补记）
+
+§3 步进规则经 PG16.11 实捕 oracle 校正 6 处（实现以 dev-notes「规则冻结表」为准，Review/QA 勿以 §3 原文判定）：
+1. null bitmap 为**固定 4B**（INDEX_MAX_KEYS=32），数据起点 = MAXALIGN(12) = **16**（非 ⌈indnatts/8⌉）
+2. bitmap **位反转**：置 1=有值、清 0=NULL
+3. **定长列按 attalign 对齐，varlena 不对齐**（原「无逐列对齐」不成立）
+4. nkeyatts = posid 直读（无 −1）；minus-infinity 判定为 posid == 0
+5. 尾部 heap TID **不恒有**：由 t_info 的 BT_PIVOT_HEAP_TID_ATTR 位指示
+6. 小端/时间编码/DESC 原样存储与原文一致

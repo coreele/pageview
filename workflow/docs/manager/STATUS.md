@@ -9,7 +9,7 @@
 | deleted-tuple-color | deleted-tuple-color | blocked | [workflow/docs/features/deleted-tuple-color/](../features/deleted-tuple-color/) | 暂停；用户要求恢复后再确认 infomask 判定与 Plan |
 | index-viewer | index-viewer | done | [workflow/docs/features/index-viewer/](../features/index-viewer/) | 已授权合并（QA 轮次 7 Pass + 复审 Approve）；待 FF 合入 main |
 | oid-numeric-guard | oid-numeric-guard | done | [workflow/docs/features/oid-numeric-guard/](../features/oid-numeric-guard/) | 已授权合并（QA Pass；Review skipped-fast）；待 FF 合入 main |
-| index-key-decode | index-key-decode | planned | [workflow/docs/features/index-key-decode/](../features/index-key-decode/) | Developer 实施 T1–T9（源分支 index-key-decode） |
+| index-key-decode | index-key-decode | done | [workflow/docs/features/index-key-decode/](../features/index-key-decode/) | 已授权合并（QA 轮次 1 Pass + Review Approve）；待 FF 合入 main |
 | auto-install-extensions | auto-install-extensions | done | [workflow/docs/features/auto-install-extensions/](../features/auto-install-extensions/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | column-align-pad | column-align-pad | done | [workflow/docs/features/column-align-pad/](../features/column-align-pad/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |
 | next-page-btn | next-page-btn | done | [workflow/docs/features/next-page-btn/](../features/next-page-btn/) | 已授权合并（QA Pass + Review Approve）；待 FF 合入 main |

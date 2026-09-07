@@ -14,7 +14,7 @@
 
 | sub-feature-id | Spec | Spec 门禁 | Spec 用户确认 | Design 门禁 | UI 表面 | Review 门禁 | 状态 | 后续步骤 |
 |---|---|---|---|---|---|---|---|---|
-| index-key-decode | [spec.md](../features/index-key-decode/spec.md) | required（新增可见行为与 API 合同） | approved（2026-08-31 两裁决后通过） | required（已满足：design.md + ui-design.md 已产出） | gui（详情面板键值展示） | required | planned | Developer 实施 T1–T9（源分支 index-key-decode） |
+| index-key-decode | [spec.md](../features/index-key-decode/spec.md) | required（新增可见行为与 API 合同） | approved（2026-08-31 两裁决后通过） | required（已满足：design.md + ui-design.md 已产出） | gui（详情面板键值展示） | required | done | 已授权合并；QA 轮次 1 Pass + Review Approve |
 
 阻塞原因: none
 恢复条件: none
@@ -23,3 +23,7 @@
 ## 进度笔记
 
 - 2026-08-31 Manager 登记（用户指示完成路线图优先级①的第二部分）。前置事实：index-viewer 已交付 B-tree 页解析与键字节 hex 展示（t_info nulls/vars 位、键 range）；本项在其上加「类型感知解码」。与 oid-numeric-guard 并列属优先级①。
+
+- 2026-09-04 Developer T1–T9 完成（10 提交 5af344b→e80590d，含两次会话中断续做；T2 步进规则 6 处以 oracle 冻结并经 Manager 记入 design.md 修订记录；pivot pad 实测：尾 TID 恒在 [itemlen−6,itemlen)，键区计算本正确，fixture-builder 修复+回归；388 tests、L3 新段退出 0）。Reviewer 审阅 **Approve**（0 阻塞；步进规则逐条核验一致；3 Minor：BOM 剥离/测试死代码/冒烟注释失实）。QA 轮次 1 **Pass**（25 索引探针、2457 元组 UTC ::text 对照、µs 边界 8 例、降级实测；QA-D1..D3=Reviewer Minor 同源，开放-延后；UI 视觉 9 项待浏览器）。**等待用户合并授权**（授权后：置 done + review.md/qa-report.md/design 修订一次提交于源分支 → FF 合入 main；不 push）。
+
+- 2026-09-04 **用户授权合并**。Manager 置 done 并与未入库的 review.md/qa-report.md、design.md 修订记录一次提交于源分支；随后 FF 合入 main（不 push）。工作流关闭。遗留（均非阻塞）：QA-D1..D3（BOM 剥离/死代码/注释虚报，延后小修批次+定向复审）、浏览器视觉 9 项补测、BC 年份局限（已记录）。
