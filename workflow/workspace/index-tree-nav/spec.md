@@ -4,7 +4,7 @@
 >
 > **feature-id**：`index-tree-nav`
 >
-> **确认记录**：路径 `standard`；Spec 用户确认 **approved**（2026-09-08「ok」）。默认：index 段按选中表过滤、点 B-tree 索引 Load blk 0、两段在两种 kind 都显示、去掉 Index 次带两个下拉、段折叠不进 URL。
+> **确认记录**：路径 `standard`；Spec 用户确认 **approved**（2026-09-08「ok」）。2026-09-08 用户修订：index 段始终列出全部用户索引，不再按选中表过滤。其余默认：点 B-tree 索引 Load blk 0、两段在两种 kind 都显示、去掉 Index 次带两个下拉、段折叠不进 URL。
 
 ## 背景与目标
 
@@ -41,26 +41,24 @@ Table 模式已把选表放进左侧导航（表 → 堆块），次带表下拉
 ### 2. 两段目录
 
 ```text
-table                         ← 段标题（点此整段收起/展开）
-  schema.table     [N blk]
+TABLE                         ← 段标题（大写加粗，点此整段收起/展开）
+  items
     blk 0
-index                         ← 段标题
-  schema.idx       [btree]    ← 或 am 名 / invalid 标记
-    blk 0  meta               ← 仅 B-tree 且已展开后出现
+INDEX                         ← 段标题
+  tb_pkey
+    blk 0  meta
 ```
 
-- **table 段**：内容与现在 Table 目录树相同（表节点顺序、文案、块窗口、点表/点箭头/点块）。
-- **index 段**：列出当前过滤后的索引（见 §3）。文案用 `qualifiedName`；次要标记沿用现有语义：B-tree 为 `btree`（可再带 `N blk`），非 B-tree 保持可识别（现下拉的 `✕` / am 名），invalid 仍可标出。列窄则截断，`title` 为全名（非 B-tree / invalid 的 title 语义与现 `indexOptionTitle` 一致）。
+- **table 段**：内容与现在 Table 目录树相同（表节点顺序、块窗口、点表/点箭头/点块）。可见文案为关系名（不含 schema）；`title` 为 `qualifiedName`。
+- **index 段**：列出全部用户索引（见 §3）。可见文案为索引名（不含 schema）。B-tree 行不标 access method（元信息区已有）。非 B-tree 标 access method，invalid 仍可标出。不在树行上重复块数。`title` 为 `qualifiedName`（非 B-tree / invalid 的 title 语义与现 `indexOptionTitle` 一致）。
 - 两段**同时存在**于 Table kind 与 Index kind，不因当前 kind 藏掉另一段。
-- 段标题「table」「index」用小写，与草图一致。
+- 段标题 **TABLE** / **INDEX**：大写、加粗，形如独立分区头；两段之间有分隔。
 
-### 3. Index 列表过滤
+### 3. Index 列表
 
-- 已选表：index 段只列出该表的索引（等同现表过滤器选中一张表）。
-- 未选表：列出全部用户索引（等同现过滤器空白 = 不过滤）。
-- 点 table 段里的表：仍按 table-tree-nav 选中该表（并按规则 Load 堆页）；index 段随选中表立刻过滤。若当前选中的索引不属于新表，清空索引选中（现 `indexSelectionSurvives`）。
+- index 段始终列出全部用户索引；不按选中表过滤。未选表也可以直接点索引。
+- 点 table 段里的表：仍按 table-tree-nav 选中该表（并按规则 Load 堆页）；index 段内容与选中索引都不因换表而收缩或清空。
 - 无用户索引：index 段空态（现「No user indexes…」类文案），段标题仍在、可折叠。
-- 已选表但该表无索引：index 段空态（现「No indexes for this table」）。
 
 ### 4. 点击索引
 
@@ -103,7 +101,8 @@ index                         ← 段标题
 
 - 不新增参数。点索引 + Load 仍写入现有 `kind=index`、`table=<oid>`、`index=<oid>`、`blkno`。
 - 深链进 Index：表/索引列表到达后选中 URL 中的表与索引；有 blkno 则 Load。导航应展开 index 段与该索引节点。
-- 深链进 Table：行为仍是 table-tree-nav；index 段按选中表过滤，默认展开。
+- 深链进 Table：行为仍是 table-tree-nav；index 段仍列出全部索引，默认展开。
+- 深链 `kind=index`：按 `index=` 选中并 Load（若可 Load）；`table=` 只恢复 table 段选中，不作为索引进口过滤器。列表里存在的 B-tree 即使所属表与 `table=` 不一致也 Load。
 
 ## 合同
 
@@ -128,7 +127,7 @@ N/A（继续用现有 tables 列表、indexes 列表、heap / index page GET）�
 ### P0
 
 - **P0-1** Given 已连接且 kind=table、尚未 Load 页，When 看导航，Then Tree 默认开，可见 **table** 与 **index** 两段标题；table 段列出 tables。
-- **P0-2** Given 已选一张有索引的表，When 看 index 段，Then 只出现该表的索引，不出现其他表的索引。
+- **P0-2** Given 已连接且库中有多表的索引，When 选中其中一张表，Then index 段仍列出全部用户索引（含其他表的）。
 - **P0-3** Given Index 模式次带，When 扫控件，Then 无表过滤器、无索引 `<select>`；blkno / Load 仍在。
 - **P0-4** Given 导航中一个 B-tree 索引，When 点索引名，Then kind 变为 index、选中该索引并 Load blk 0，结构图出现。
 - **P0-5** Given 一个非 B-tree 索引，When 点索引名，Then 选中、不发 page 请求，主区非 B-tree 提示。
@@ -140,14 +139,14 @@ N/A（继续用现有 tables 列表、indexes 列表、heap / index page GET）�
 
 - 展开的段内容超出 max-height 时在该段内滚动，不把另一段顶出树面板。
 - 已展开的当前索引再点索引名即收起。
-- 未选表时 index 段列出全部用户索引。
+- 选表后 index 段仍列出全部用户索引。
 - 长 `qualifiedName` 截断 + title 全名。
 
 ## 开放问题
 
 N/A（下列默认已写入范围；若驳回请改对应条）：
 
-- index 段按选中表过滤（未选表 = 全部）。
+- index 段始终列出全部用户索引，不按选中表过滤。
 - 点 B-tree 索引自动 Load blk 0；子树仍是 B-tree 拓扑。
 - 两段在 Table / Index kind 都显示。
 - 去掉 Index 次带两个下拉。

@@ -14,8 +14,8 @@
 
 | 角色或场景 | 目标 | 备注 |
 |---|---|---|
-| 连库后选表 | table 段点表进 blk 0 | 与 table-tree-nav 相同 |
-| 同一列选索引 | 选表后 index 段只见该表索引；点 B-tree 进 metapage | 自动切到 Index kind |
+| 连库后选表 | table 段点表进 blk 0 | 与 table-tree-nav 相同；index 段仍列全部 |
+| 同一列选索引 | index 段列出全部用户索引；点 B-tree 进 metapage | 不必先选表；自动切到 Index kind |
 | 看 B-tree | 展开索引节点 | 子树仍是现有拓扑 |
 | 列表太长 | 段内滚动或整段收起 | 每段 max-height 50% |
 | 关掉树 | chrome Tree 再打开 | 仍是两段目录 |
@@ -27,11 +27,11 @@ Page 模式、已连接：
 ```text
 ┌ chrome: Table|Index · blkno Load …     [Detail][Hex][Tree] ☀ ┐
 ├ 次带无 table/index 下拉                                         ┤
-├ table            │ 未选：提示用 Tree 选表或索引                  │
-│  schema.t  N blk │ 已 Load 堆页：结构图 + hex                    │
+├ TABLE            │ 未选：提示用 Tree 选表或索引                  │
+│  items           │ 已 Load 堆页：结构图 + hex                    │
 │    blk 0         │ 已 Load 索引页：B-tree 结构图 + hex           │
-├ index            │                                              │
-│  schema.i btree  │                                              │
+├ INDEX            │                                              │
+│  tb_pkey         │                                              │
 │    blk 0 meta    │                                              │
 └──────────────────┴──────────────────────────────────────────────┘
 ```
@@ -43,7 +43,7 @@ Page 模式、已连接：
 | 步骤 | 用户动作 | 系统反馈 | 空态 / 加载 / 错误 |
 |---|---|---|---|
 | 1 | Connect | Tree 开，两段都展开；拉 tables 与 indexes | 无表 / 无索引：段内 hint |
-| 2 | 点表名 | Table kind、选中、Load 堆 blk 0；index 段过滤 | 0 blk：空表提示 |
+| 2 | 点表名 | Table kind、选中、Load 堆 blk 0；index 段仍列全部 | 0 blk：空表提示 |
 | 3 | 点 B-tree 索引名 | Index kind、选中、Load blk 0 | 非 B-tree：提示、不请求 |
 | 4 | 点段标题 | 该段内容全部隐藏 | 允许两段同时折叠 |
 | 5 | 点索引箭头 | 只展开 B-tree 子树 | 未 Load 时 pendingFetches 拉 meta |
@@ -52,8 +52,8 @@ Page 模式、已连接：
 ## 布局与视觉方向
 
 - 复用 `.pane-tree` / `.btree-tree-row`。新增 `.tree-section`：标题行 + 可滚内容；展开时 `max-height: 50%`（相对树面板），折叠时只留标题。
-- 段标题小写 `table` / `index`，button，`aria-expanded`；caret 用现有 expander 的 CSS 三角，不用 Unicode。
-- 索引节点：B-tree 标记 `btree` + `N blk`；非 B-tree 用 access method；invalid 加 `invalid` pill。选中仍是文字 accent。
+- 段标题 **TABLE** / **INDEX**：大写加粗、字距拉开，形如独立分区头；两段之间有顶部分隔。caret 用现有 expander 的 CSS 三角，不用 Unicode。表行格子、索引行钥匙、块行折角页，三者轮廓不同，不再叠三角形。
+- 目录行只显示关系名（不含 schema）；全名放 `title`。表行与 B-tree 索引行无 kind pill；非 B-tree 用 access method。选中仍是文字 accent。
 - 宽屏三栏拖动与 hex 等分规则不变。
 - 明确避开：新主色；把索引下拉加回次带。
 
