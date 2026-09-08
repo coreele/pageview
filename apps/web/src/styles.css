@@ -1815,23 +1815,35 @@ input {
 }
 
 .pane-tree {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   overflow: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 0.45rem 0.35rem;
+  padding: 0.4rem 0.3rem;
 }
 
 .btree-tree-row {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
-  min-height: 1.55rem;
+  gap: 0.15rem;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 1.7rem;
+  margin: 0.04rem 0;
+  padding-right: 0.35rem;
+  border-radius: 4px;
+}
+
+.btree-tree-row:hover:not([data-current="true"]) {
+  background: color-mix(in srgb, var(--border) 40%, var(--surface));
 }
 
 .btree-tree-row[data-current="true"] {
-  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
-  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .btree-tree-expander,
@@ -1842,33 +1854,76 @@ input {
   background: transparent;
   border: 0;
   cursor: pointer;
-  padding: 0.1rem 0.2rem;
+  padding: 0.15rem 0.2rem;
 }
 
 .btree-tree-expander {
-  width: 1.25rem;
-  flex: 0 0 1.25rem;
-  text-align: center;
+  position: relative;
+  width: 1.35rem;
+  flex: 0 0 1.35rem;
+  align-self: stretch;
   color: var(--text-muted);
+}
+
+.btree-tree-expander::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border: 0.28rem solid transparent;
+  border-left-color: currentColor;
+  transform: translate(-35%, -50%);
+}
+
+.btree-tree-expander[aria-expanded="true"]::before {
+  transform: translate(-50%, -35%) rotate(90deg);
 }
 
 .btree-tree-expander--leaf {
   cursor: default;
 }
 
+.btree-tree-expander--leaf::before {
+  content: "";
+  width: 0.32rem;
+  height: 0.32rem;
+  border: 0;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.btree-tree-expander--loading::before {
+  content: none;
+}
+
 .btree-tree-label {
   display: inline-flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.35rem;
+  align-items: center;
+  gap: 0.28rem;
   text-align: left;
   min-width: 0;
 }
 
+.btree-tree-blk {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
 .btree-tree-kind,
 .btree-tree-chip {
-  font-size: 0.72rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.02rem 0.28rem;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  line-height: 1.35;
   color: var(--text-muted);
+  background: color-mix(in srgb, var(--border) 42%, var(--surface));
 }
 
 .btree-tree-chip {

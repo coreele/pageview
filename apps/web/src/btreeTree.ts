@@ -54,6 +54,19 @@ export type VisibleTree = {
   emptyHint: string | null;
 };
 
+/** Type pills for a tree row. Heap-ready / loading unknown rows stay unlabeled. */
+export function treeKindTokens(
+  row: Pick<TreeRow, "role" | "expandable" | "pageType" | "level" | "isRoot" | "status">,
+): string[] {
+  if (row.role === "index") return row.expandable ? ["btree"] : [];
+  if (row.status === "loading" || row.pageType === "unknown") return [];
+  if (row.pageType === "meta") return ["meta"];
+  const tokens: string[] = [row.pageType];
+  if (row.level != null) tokens.push(`L${row.level}`);
+  if (row.isRoot) tokens.push("root");
+  return tokens;
+}
+
 const EMPTY_SLICE: IndexTreeSlice = { cache: {}, expanded: [] };
 
 export const EMPTY_BTREE_TREE: BtreeTreeState = {

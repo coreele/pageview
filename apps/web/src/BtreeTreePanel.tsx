@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { TreeRow, VisibleTree } from "./btreeTree";
+import { treeKindTokens, type TreeRow, type VisibleTree } from "./btreeTree";
 
 type Props = {
   tree: VisibleTree;
@@ -8,15 +8,6 @@ type Props = {
   onActivate: (row: TreeRow) => void;
   onRetry: (row: TreeRow) => void;
 };
-
-function typeLabel(row: TreeRow): string {
-  if (row.role === "index") return row.expandable ? "btree" : "";
-  if (row.pageType === "unknown") return "…";
-  if (row.pageType === "meta") return "meta";
-  const level = row.level == null ? "" : ` L${row.level}`;
-  const root = row.isRoot ? " root" : "";
-  return `${row.pageType}${level}${root}`;
-}
 
 function TreeNode({
   row,
@@ -44,12 +35,13 @@ function TreeNode({
           aria-label={row.expanded ? `Collapse ${label}` : `Expand ${label}`}
           aria-expanded={row.expanded}
           onClick={() => onToggleExpand(row)}
-        >
-          {row.expanded ? "▾" : "▸"}
-        </button>
+        />
       ) : (
-        <span className="btree-tree-expander btree-tree-expander--leaf" aria-hidden="true">
-          {row.status === "loading" ? "…" : "•"}
+        <span
+          className={`btree-tree-expander btree-tree-expander--leaf${row.status === "loading" ? " btree-tree-expander--loading" : ""}`}
+          aria-hidden="true"
+        >
+          {row.status === "loading" ? "…" : null}
         </span>
       )}
       <button
@@ -59,8 +51,12 @@ function TreeNode({
         title={row.role === "index" ? row.title : undefined}
         onClick={() => onActivate(row)}
       >
-        {label}
-        <span className="btree-tree-kind">{typeLabel(row)}</span>
+        <span className="btree-tree-blk">{label}</span>
+        {treeKindTokens(row).map((token) => (
+          <span key={token} className="btree-tree-kind">
+            {token}
+          </span>
+        ))}
         {row.chips.map((chip) => (
           <span key={chip} className="btree-tree-chip">
             {chip}

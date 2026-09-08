@@ -16,6 +16,7 @@ import {
   toggleExpanded,
   toggleIndexExpanded,
   treeChromeVisible,
+  treeKindTokens,
   visibleHeapBlockList,
   visibleTree,
   withPathExpansion,
@@ -221,5 +222,56 @@ describe("flag chips pass through (P1-1)", () => {
     s = withPathExpansion(s, OID, 0);
     const row = visibleTree(s, OID, 0).rows.find((r) => r.blkno === 3);
     expect(row?.chips).toContain("garbage");
+  });
+});
+
+describe("treeKindTokens (V-1)", () => {
+  it("splits page type, level, and root into separate tokens", () => {
+    expect(
+      treeKindTokens({
+        role: "page",
+        expandable: false,
+        pageType: "leaf",
+        level: 0,
+        isRoot: true,
+        status: "ready",
+      }),
+    ).toEqual(["leaf", "L0", "root"]);
+  });
+
+  it("labels a metapage as meta only", () => {
+    expect(
+      treeKindTokens({
+        role: "page",
+        expandable: true,
+        pageType: "meta",
+        level: null,
+        isRoot: false,
+        status: "ready",
+      }),
+    ).toEqual(["meta"]);
+  });
+
+  it("hides kind on heap-ready and loading unknown rows", () => {
+    expect(
+      treeKindTokens({
+        role: "page",
+        expandable: false,
+        pageType: "unknown",
+        level: null,
+        isRoot: false,
+        status: "ready",
+      }),
+    ).toEqual([]);
+    expect(
+      treeKindTokens({
+        role: "page",
+        expandable: false,
+        pageType: "unknown",
+        level: null,
+        isRoot: false,
+        status: "loading",
+      }),
+    ).toEqual([]);
   });
 });
