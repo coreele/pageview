@@ -17,12 +17,12 @@
 
 ## 目标摘要
 
-索引结构图 `key` 格显示可读值：列元数据可用时用解码结果，否则紧凑 hex。过长截断带省略号，避免 `chooseCellContent` 因超长而只剩标签。
+索引结构图在列元数据可用时按列显示**解码后的具体值**（与 heap 列格相同）；元数据未到时 key 格仍用紧凑 hex 占位。过长截断带省略号。
 
 ## 任务拆解
 
-1. **page-core**（完成条件：`keyBytesHexCellText` / `compactKeyCellText` / `applyIndexKeyCellValues` 有单测；`deriveBtreeStructureFields` 的 key 格带 hex `valueText`）
-2. **web 接线**（完成条件：`App` 在索引列元数据就绪后 overlay 解码值；无元数据时仍显示 hex）
+1. **page-core**（完成条件：无元数据时 key 格 hex；有元数据时替换为 `tuple-N.col-attnum` 解码格）
+2. **web 接线**（完成条件：`App` 在列元数据就绪后调用 `applyIndexKeyCellValues`）
 3. **回归**（完成条件：既有 btree-structure / decode / web 测试绿）
 
 ## 依赖与顺序
@@ -42,11 +42,11 @@
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | key 格有 hex valueText | `tuple-0.key` 非空且为 hex 预览 | |
-| V-2 | 有列元数据时显示解码值 | int4 格为十进制而非空 | |
-| V-3 | 过长截断仍有值 | 长 hex/文本带 … 且长度 ≤ 14 | |
-| V-reg | page-core + web 测试 | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | key 格有 hex valueText | `tuple-0.key` 非空且为 hex 预览 | 通过 |
+| V-2 | 有列元数据时显示解码值 | 替换为 `tuple-0.col-1`，valueText 为十进制 `"10"` | 通过 |
+| V-3 | 过长截断仍有值 | 长 hex/文本带 … 且长度 ≤ 14 | 通过 |
+| V-reg | page-core + web 测试 | 退出码 0 | 通过 |
+| V-static | typecheck | 退出码 0 | 通过 |
 
 ## 验证缺口
 
@@ -74,3 +74,4 @@
 | 日期 | 摘要 |
 |---|---|
 | 2026-09-08 | 初稿 |
+| 2026-09-08 | 用户要具体值：有元数据时按列解码，不把 hex 当主展示 |
