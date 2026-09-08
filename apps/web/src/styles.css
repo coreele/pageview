@@ -215,6 +215,10 @@ input {
   gap: 0.4rem;
 }
 
+.chrome-actions .mode-switch {
+  grid-area: auto;
+}
+
 .chrome-toggle--on {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: var(--text);

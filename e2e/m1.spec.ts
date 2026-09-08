@@ -4,6 +4,7 @@ import {
   expectSearch,
   pageLoadButton,
   searchFor,
+  selectPageBrowseMode,
   selectTableOid,
   waitConnected,
   waitPageBlk,
@@ -23,6 +24,7 @@ test("M1: selection replaceState, Load push, failure/unloaded do not write, back
   const loaded0 = searchFor({ mode: "page", kind: "table", table: seed.heapOid, blkno: 0 });
   await expectSearch(page, loaded0);
 
+  await selectPageBrowseMode(page, "single");
   await page.getByLabel("blkno").fill("5");
   await expectSearch(page, loaded0);
 

@@ -101,3 +101,33 @@ describe("index-tree-nav catalog (P0-2)", () => {
     expect(text).not.toMatch(/filterIndexesByTable/);
   });
 });
+
+describe("page browse mode (drop-load-refresh)", () => {
+  it("exposes Tree|Single in Page chrome and hides Load row in Tree (P0-1 / P0-2)", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    expect(text).toMatch(/aria-label="Page browse mode"/);
+    expect(text).toMatch(/aria-label="Page browse mode"[\s\S]*?\bSingle\b/);
+    expect(text).toMatch(/browseMode === "single" && \(/);
+    expect(text).toMatch(/className="chrome-controls"/);
+    expect(text).not.toMatch(/Open Tree to pick a table or index/);
+  });
+
+  it("refreshes the current tree page row (P0-3 / P0-5)", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    expect(text).toMatch(/pageRowClickAction/);
+    expect(text).toMatch(/loadBlk\(row\.indexOid, row\.blkno, \{ refresh: true \}\)/);
+    expect(text).toMatch(/loadIndexBlk\(row\.indexOid, row\.blkno, \{ refresh: true \}\)/);
+  });
+
+  it("keeps WAL Load without Tree|Single (P0-7)", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    const walStart = text.indexOf('aria-label="WAL context"');
+    const browseStart = text.indexOf('aria-label="Page browse mode"');
+    expect(walStart).toBeGreaterThan(-1);
+    expect(browseStart).toBeGreaterThan(walStart);
+    const walChrome = text.slice(text.indexOf('aria-label="start LSN"'), walStart);
+    expect(walChrome).toMatch(/"Load"/);
+    expect(walChrome).not.toMatch(/Page browse mode/);
+    expect(walChrome).not.toMatch(/\bSingle\b/);
+  });
+});

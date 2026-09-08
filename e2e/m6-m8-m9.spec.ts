@@ -5,6 +5,7 @@ import {
   hrefFor,
   pageLoadButton,
   searchFor,
+  selectPageBrowseMode,
   waitConnected,
   waitPageBlk,
   waitWalLoaded,
@@ -22,6 +23,7 @@ test("M6: history 5→7 back/forward reloads; same-block Refresh adds no entry",
   await waitConnected(page);
   await waitPageBlk(page, 5);
 
+  await selectPageBrowseMode(page, "single");
   await page.getByLabel("blkno").fill("7");
   await pageLoadButton(page).click();
   await waitPageBlk(page, 7);

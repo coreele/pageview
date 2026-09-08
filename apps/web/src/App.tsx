@@ -102,6 +102,7 @@ import {
   toolbarNavEnabled,
 } from "./pageToolbarNav";
 import { chromeToggleClass, themeToggleLabel } from "./chromeToggle";
+import { isCurrentDisplayedPage, pageBrowseMode, pageRowClickAction } from "./pageBrowse";
 import { ThemeGlyph } from "./ThemeGlyph";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 import {
@@ -809,9 +810,26 @@ export function App() {
       return;
     }
     if (row.blkno == null) return;
-    if (row.key.startsWith("heap:")) {
+    const heapRow = row.key.startsWith("heap:");
+    const action = pageRowClickAction({
+      loading: loadState === "loading-page",
+      isCurrentDisplayed: isCurrentDisplayedPage({
+        rowOid: row.indexOid,
+        rowBlkno: row.blkno,
+        heapRow,
+        relationKind,
+        selectedOid,
+        selectedIndexOid,
+        loadedBlkno,
+        pageKind: pageView?.kind,
+      }),
+    });
+    if (action === "ignore") return;
+    if (heapRow) {
       if (relationKind !== "table") setRelationKind("table");
-      if (selectedOid === row.indexOid && loadedBlkno === row.blkno && pageView?.kind === "heap") {
+      if (action === "refresh") {
+        setBlkno(row.blkno);
+        void loadBlk(row.indexOid, row.blkno, { refresh: true });
         return;
       }
       if (selectedOid !== row.indexOid) {
@@ -828,10 +846,12 @@ export function App() {
       return;
     }
     if (relationKind !== "index") setRelationKind("index");
-    if (selectedIndexOid !== row.indexOid) setSelectedIndexOid(row.indexOid);
-    if (pageView?.kind === "btree" && loadedBlkno === row.blkno && selectedIndexOid === row.indexOid) {
+    if (action === "refresh") {
+      setBlkno(row.blkno);
+      void loadIndexBlk(row.indexOid, row.blkno, { refresh: true });
       return;
     }
+    if (selectedIndexOid !== row.indexOid) setSelectedIndexOid(row.indexOid);
     setBlkno(row.blkno);
     void loadIndexBlk(row.indexOid, row.blkno);
   };
@@ -865,7 +885,6 @@ export function App() {
     setRelationKind(kind);
     resetPageView();
     setSchema(null);
-    setBtreeTree((s) => setTreeCollapsed(s, false));
     if (!indexSelectionSurvives(selectedIndexOid, indexes)) {
       setSelectedIndexOid(null);
     }
@@ -901,6 +920,7 @@ export function App() {
   };
 
   const connected = Boolean(session?.connected);
+  const browseMode = pageBrowseMode(btreeTree.collapsed);
   const showTableTreeToggle =
     connected && mode === "page" && treeChromeVisible({ relationKind, pageKind: pageView?.kind });
   const tableSplitOpen =
@@ -918,7 +938,7 @@ export function App() {
     if (connected && mode === "page") {
       setBtreeTree((s) => (s.collapsed ? setTreeCollapsed(s, false) : s));
     }
-  }, [connected, mode, relationKind]);
+  }, [connected, mode]);
 
   useEffect(() => {
     if (relationKind !== "table" || selectedOid == null) return;
@@ -931,9 +951,9 @@ export function App() {
     }
     if (loadState === "loading-page") return null;
     if (selectedTable && selectedTable.blocks > 0) {
+      if (browseMode === "tree") return null;
       return "Select blkno and press Load to fetch a raw page.";
     }
-    if (btreeTree.collapsed) return "Open Tree to pick a table or index.";
     return "Select a heap table to begin.";
   })();
 
@@ -945,12 +965,12 @@ export function App() {
       return "Empty index (0 blocks).";
     }
     if (selectedIndex && !btreePage) {
+      if (browseMode === "tree") return null;
       return "Enter a blkno and Load (0 = metapage).";
     }
     if (!selectedIndex && indexesFetched && indexes.length > 0) {
       return "Pick an index to start (blkno 0 is the metapage).";
     }
-    if (btreeTree.collapsed) return "Open Tree to pick a table or index.";
     return null;
   })();
 
@@ -1461,6 +1481,7 @@ export function App() {
             </div>
           ) : (
             <div className="meta-row meta-controls-row meta-controls-row--stack">
+              {browseMode === "single" && (
               <div className="chrome-controls">
                 <div
                   className="mode-switch relation-kind-switch"
@@ -1610,6 +1631,7 @@ export function App() {
                   </>
                 )}
               </div>
+              )}
 
               {heapPage && selectedTable && (
                 <div className="meta-stats" aria-label="Page statistics">
@@ -1750,16 +1772,26 @@ export function App() {
               </button>
             )}
             {mode === "page" && showTableTreeToggle && (
-              <button
-                className={chromeToggleClass(!btreeTree.collapsed)}
-                type="button"
-                aria-pressed={!btreeTree.collapsed}
-                aria-expanded={!btreeTree.collapsed}
-                aria-controls="btree-tree-panel"
-                onClick={() => setBtreeTree((s) => setTreeCollapsed(s, !s.collapsed))}
-              >
-                Tree
-              </button>
+              <div className="mode-switch" role="group" aria-label="Page browse mode">
+                <button
+                  type="button"
+                  className={browseMode === "tree" ? "mode-btn active" : "mode-btn"}
+                  aria-pressed={browseMode === "tree"}
+                  aria-expanded={browseMode === "tree"}
+                  aria-controls="btree-tree-panel"
+                  onClick={() => setBtreeTree((s) => setTreeCollapsed(s, false))}
+                >
+                  Tree
+                </button>
+                <button
+                  type="button"
+                  className={browseMode === "single" ? "mode-btn active" : "mode-btn"}
+                  aria-pressed={browseMode === "single"}
+                  onClick={() => setBtreeTree((s) => setTreeCollapsed(s, true))}
+                >
+                  Single
+                </button>
+              </div>
             )}
           </div>
         )}

@@ -15,17 +15,17 @@
 - **结构图** — 每行 32 字节：页头、ItemId 数组、空闲空间、元组
 - **十六进制转储** — 同样按 32 字节分行，联动选中与滚动定位
 - **元组解码** — 列值、`t_infomask` / `t_infomask2` 位条、HOT/ctid 提示
-- **差异高亮** — Refresh 时按字节标出变更
-- **翻页** — 工具栏 **Prev** / **Next**：heap 按已显示页 `blkno ± 1`；B-tree 按左右兄弟（`btpo_prev` / `btpo_next`）。首页/末页（或 leftmost/rightmost）禁用按钮，不发越界请求
+- **差异高亮** — Refresh 时按字节标出变更（Tree：再点当前显示的块；Single：点 **Refresh**）
+- **翻页** — Single 工具栏 **Prev** / **Next**：heap 按已显示页 `blkno ± 1`；B-tree 按左右兄弟（`btpo_prev` / `btpo_next`）。首页/末页（或 leftmost/rightmost）禁用按钮，不发越界请求
 
 ### 索引页（B-tree）
 
-- **索引浏览** — 表 | 索引切换；索引列表展示访问方法、块数与所属表；非 B-tree 索引列出但标记不可加载；无效索引带标记（仍可加载）
+- **索引浏览** — 在 Tree 目录选关系，或用 Single 的表 | 索引切换；索引列表展示访问方法、块数与所属表；非 B-tree 索引列出但标记不可加载；无效索引带标记（仍可加载）
 - **页面类型** — metapage（`btm_*`，v4+ 含 `allequalimage`）、internal（子页指针 + level）、leaf（heap TID）；special space `btpo_*` 与 `btpo_flags` 位条
 - **高键与 posting list** — 非最右页首元组标记 hikey；dedup posting 元组（PG13+）显示 TID 数与完整可滚动列表
 - **键值解码** — index tuple 键按列类型解码（int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domain），含 NULL、include/↓/nulls-first 徽标与点击列高亮对应字节；不支持类型（如 jsonb）或表达式索引优雅降级为仅 hex
 - **块导航** — 一键加载左右页（`btpo_prev`/`btpo_next`）、root/fastroot 与子页；叶页 heap TID 可直接跳到所属表对应块
-- **树面板** — chrome **Tree** 开关（亮色=开启）。连库后 Table / Index 都默认**开**。导航分 **TABLE** / **INDEX** 两段（可整段折叠，每段最高一半面板）。点表名加载堆 blk 0；点 B-tree 索引加载 metapage blk 0；点子行加载该页，不离开结构图/hex。树里只显示关系名（schema 在 title）。INDEX 段列出全部用户索引，选表不会过滤。
+- **Tree | Single** — chrome **Tree | Single** 两种浏览（连库后默认 **Tree**，不写入 URL）。**Tree** 显示 `TABLE` / `INDEX` 目录（可整段折叠，每段最高一半面板），并隐藏 Table/Index、blkno、Load、Refresh、Prev、Next。点表名加载堆 blk 0；点 B-tree 索引加载 metapage blk 0；点子行加载该页；再点当前显示的块即 Refresh。**Single** 无目录，用现次带按 blkno 查找已选关系的某一页（不加回表/索引下拉）。树里只显示关系名（schema 在 title）。INDEX 段列出全部用户索引，选表不会过滤。
 - **拦截** — 非 B-tree 访问方法（hash/gist/spgist/brin/gin）在 UI 与服务端双重拦截（`INDEX_NOT_BTREE`）
 
 ### WAL 模式
@@ -64,7 +64,7 @@ pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
 ```
 
-打开 Web UI，连接数据库（或依赖 `.env`），然后使用 **Page**（在 Tree 面板选表或索引 + 块号 + Load）或 **WAL**（start/end LSN + Load）。
+打开 Web UI，连接数据库（或依赖 `.env`），然后使用 **Page**（**Tree**：在目录选表或索引；**Single**：块号 + Load）或 **WAL**（start/end LSN + Load）。
 
 ## 环境变量
 

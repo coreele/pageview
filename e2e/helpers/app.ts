@@ -69,6 +69,11 @@ export async function waitWalLoaded(page: Page): Promise<void> {
   await expect(stats.getByText("not loaded")).toHaveCount(0);
 }
 
+export async function selectPageBrowseMode(page: Page, mode: "tree" | "single"): Promise<void> {
+  const label = mode === "tree" ? "Tree" : "Single";
+  await page.getByRole("group", { name: "Page browse mode" }).getByRole("button", { name: label, exact: true }).click();
+}
+
 export function pageLoadButton(page: Page) {
   return page.locator(".chrome-controls").getByRole("button", { name: "Load", exact: true });
 }
