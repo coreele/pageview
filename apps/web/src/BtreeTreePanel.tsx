@@ -3,6 +3,7 @@ import type { TreeRow, VisibleTree } from "./btreeTree";
 
 type Props = {
   tree: VisibleTree;
+  ariaLabel?: string;
   onToggleExpand: (row: TreeRow) => void;
   onActivate: (row: TreeRow) => void;
   onRetry: (row: TreeRow) => void;
@@ -78,7 +79,13 @@ function TreeNode({
   );
 }
 
-export function BtreeTreePanel({ tree, onToggleExpand, onActivate, onRetry }: Props) {
+export function BtreeTreePanel({
+  tree,
+  ariaLabel = "B-tree pages",
+  onToggleExpand,
+  onActivate,
+  onRetry,
+}: Props) {
   const rootRef = useRef<HTMLElement>(null);
   useEffect(() => {
     rootRef.current
@@ -91,9 +98,9 @@ export function BtreeTreePanel({ tree, onToggleExpand, onActivate, onRetry }: Pr
       id="btree-tree-panel"
       ref={rootRef}
       className="pane pane-tree"
-      aria-label="B-tree pages"
+      aria-label={ariaLabel}
     >
-      {tree.emptyHint && tree.rows.length === 0 && (
+      {tree.emptyHint && (
         <div className="muted">{tree.emptyHint}</div>
       )}
       {tree.rows.length === 0 && !tree.orphan && !tree.emptyHint && (

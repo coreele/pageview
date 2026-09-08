@@ -38,7 +38,6 @@ import { BtreeTreePanel } from "./BtreeTreePanel";
 import {
   EMPTY_BTREE_TREE,
   EMPTY_VISIBLE_TREE,
-  autoExpandLoneBtree,
   fetchKey,
   markLoading,
   pendingFetches,
@@ -51,7 +50,7 @@ import {
   toggleExpanded,
   toggleIndexExpanded,
   treeChromeVisible,
-  treeRootsForTable,
+  visibleHeapBlockList,
   visibleTree,
   withPathExpansion,
   type BtreeTreeState,
@@ -642,6 +641,7 @@ export function App() {
   const onSelectIndex = (oid: number) => {
     setSelectedIndexOid(oid);
     resetPageView();
+    resetTreeContext();
     setSchema(null);
     setBlkno(0);
   };
@@ -654,34 +654,6 @@ export function App() {
   };
 
   loadedBlknoRef.current = loadedBlkno;
-
-  const treeTableOid = pageView?.kind === "btree" ? pageView.index.tableOid : selectedOid;
-  const treeRoots = useMemo(
-    () => treeRootsForTable(indexes, treeTableOid),
-    [indexes, treeTableOid],
-  );
-
-  useEffect(() => {
-    if (btreeTree.collapsed || indexesFetched || !session?.connected || mode !== "page") return;
-    let cancelled = false;
-    void listIndexes()
-      .then((rows) => {
-        if (cancelled) return;
-        setIndexes(rows);
-        setIndexesFetched(true);
-      })
-      .catch((e: unknown) => {
-        if (!cancelled) setError(e as AppError);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [btreeTree.collapsed, indexesFetched, session?.connected, mode]);
-
-  useEffect(() => {
-    if (btreeTree.collapsed) return;
-    setBtreeTree((s) => autoExpandLoneBtree(s, treeRoots));
-  }, [btreeTree.collapsed, treeRoots]);
 
   useEffect(() => {
     if (
@@ -737,13 +709,11 @@ export function App() {
 
   const btreeTreeView = useMemo(() => {
     if (!pageView) return EMPTY_VISIBLE_TREE;
-    if (!indexesFetched) {
-      return { rows: [], orphan: null, emptyHint: "Loading indexes…" };
+    if (pageView.kind === "heap") {
+      return visibleHeapBlockList(selectedTable?.blocks ?? 0, loadedBlkno);
     }
-    const currentOid = pageView.kind === "btree" ? pageView.index.oid : null;
-    const currentBlk = pageView.kind === "btree" ? loadedBlkno : null;
-    return visibleTree(btreeTree, treeRoots, currentOid, currentBlk);
-  }, [pageView, loadedBlkno, btreeTree, indexesFetched, treeRoots]);
+    return visibleTree(btreeTree, pageView.index.oid, loadedBlkno);
+  }, [pageView, loadedBlkno, btreeTree, selectedTable]);
 
   const onTreeToggleExpand = (row: TreeRow) => {
     if (row.role === "index") {
@@ -755,16 +725,17 @@ export function App() {
   };
 
   const onTreeActivate = (row: TreeRow) => {
-    const target = indexes.find((i) => i.oid === row.indexOid) ?? null;
-    if (!canLoadIndex(target)) return;
-    const blk = row.blkno ?? 0;
-    if (relationKind !== "index") setRelationKind("index");
-    if (selectedIndexOid !== row.indexOid) setSelectedIndexOid(row.indexOid);
-    if (pageView?.kind === "btree" && selectedIndexOid === row.indexOid && loadedBlkno === blk) {
+    if (row.blkno == null) return;
+    if (pageView?.kind === "heap") {
+      if (selectedOid == null || loadedBlkno === row.blkno) return;
+      setBlkno(row.blkno);
+      void loadBlk(selectedOid, row.blkno);
       return;
     }
-    setBlkno(blk);
-    void loadIndexBlk(row.indexOid, blk);
+    if (selectedIndexOid == null) return;
+    if (pageView?.kind === "btree" && loadedBlkno === row.blkno) return;
+    setBlkno(row.blkno);
+    void loadIndexBlk(selectedIndexOid, row.blkno);
   };
 
   const onTreeRetry = (row: TreeRow) => {
@@ -807,6 +778,7 @@ export function App() {
     if (kind === relationKind) return;
     setRelationKind(kind);
     resetPageView();
+    resetTreeContext();
     setSchema(null);
     // Change-3 annex 3 (annex-2 rule 1 carry-over): the filter (selectedOid) may have
     // changed while in Table mode — drop the index selection if it no longer survives.
@@ -1041,6 +1013,7 @@ export function App() {
       // url-deeplink: reset the wal URL side (page side via resetPageView).
       setUrlLoaded((u) => ({ ...u, startLsn: null, endLsn: null }));
       resetPageView();
+      resetTreeContext();
       setSchema(null);
       setSelectedOid(state.table);
       if (state.startLsn != null || state.endLsn != null) {
@@ -1058,6 +1031,7 @@ export function App() {
       // url-deeplink: reset the wal URL side (page side via resetPageView).
       setUrlLoaded((u) => ({ ...u, startLsn: null, endLsn: null }));
       resetPageView();
+      resetTreeContext();
       setSchema(null);
       setSelectedOid(state.table);
       if (state.kind === "index") {
@@ -1860,6 +1834,7 @@ export function App() {
             {!btreeTree.collapsed && (
               <BtreeTreePanel
                 tree={btreeTreeView}
+                ariaLabel="Heap blocks"
                 onToggleExpand={onTreeToggleExpand}
                 onActivate={onTreeActivate}
                 onRetry={onTreeRetry}

@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { BTP_HAS_GARBAGE, BTP_ROOT, buildBtreePage, parseBtreePage } from "page-core";
 import {
   EMPTY_BTREE_TREE,
-  autoExpandLoneBtree,
+  HEAP_BLOCK_LIST_CAP,
   fetchKey,
+  heapBlockListRange,
   markLoading,
   pendingFetches,
   putError,
@@ -15,26 +16,13 @@ import {
   toggleExpanded,
   toggleIndexExpanded,
   treeChromeVisible,
-  treeRootsForTable,
+  visibleHeapBlockList,
   visibleTree,
   withPathExpansion,
 } from "./btreeTree";
-import type { IndexRowLike } from "./indexView";
 
 const OID = 24576;
 const OID2 = 24580;
-
-const idx = (over: Partial<IndexRowLike> = {}): IndexRowLike => ({
-  oid: OID,
-  name: "t16_pkey",
-  qualifiedName: "public.t16_pkey",
-  accessMethod: "btree",
-  blocks: 2,
-  tableOid: 16384,
-  tableQualifiedName: "public.t16",
-  valid: true,
-  ...over,
-});
 
 const meta = parseBtreePage(buildBtreePage({ pageType: "meta", metaRoot: 3 }));
 const root = parseBtreePage(
@@ -88,8 +76,8 @@ describe("pendingFetches (P0-1 / P0-5)", () => {
     s = putReady(s, OID, 3, root);
     s = withPathExpansion(s, OID, 11);
     expect(pendingFetches(s)).toEqual([]);
-    const { rows } = visibleTree(s, [idx()], OID, 11);
-    expect(rows.filter((r) => r.role === "page").map((r) => r.blkno)).toEqual([0, 3, 10, 11, 12]);
+    const { rows } = visibleTree(s, OID, 11);
+    expect(rows.map((r) => r.blkno)).toEqual([0, 3, 10, 11, 12]);
     expect(rows.find((r) => r.blkno === 11)?.current).toBe(true);
   });
 
@@ -103,9 +91,9 @@ describe("pendingFetches (P0-1 / P0-5)", () => {
 
 describe("visibleTree (P0-4 / P0-6 / P1-2)", () => {
   it("auto-expands the path to the current leaf", () => {
-    const { rows, orphan } = visibleTree(openedAtLeaf(), [idx()], OID, 11);
+    const { rows, orphan } = visibleTree(openedAtLeaf(), OID, 11);
     expect(orphan).toBeNull();
-    expect(rows.find((r) => r.role === "index")?.title).toBe("t16_pkey");
+    expect(rows.every((r) => r.role === "page")).toBe(true);
     expect(rows.find((r) => r.blkno === 0)?.expanded).toBe(true);
     expect(rows.find((r) => r.blkno === 3)?.expanded).toBe(true);
     expect(rows.find((r) => r.blkno === 11)?.current).toBe(true);
@@ -114,7 +102,7 @@ describe("visibleTree (P0-4 / P0-6 / P1-2)", () => {
   it("keeps the tree open conceptually after selecting another leaf (P0-6)", () => {
     const s = openedAtLeaf();
     expect(s.collapsed).toBe(false);
-    const { rows } = visibleTree(s, [idx()], OID, 12);
+    const { rows } = visibleTree(s, OID, 12);
     expect(rows.find((r) => r.blkno === 12)?.current).toBe(true);
   });
 
@@ -124,38 +112,10 @@ describe("visibleTree (P0-4 / P0-6 / P1-2)", () => {
     s = putReady(s, OID, 3, root);
     s = seedCurrentPage(s, OID, 99, leaf99);
     s = withPathExpansion(s, OID, 99);
-    const { rows, orphan } = visibleTree(s, [idx()], OID, 99);
+    const { rows, orphan } = visibleTree(s, OID, 99);
     expect(orphan?.blkno).toBe(99);
     expect(orphan?.current).toBe(true);
     expect(rows.some((r) => r.blkno === 99)).toBe(false);
-  });
-});
-
-describe("table-mode forest (P0-9 / P0-10)", () => {
-  it("lists each index as a root; heap current highlights nothing", () => {
-    const other = idx({ oid: OID2, name: "t16_k_idx" });
-    let s = setTreeCollapsed(EMPTY_BTREE_TREE, false);
-    s = autoExpandLoneBtree(s, [idx(), other]);
-    expect(s.expandedIndexOids).toEqual([]);
-    const { rows } = visibleTree(s, [idx(), other], null, 5);
-    expect(rows.map((r) => r.title)).toEqual(["t16_pkey", "t16_k_idx"]);
-    expect(rows.every((r) => !r.current)).toBe(true);
-  });
-
-  it("auto-expands a lone btree and then fetches only that index", () => {
-    let s = setTreeCollapsed(EMPTY_BTREE_TREE, false);
-    s = autoExpandLoneBtree(s, [idx()]);
-    expect(s.expandedIndexOids).toEqual([OID]);
-    expect(pendingFetches(s)).toEqual([{ oid: OID, blkno: 0 }]);
-  });
-
-  it("does not expand a hash index", () => {
-    const hash = idx({ accessMethod: "hash", name: "t16_hash" });
-    const { rows } = visibleTree(setTreeCollapsed(EMPTY_BTREE_TREE, false), [hash], null, null);
-    expect(rows[0]?.expandable).toBe(false);
-    expect(visibleTree(setTreeCollapsed(EMPTY_BTREE_TREE, false), [hash], null, null).emptyHint).toBe(
-      "No B-tree indexes for this table",
-    );
   });
 
   it("keeps slices isolated so two indexes can share blkno 0", () => {
@@ -166,10 +126,51 @@ describe("table-mode forest (P0-9 / P0-10)", () => {
     s = toggleIndexExpanded(s, OID2);
     expect(pendingFetches(s).map(fetchKey).sort()).toEqual(["24576:3", "24580:3"]);
   });
+});
 
-  it("treeRootsForTable filters to the current table", () => {
-    const other = idx({ oid: OID2, tableOid: 16400, name: "other_pkey" });
-    expect(treeRootsForTable([idx(), other], 16384).map((i) => i.oid)).toEqual([OID]);
+describe("visibleHeapBlockList (P0-9 / P0-10)", () => {
+  it("lists every heap block and highlights the current one", () => {
+    const { rows, orphan, emptyHint } = visibleHeapBlockList(5, 2);
+    expect(orphan).toBeNull();
+    expect(emptyHint).toBeNull();
+    expect(rows.map((r) => r.blkno)).toEqual([0, 1, 2, 3, 4]);
+    expect(rows.every((r) => r.role === "page" && !r.expandable && r.depth === 0)).toBe(true);
+    expect(rows.find((r) => r.blkno === 2)?.current).toBe(true);
+    expect(rows.filter((r) => r.current)).toHaveLength(1);
+  });
+
+  it("shows an empty-relation hint when blocks is 0", () => {
+    const { rows, emptyHint } = visibleHeapBlockList(0, null);
+    expect(rows).toEqual([]);
+    expect(emptyHint).toBe("Empty relation (0 blocks)");
+  });
+
+  it("windows a large relation around the current block", () => {
+    const { start, end, clipped } = heapBlockListRange(3000, 1500);
+    expect(clipped).toBe(true);
+    expect(end - start).toBe(HEAP_BLOCK_LIST_CAP);
+    expect(start).toBeLessThanOrEqual(1500);
+    expect(end).toBeGreaterThan(1500);
+
+    const { rows, emptyHint } = visibleHeapBlockList(3000, 1500);
+    expect(rows).toHaveLength(HEAP_BLOCK_LIST_CAP);
+    expect(rows[0]?.blkno).toBe(start);
+    expect(rows.at(-1)?.blkno).toBe(end - 1);
+    expect(rows.find((r) => r.blkno === 1500)?.current).toBe(true);
+    expect(emptyHint).toBe(`Showing blk ${start}–${end - 1} of 3000`);
+  });
+
+  it("pins the window to the start or end of the relation", () => {
+    expect(heapBlockListRange(3000, 0)).toEqual({
+      start: 0,
+      end: HEAP_BLOCK_LIST_CAP,
+      clipped: true,
+    });
+    expect(heapBlockListRange(3000, 2999)).toEqual({
+      start: 3000 - HEAP_BLOCK_LIST_CAP,
+      end: 3000,
+      clipped: true,
+    });
   });
 });
 
@@ -218,7 +219,7 @@ describe("flag chips pass through (P1-1)", () => {
     s = putReady(s, OID, 0, meta);
     s = putReady(s, OID, 3, dirty);
     s = withPathExpansion(s, OID, 0);
-    const row = visibleTree(s, [idx()], OID, 0).rows.find((r) => r.blkno === 3);
+    const row = visibleTree(s, OID, 0).rows.find((r) => r.blkno === 3);
     expect(row?.chips).toContain("garbage");
   });
 });

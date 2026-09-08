@@ -1,6 +1,6 @@
 /**
  * Session state for the optional B-tree tree panel (btree-tree-view).
- * One slice per index oid so table-mode can show a forest without blkno clashes.
+ * One slice per index oid. Table mode uses a flat heap-block list, not this cache.
  * Fetch I/O stays in App.
  */
 import {
@@ -11,7 +11,6 @@ import {
   type ParsedBtreePage,
 } from "page-core";
 import type { AppError } from "./api";
-import { filterIndexesByTable, isBtreeIndex, type IndexRowLike } from "./indexView";
 
 export type CachedTreePage =
   | { status: "loading" }
@@ -221,10 +220,59 @@ export function withPathExpansion(
   return ensureIndexExpanded(putSlice(state, oid, { ...slice, expanded: [...expanded] }), oid);
 }
 
-export function autoExpandLoneBtree(state: BtreeTreeState, roots: IndexRowLike[]): BtreeTreeState {
-  const btrees = roots.filter(isBtreeIndex);
-  if (btrees.length !== 1) return state;
-  return ensureIndexExpanded(state, btrees[0]!.oid);
+/** Soft cap so a multi-gigabyte heap does not mount tens of thousands of rows. */
+export const HEAP_BLOCK_LIST_CAP = 2000;
+
+export function heapBlockListRange(
+  blockCount: number,
+  currentBlkno: number | null,
+): { start: number; end: number; clipped: boolean } {
+  if (blockCount <= 0) return { start: 0, end: 0, clipped: false };
+  if (blockCount <= HEAP_BLOCK_LIST_CAP) {
+    return { start: 0, end: blockCount, clipped: false };
+  }
+  const cur = Math.min(Math.max(currentBlkno ?? 0, 0), blockCount - 1);
+  const half = Math.floor(HEAP_BLOCK_LIST_CAP / 2);
+  let start = Math.max(0, cur - half);
+  let end = Math.min(blockCount, start + HEAP_BLOCK_LIST_CAP);
+  start = Math.max(0, end - HEAP_BLOCK_LIST_CAP);
+  return { start, end, clipped: true };
+}
+
+export function visibleHeapBlockList(
+  blockCount: number,
+  currentBlkno: number | null,
+): VisibleTree {
+  if (blockCount <= 0) {
+    return { rows: [], orphan: null, emptyHint: "Empty relation (0 blocks)" };
+  }
+  const { start, end, clipped } = heapBlockListRange(blockCount, currentBlkno);
+  const rows: TreeRow[] = [];
+  for (let blkno = start; blkno < end; blkno++) {
+    rows.push({
+      key: `heap:${blkno}`,
+      indexOid: 0,
+      blkno,
+      role: "page",
+      title: "",
+      depth: 0,
+      pageType: "unknown",
+      level: null,
+      isRoot: false,
+      chips: [],
+      expandable: false,
+      expanded: false,
+      current: currentBlkno === blkno,
+      status: "ready",
+    });
+  }
+  return {
+    rows,
+    orphan: null,
+    emptyHint: clipped
+      ? `Showing blk ${start}–${end - 1} of ${blockCount}`
+      : null,
+  };
 }
 
 function childrenOf(slice: IndexTreeSlice, blkno: number): number[] {
@@ -237,12 +285,11 @@ function pageRow(
   oid: number,
   blkno: number,
   depth: number,
-  currentOid: number | null,
   currentBlkno: number | null,
 ): TreeRow {
   const rec = slice.cache[blkno];
   const expanded = slice.expanded.includes(blkno);
-  const current = currentOid === oid && currentBlkno === blkno;
+  const current = currentBlkno === blkno;
   const base = {
     key: `${oid}:${blkno}`,
     indexOid: oid,
@@ -301,74 +348,35 @@ function pageRow(
 
 export function visibleTree(
   state: BtreeTreeState,
-  roots: IndexRowLike[],
-  currentOid: number | null,
+  oid: number,
   currentBlkno: number | null,
 ): VisibleTree {
   const listed = new Set<string>();
   const rows: TreeRow[] = [];
+  const slice = sliceOf(state, oid);
 
-  const walkPages = (oid: number, blkno: number, depth: number): void => {
-    const slice = sliceOf(state, oid);
-    const row = pageRow(slice, oid, blkno, depth, currentOid, currentBlkno);
+  const walkPages = (blkno: number, depth: number): void => {
+    const row = pageRow(slice, oid, blkno, depth, currentBlkno);
     rows.push(row);
     listed.add(row.key);
     if (!slice.expanded.includes(blkno)) return;
     for (const child of childrenOf(slice, blkno)) {
-      walkPages(oid, child, depth + 1);
+      walkPages(child, depth + 1);
     }
   };
 
-  for (const idx of roots) {
-    const btree = isBtreeIndex(idx);
-    const expanded = state.expandedIndexOids.includes(idx.oid);
-    rows.push({
-      key: `${idx.oid}:index`,
-      indexOid: idx.oid,
-      blkno: null,
-      role: "index",
-      title: idx.name ?? idx.qualifiedName,
-      depth: 0,
-      pageType: "unknown",
-      level: null,
-      isRoot: false,
-      chips: [],
-      expandable: btree,
-      expanded,
-      current: currentOid === idx.oid && currentBlkno == null,
-      status: btree ? "ready" : "idle",
-    });
-    if (btree && expanded) {
-      const slice = sliceOf(state, idx.oid);
-      if (slice.cache[0] || readyMap(slice.cache).has(0)) {
-        walkPages(idx.oid, 0, 1);
-      }
-    }
+  if (slice.cache[0] || readyMap(slice.cache).has(0)) {
+    walkPages(0, 0);
   }
 
   let orphan: TreeRow | null = null;
-  if (currentOid != null && currentBlkno != null) {
-    const slice = sliceOf(state, currentOid);
+  if (currentBlkno != null) {
     const { orphan: isOrphan } = pathFromCache(readyMap(slice.cache), currentBlkno);
-    const key = `${currentOid}:${currentBlkno}`;
+    const key = `${oid}:${currentBlkno}`;
     if (isOrphan && !listed.has(key)) {
-      orphan = pageRow(slice, currentOid, currentBlkno, 0, currentOid, currentBlkno);
+      orphan = pageRow(slice, oid, currentBlkno, 0, currentBlkno);
     }
   }
 
-  let emptyHint: string | null = null;
-  if (roots.length === 0) {
-    emptyHint = "No indexes for this table";
-  } else if (!roots.some(isBtreeIndex)) {
-    emptyHint = "No B-tree indexes for this table";
-  }
-
-  return { rows, orphan, emptyHint };
-}
-
-export function treeRootsForTable(
-  indexes: IndexRowLike[],
-  tableOid: number | null,
-): IndexRowLike[] {
-  return filterIndexesByTable(indexes, tableOid);
+  return { rows, orphan, emptyHint: null };
 }

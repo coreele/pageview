@@ -7,7 +7,6 @@ import type { ParsedBtreePage } from "page-core";
 /** Structural subset of api.IndexRow (keeps helpers unit-testable). */
 export type IndexRowLike = {
   oid: number;
-  name?: string;
   qualifiedName: string;
   accessMethod: string;
   blocks: number;
