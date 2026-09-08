@@ -1828,7 +1828,7 @@ input {
 .btree-tree-row {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
+  gap: 0;
   width: 100%;
   box-sizing: border-box;
   min-height: 1.7rem;
@@ -1859,10 +1859,11 @@ input {
 
 .btree-tree-expander {
   position: relative;
-  width: 1.35rem;
-  flex: 0 0 1.35rem;
+  width: 0.85rem;
+  flex: 0 0 0.85rem;
   align-self: stretch;
   min-height: 1.7rem;
+  padding: 0;
   color: var(--text-muted);
 }
 
@@ -1870,16 +1871,17 @@ input {
   content: "";
   position: absolute;
   top: 50%;
-  left: 50%;
+  left: 0.22rem;
   width: 0;
   height: 0;
-  border: 0.28rem solid transparent;
+  border: 0.26rem solid transparent;
   border-left-color: currentColor;
-  transform: translate(-35%, -50%);
+  transform: translate(-20%, -50%);
+  transform-origin: 30% 50%;
 }
 
 .btree-tree-expander[aria-expanded="true"]::before {
-  transform: translate(-50%, -35%) rotate(90deg);
+  transform: translate(-20%, -50%) rotate(90deg);
 }
 
 .btree-tree-expander--leaf {
@@ -1888,8 +1890,9 @@ input {
 
 .btree-tree-expander--leaf::before {
   content: "";
-  width: 0.32rem;
-  height: 0.32rem;
+  left: 0.28rem;
+  width: 0.28rem;
+  height: 0.28rem;
   border: 0;
   border-radius: 50%;
   background: currentColor;
@@ -1908,6 +1911,7 @@ input {
   gap: 0.28rem;
   text-align: left;
   min-width: 0;
+  padding-left: 0.1rem;
 }
 
 .btree-tree-blk {

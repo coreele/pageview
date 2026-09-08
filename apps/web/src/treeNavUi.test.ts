@@ -27,3 +27,12 @@ describe("tree nav current row (V-3)", () => {
     );
   });
 });
+
+describe("tree nav expander spacing (V-4)", () => {
+  it("keeps the caret/dot slot tight against the blk label", () => {
+    const css = readFileSync(join(srcDir, "styles.css"), "utf8");
+    expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*gap:\s*0/);
+    expect(css).toMatch(/\.btree-tree-expander\s*\{[^}]*width:\s*0\.85rem/);
+    expect(css).toMatch(/\.btree-tree-label\s*\{[^}]*padding-left:\s*0\.1rem/);
+  });
+});
