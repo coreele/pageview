@@ -85,10 +85,7 @@ export function treeKindTokens(
   }
   if (row.status === "loading" || row.pageType === "unknown") return [];
   if (row.pageType === "meta") return ["meta"];
-  const tokens: string[] = [row.pageType];
-  if (row.level != null) tokens.push(`L${row.level}`);
-  if (row.isRoot) tokens.push("root");
-  return tokens;
+  return [];
 }
 
 const EMPTY_SLICE: IndexTreeSlice = { cache: {}, expanded: [] };

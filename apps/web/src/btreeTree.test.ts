@@ -306,7 +306,7 @@ describe("flag chips pass through (P1-1)", () => {
 });
 
 describe("treeKindTokens (V-1)", () => {
-  it("splits page type, level, and root into separate tokens", () => {
+  it("keeps only the meta pill on page rows", () => {
     expect(
       treeKindTokens({
         role: "page",
@@ -316,7 +316,17 @@ describe("treeKindTokens (V-1)", () => {
         isRoot: true,
         status: "ready",
       }),
-    ).toEqual(["leaf", "L0", "root"]);
+    ).toEqual([]);
+    expect(
+      treeKindTokens({
+        role: "page",
+        expandable: true,
+        pageType: "internal",
+        level: 1,
+        isRoot: true,
+        status: "ready",
+      }),
+    ).toEqual([]);
   });
 
   it("labels a metapage as meta only", () => {
