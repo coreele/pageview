@@ -3,12 +3,13 @@ import type { TreeRow, VisibleTree } from "./btreeTree";
 
 type Props = {
   tree: VisibleTree;
-  onToggleExpand: (blkno: number) => void;
-  onActivate: (blkno: number) => void;
-  onRetry: (blkno: number) => void;
+  onToggleExpand: (row: TreeRow) => void;
+  onActivate: (row: TreeRow) => void;
+  onRetry: (row: TreeRow) => void;
 };
 
 function typeLabel(row: TreeRow): string {
+  if (row.role === "index") return row.expandable ? "btree" : "";
   if (row.pageType === "unknown") return "…";
   if (row.pageType === "meta") return "meta";
   const level = row.level == null ? "" : ` L${row.level}`;
@@ -23,24 +24,25 @@ function TreeNode({
   onRetry,
 }: {
   row: TreeRow;
-  onToggleExpand: (blkno: number) => void;
-  onActivate: (blkno: number) => void;
-  onRetry: (blkno: number) => void;
+  onToggleExpand: (row: TreeRow) => void;
+  onActivate: (row: TreeRow) => void;
+  onRetry: (row: TreeRow) => void;
 }) {
+  const label = row.role === "index" ? row.title : `blk ${row.blkno}`;
   return (
     <div
       className="btree-tree-row"
       style={{ paddingLeft: `${0.35 + row.depth * 0.85}rem` }}
       data-current={row.current ? "true" : undefined}
-      data-blkno={row.blkno}
+      data-row={row.key}
     >
       {row.expandable ? (
         <button
           type="button"
           className="btree-tree-expander"
-          aria-label={row.expanded ? `Collapse block ${row.blkno}` : `Expand block ${row.blkno}`}
+          aria-label={row.expanded ? `Collapse ${label}` : `Expand ${label}`}
           aria-expanded={row.expanded}
-          onClick={() => onToggleExpand(row.blkno)}
+          onClick={() => onToggleExpand(row)}
         >
           {row.expanded ? "▾" : "▸"}
         </button>
@@ -53,9 +55,10 @@ function TreeNode({
         type="button"
         className="btree-tree-label"
         aria-current={row.current ? "true" : undefined}
-        onClick={() => onActivate(row.blkno)}
+        title={row.role === "index" ? row.title : undefined}
+        onClick={() => onActivate(row)}
       >
-        blk {row.blkno}
+        {label}
         <span className="btree-tree-kind">{typeLabel(row)}</span>
         {row.chips.map((chip) => (
           <span key={chip} className="btree-tree-chip">
@@ -66,7 +69,7 @@ function TreeNode({
       {row.status === "error" && row.error && (
         <span className="btree-tree-error">
           <span title={`${row.error.code}: ${row.error.message}`}>failed</span>
-          <button type="button" className="btree-tree-retry" onClick={() => onRetry(row.blkno)}>
+          <button type="button" className="btree-tree-retry" onClick={() => onRetry(row)}>
             Retry
           </button>
         </span>
@@ -90,12 +93,15 @@ export function BtreeTreePanel({ tree, onToggleExpand, onActivate, onRetry }: Pr
       className="pane pane-tree"
       aria-label="B-tree pages"
     >
-      {tree.rows.length === 0 && !tree.orphan && (
+      {tree.emptyHint && tree.rows.length === 0 && (
+        <div className="muted">{tree.emptyHint}</div>
+      )}
+      {tree.rows.length === 0 && !tree.orphan && !tree.emptyHint && (
         <div className="muted">Loading tree…</div>
       )}
       {tree.rows.map((row) => (
         <TreeNode
-          key={`n-${row.blkno}-${row.depth}`}
+          key={row.key}
           row={row}
           onToggleExpand={onToggleExpand}
           onActivate={onActivate}

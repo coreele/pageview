@@ -1,6 +1,7 @@
 /**
  * Session state for the optional B-tree tree panel (btree-tree-view).
- * Fetch I/O stays in App; this module decides what to fetch and what to render.
+ * One slice per index oid so table-mode can show a forest without blkno clashes.
+ * Fetch I/O stays in App.
  */
 import {
   btreeDownlinks,
@@ -10,20 +11,30 @@ import {
   type ParsedBtreePage,
 } from "page-core";
 import type { AppError } from "./api";
+import { filterIndexesByTable, isBtreeIndex, type IndexRowLike } from "./indexView";
 
 export type CachedTreePage =
   | { status: "loading" }
   | { status: "ready"; page: ParsedBtreePage }
   | { status: "error"; error: AppError };
 
-export type BtreeTreeState = {
-  collapsed: boolean;
+export type IndexTreeSlice = {
   cache: Record<number, CachedTreePage>;
   expanded: number[];
 };
 
+export type BtreeTreeState = {
+  collapsed: boolean;
+  slices: Record<number, IndexTreeSlice>;
+  expandedIndexOids: number[];
+};
+
 export type TreeRow = {
-  blkno: number;
+  key: string;
+  indexOid: number;
+  blkno: number | null;
+  role: "index" | "page";
+  title: string;
   depth: number;
   pageType: "meta" | "internal" | "leaf" | "unknown";
   level: number | null;
@@ -36,66 +47,130 @@ export type TreeRow = {
   error?: AppError;
 };
 
-export const EMPTY_BTREE_TREE: BtreeTreeState = {
-  collapsed: true,
-  cache: {},
-  expanded: [],
+export type TreeFetch = { oid: number; blkno: number };
+
+export type VisibleTree = {
+  rows: TreeRow[];
+  orphan: TreeRow | null;
+  emptyHint: string | null;
 };
 
+const EMPTY_SLICE: IndexTreeSlice = { cache: {}, expanded: [] };
+
+export const EMPTY_BTREE_TREE: BtreeTreeState = {
+  collapsed: true,
+  slices: {},
+  expandedIndexOids: [],
+};
+
+export const EMPTY_VISIBLE_TREE: VisibleTree = { rows: [], orphan: null, emptyHint: null };
+
 export function resetBtreeTree(): BtreeTreeState {
-  return { collapsed: true, cache: {}, expanded: [] };
+  return { collapsed: true, slices: {}, expandedIndexOids: [] };
 }
 
 export function treeChromeVisible(pageKind: string | undefined): boolean {
-  return pageKind === "btree";
+  return pageKind === "btree" || pageKind === "heap";
 }
 
 export function setTreeCollapsed(state: BtreeTreeState, collapsed: boolean): BtreeTreeState {
   return { ...state, collapsed };
 }
 
+function sliceOf(state: BtreeTreeState, oid: number): IndexTreeSlice {
+  return state.slices[oid] ?? EMPTY_SLICE;
+}
+
+function putSlice(state: BtreeTreeState, oid: number, slice: IndexTreeSlice): BtreeTreeState {
+  return { ...state, slices: { ...state.slices, [oid]: slice } };
+}
+
+export function ensureIndexExpanded(state: BtreeTreeState, oid: number): BtreeTreeState {
+  if (state.expandedIndexOids.includes(oid)) return state;
+  return { ...state, expandedIndexOids: [...state.expandedIndexOids, oid] };
+}
+
+export function toggleIndexExpanded(state: BtreeTreeState, oid: number): BtreeTreeState {
+  const has = state.expandedIndexOids.includes(oid);
+  return {
+    ...state,
+    expandedIndexOids: has
+      ? state.expandedIndexOids.filter((id) => id !== oid)
+      : [...state.expandedIndexOids, oid],
+  };
+}
+
 export function seedCurrentPage(
   state: BtreeTreeState,
+  oid: number,
   blkno: number,
   page: ParsedBtreePage,
 ): BtreeTreeState {
-  return {
-    ...state,
-    cache: { ...state.cache, [blkno]: { status: "ready", page } },
-  };
+  const slice = sliceOf(state, oid);
+  return ensureIndexExpanded(
+    putSlice(state, oid, {
+      ...slice,
+      cache: { ...slice.cache, [blkno]: { status: "ready", page } },
+    }),
+    oid,
+  );
 }
 
-export function markLoading(state: BtreeTreeState, blknos: number[]): BtreeTreeState {
-  if (blknos.length === 0) return state;
-  const cache = { ...state.cache };
-  for (const blk of blknos) {
-    const rec = cache[blk];
+export function markLoading(state: BtreeTreeState, fetches: TreeFetch[]): BtreeTreeState {
+  if (fetches.length === 0) return state;
+  let next = state;
+  for (const { oid, blkno } of fetches) {
+    const slice = sliceOf(next, oid);
+    const rec = slice.cache[blkno];
     if (rec?.status === "ready") continue;
-    cache[blk] = { status: "loading" };
+    next = putSlice(next, oid, {
+      ...slice,
+      cache: { ...slice.cache, [blkno]: { status: "loading" } },
+    });
   }
-  return { ...state, cache };
+  return next;
 }
 
-export function putReady(state: BtreeTreeState, blkno: number, page: ParsedBtreePage): BtreeTreeState {
-  return { ...state, cache: { ...state.cache, [blkno]: { status: "ready", page } } };
+export function putReady(
+  state: BtreeTreeState,
+  oid: number,
+  blkno: number,
+  page: ParsedBtreePage,
+): BtreeTreeState {
+  const slice = sliceOf(state, oid);
+  return putSlice(state, oid, {
+    ...slice,
+    cache: { ...slice.cache, [blkno]: { status: "ready", page } },
+  });
 }
 
-export function putError(state: BtreeTreeState, blkno: number, error: AppError): BtreeTreeState {
-  return { ...state, cache: { ...state.cache, [blkno]: { status: "error", error } } };
+export function putError(
+  state: BtreeTreeState,
+  oid: number,
+  blkno: number,
+  error: AppError,
+): BtreeTreeState {
+  const slice = sliceOf(state, oid);
+  return putSlice(state, oid, {
+    ...slice,
+    cache: { ...slice.cache, [blkno]: { status: "error", error } },
+  });
 }
 
-export function retryNode(state: BtreeTreeState, blkno: number): BtreeTreeState {
-  const cache = { ...state.cache };
+export function retryNode(state: BtreeTreeState, oid: number, blkno: number): BtreeTreeState {
+  const slice = sliceOf(state, oid);
+  const cache = { ...slice.cache };
   delete cache[blkno];
-  return { ...state, cache };
+  return putSlice(state, oid, { ...slice, cache });
 }
 
-export function toggleExpanded(state: BtreeTreeState, blkno: number): BtreeTreeState {
-  const has = state.expanded.includes(blkno);
-  return {
-    ...state,
-    expanded: has ? state.expanded.filter((b) => b !== blkno) : [...state.expanded, blkno],
-  };
+export function toggleExpanded(state: BtreeTreeState, oid: number, blkno: number): BtreeTreeState {
+  const slice = sliceOf(state, oid);
+  const has = slice.expanded.includes(blkno);
+  return putSlice(state, oid, {
+    ...slice,
+    expanded: has ? slice.expanded.filter((b) => b !== blkno) : [...slice.expanded, blkno],
+  });
 }
 
 function readyMap(cache: Record<number, CachedTreePage>): Map<number, ParsedBtreePage> {
@@ -106,134 +181,194 @@ function readyMap(cache: Record<number, CachedTreePage>): Map<number, ParsedBtre
   return pages;
 }
 
-function readyPage(state: BtreeTreeState, blkno: number): ParsedBtreePage | null {
-  const rec = state.cache[blkno];
+function readyPage(slice: IndexTreeSlice, blkno: number): ParsedBtreePage | null {
+  const rec = slice.cache[blkno];
   return rec?.status === "ready" ? rec.page : null;
 }
 
-/** Blocks that must be fetched while the panel is open (not error, not in-flight). */
-export function pendingFetches(state: BtreeTreeState): number[] {
+export function pendingFetches(state: BtreeTreeState): TreeFetch[] {
   if (state.collapsed) return [];
-  const want = new Set<number>([0, ...state.expanded]);
-  const meta = readyPage(state, 0);
-  if (meta?.meta) want.add(meta.meta.btm_root);
-  const need: number[] = [];
-  for (const blk of want) {
-    const rec = state.cache[blk];
-    if (!rec) need.push(blk);
+  const need: TreeFetch[] = [];
+  for (const oid of state.expandedIndexOids) {
+    const slice = sliceOf(state, oid);
+    const want = new Set<number>([0, ...slice.expanded]);
+    const meta = readyPage(slice, 0);
+    if (meta?.meta) want.add(meta.meta.btm_root);
+    for (const blkno of want) {
+      if (!slice.cache[blkno]) need.push({ oid, blkno });
+    }
   }
   return need;
 }
 
-export function withPathExpansion(state: BtreeTreeState, currentBlkno: number): BtreeTreeState {
-  const { path } = pathFromCache(readyMap(state.cache), currentBlkno);
-  const expanded = new Set(state.expanded);
+export function fetchKey(fetch: TreeFetch): string {
+  return `${fetch.oid}:${fetch.blkno}`;
+}
+
+export function withPathExpansion(
+  state: BtreeTreeState,
+  oid: number,
+  currentBlkno: number,
+): BtreeTreeState {
+  const slice = sliceOf(state, oid);
+  const { path } = pathFromCache(readyMap(slice.cache), currentBlkno);
+  const expanded = new Set(slice.expanded);
   for (const blk of path) {
-    const page = readyPage(state, blk);
+    const page = readyPage(slice, blk);
     if (!page || page.pageType === "leaf") continue;
     expanded.add(blk);
   }
-  return { ...state, expanded: [...expanded] };
+  return ensureIndexExpanded(putSlice(state, oid, { ...slice, expanded: [...expanded] }), oid);
 }
 
-function childrenOf(state: BtreeTreeState, blkno: number): number[] {
-  const page = readyPage(state, blkno);
+export function autoExpandLoneBtree(state: BtreeTreeState, roots: IndexRowLike[]): BtreeTreeState {
+  const btrees = roots.filter(isBtreeIndex);
+  if (btrees.length !== 1) return state;
+  return ensureIndexExpanded(state, btrees[0]!.oid);
+}
+
+function childrenOf(slice: IndexTreeSlice, blkno: number): number[] {
+  const page = readyPage(slice, blkno);
   return page ? btreeDownlinks(page) : [];
 }
 
-function rowFor(
-  state: BtreeTreeState,
+function pageRow(
+  slice: IndexTreeSlice,
+  oid: number,
   blkno: number,
   depth: number,
-  currentBlkno: number,
+  currentOid: number | null,
+  currentBlkno: number | null,
 ): TreeRow {
-  const rec = state.cache[blkno];
-  const expanded = state.expanded.includes(blkno);
+  const rec = slice.cache[blkno];
+  const expanded = slice.expanded.includes(blkno);
+  const current = currentOid === oid && currentBlkno === blkno;
+  const base = {
+    key: `${oid}:${blkno}`,
+    indexOid: oid,
+    blkno,
+    role: "page" as const,
+    title: "",
+    depth,
+    current,
+    expanded,
+  };
   if (!rec) {
     return {
-      blkno,
-      depth,
+      ...base,
       pageType: "unknown",
       level: null,
       isRoot: false,
       chips: [],
       expandable: true,
-      expanded,
-      current: blkno === currentBlkno,
       status: "idle",
     };
   }
   if (rec.status === "loading") {
     return {
-      blkno,
-      depth,
+      ...base,
       pageType: "unknown",
       level: null,
       isRoot: false,
       chips: [],
       expandable: false,
-      expanded,
-      current: blkno === currentBlkno,
       status: "loading",
     };
   }
   if (rec.status === "error") {
     return {
-      blkno,
-      depth,
+      ...base,
       pageType: "unknown",
       level: null,
       isRoot: false,
       chips: [],
       expandable: false,
-      expanded,
-      current: blkno === currentBlkno,
       status: "error",
       error: rec.error,
     };
   }
   const summary = btreeTreeNodeSummary(rec.page);
-  const expandable = rec.page.pageType !== "leaf";
   return {
-    blkno,
-    depth,
+    ...base,
     pageType: summary.pageType,
     level: summary.level,
     isRoot: summary.isRoot,
     chips: summary.chips,
-    expandable,
-    expanded,
-    current: blkno === currentBlkno,
+    expandable: rec.page.pageType !== "leaf",
     status: "ready",
   };
 }
 
-export type VisibleTree = {
-  rows: TreeRow[];
-  orphan: TreeRow | null;
-};
-
-export function visibleTree(state: BtreeTreeState, currentBlkno: number): VisibleTree {
-  const pages = readyMap(state.cache);
-  const { orphan } = pathFromCache(pages, currentBlkno);
+export function visibleTree(
+  state: BtreeTreeState,
+  roots: IndexRowLike[],
+  currentOid: number | null,
+  currentBlkno: number | null,
+): VisibleTree {
+  const listed = new Set<string>();
   const rows: TreeRow[] = [];
-  const listed = new Set<number>();
 
-  const walk = (blkno: number, depth: number): void => {
-    rows.push(rowFor(state, blkno, depth, currentBlkno));
-    listed.add(blkno);
-    if (!state.expanded.includes(blkno)) return;
-    for (const child of childrenOf(state, blkno)) {
-      walk(child, depth + 1);
+  const walkPages = (oid: number, blkno: number, depth: number): void => {
+    const slice = sliceOf(state, oid);
+    const row = pageRow(slice, oid, blkno, depth, currentOid, currentBlkno);
+    rows.push(row);
+    listed.add(row.key);
+    if (!slice.expanded.includes(blkno)) return;
+    for (const child of childrenOf(slice, blkno)) {
+      walkPages(oid, child, depth + 1);
     }
   };
 
-  if (state.cache[0] || pages.has(0)) walk(0, 0);
-
-  let orphanRow: TreeRow | null = null;
-  if (orphan && !listed.has(currentBlkno)) {
-    orphanRow = rowFor(state, currentBlkno, 0, currentBlkno);
+  for (const idx of roots) {
+    const btree = isBtreeIndex(idx);
+    const expanded = state.expandedIndexOids.includes(idx.oid);
+    rows.push({
+      key: `${idx.oid}:index`,
+      indexOid: idx.oid,
+      blkno: null,
+      role: "index",
+      title: idx.name ?? idx.qualifiedName,
+      depth: 0,
+      pageType: "unknown",
+      level: null,
+      isRoot: false,
+      chips: [],
+      expandable: btree,
+      expanded,
+      current: currentOid === idx.oid && currentBlkno == null,
+      status: btree ? "ready" : "idle",
+    });
+    if (btree && expanded) {
+      const slice = sliceOf(state, idx.oid);
+      if (slice.cache[0] || readyMap(slice.cache).has(0)) {
+        walkPages(idx.oid, 0, 1);
+      }
+    }
   }
 
-  return { rows, orphan: orphanRow };
+  let orphan: TreeRow | null = null;
+  if (currentOid != null && currentBlkno != null) {
+    const slice = sliceOf(state, currentOid);
+    const { orphan: isOrphan } = pathFromCache(readyMap(slice.cache), currentBlkno);
+    const key = `${currentOid}:${currentBlkno}`;
+    if (isOrphan && !listed.has(key)) {
+      orphan = pageRow(slice, currentOid, currentBlkno, 0, currentOid, currentBlkno);
+    }
+  }
+
+  let emptyHint: string | null = null;
+  if (roots.length === 0) {
+    emptyHint = "No indexes for this table";
+  } else if (!roots.some(isBtreeIndex)) {
+    emptyHint = "No B-tree indexes for this table";
+  }
+
+  return { rows, orphan, emptyHint };
+}
+
+export function treeRootsForTable(
+  indexes: IndexRowLike[],
+  tableOid: number | null,
+): IndexRowLike[] {
+  return filterIndexesByTable(indexes, tableOid);
 }
