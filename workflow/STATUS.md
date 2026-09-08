@@ -8,10 +8,10 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 1 | chrome-toggles |
+| 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 0 | — |
+| 待归档 | 1 | chrome-toggles |
 | 已归档 | 25 | add-ci，auto-install-extensions，btree-tree-view，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，tree-nav-ui，url-deeplink，wal-viewer |
 
 ## 等待用户
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| chrome-toggles | developing | fast | 实施 chrome 开关 | 色态与日月图标 |
+| — | | | | |
 
 ## 待办
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| — | | |
+| chrome-toggles | chrome-toggles → main | 待 FF 合入 |
 
 ## 归档索引
 

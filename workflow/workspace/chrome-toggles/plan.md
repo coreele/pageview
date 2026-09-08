@@ -40,12 +40,12 @@ Detail / Hex / Tree 固定文案，开态用按钮颜色；主题按钮改为日
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | 开/关 class | on → 含 `--on`；off 不含 | |
-| V-2 | 固定文案 | `App.tsx` 无 `Show detail`/`Collapse`/`Theme:` | |
-| V-3 | 主题图标 | 主题钮渲染 sun/moon SVG，无 Theme 文本 | |
-| V-docs | README 中英 | 树面板一句写 Tree 开关，无 Show/Collapse | |
-| V-reg | web 测试 | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | 开/关 class | on → 含 `--on`；off 不含 | 通过 |
+| V-2 | 固定文案 | `App.tsx` 无 `Show detail`/`Collapse`/`Theme:` | 通过 |
+| V-3 | 主题图标 | 主题钮渲染 sun/moon SVG，无 Theme 文本 | 通过 |
+| V-docs | README 中英 | 树面板一句写 Tree 开关，无 Show/Collapse | 通过 |
+| V-reg | web 测试 | 退出码 0 | 通过 |
+| V-static | typecheck | 退出码 0 | 通过 |
 
 ## 验证缺口
 

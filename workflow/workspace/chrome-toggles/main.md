@@ -19,8 +19,11 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | FF 合入 main | | | |
 
 ## 进度笔记
 
 - 2026-09-08 Manager 登记。用户合入 tree-nav-ui 后要求：三开关用颜色表示是否开启；主题按钮用日月图标，去掉 Theme:。路径 `fast`。Spec/Design/Review skipped。
+- 2026-09-08 Planner：`ui-design.md`、`plan.md`。进入 `developing`。
+- 2026-09-08 Developer：固定文案 + `--on` 色态 + 日月 SVG。提交 `43145ae`。Review skipped。QA Pass。进入 `merge-approval`。
+- 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
