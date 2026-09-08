@@ -40,17 +40,17 @@ Table 模式导航为表→块，去掉表下拉；连库后 Tree 默认开。In
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| P0-1 | 未 Load 也列出 tables | `visibleTableCatalog` 行含表节点；chrome 可见性 table+无 page → true | |
-| P0-2 | Table 无表下拉 | `App.tsx` Table 分支无 `className="table-select"`；Index 分支仍有 | |
-| P0-3 | 点表 Load blk 0 | App 点 `role=table` 且 blocks>0 走 `loadBlk(oid, 0)` | |
-| P0-4 | 0 blk 不请求 | catalog 无子块；激活空表不调用 loadBlk | |
-| P0-5 | 点 blk Load；expander 不 Load | 现 heap 路径保留；expander 只改 expanded 集 | |
-| P0-6 | Index 无页无 Tree | `treeChromeVisible({ kind: index, pageKind: undefined })` false | |
-| P0-7 | 深链展开该表 | 选中 oid 出现在 expanded / catalog 子块 | |
-| P1 | 长名 ellipsis + title | CSS ellipsis；表行 title=qualifiedName | |
-| V-docs | README | 中英不再写「下拉选表」为 Table 入口 | |
-| V-reg | web test | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| P0-1 | 未 Load 也列出 tables | `visibleTableCatalog` 行含表节点；chrome 可见性 table+无 page → true | Pass |
+| P0-2 | Table 无表下拉 | `App.tsx` Table 分支无 `className="table-select"`；Index 分支仍有 | Pass |
+| P0-3 | 点表 Load blk 0 | App 点 `role=table` 且 blocks>0 走 `loadBlk(oid, 0)` | Pass |
+| P0-4 | 0 blk 不请求 | catalog 无子块；激活空表不调用 loadBlk | Pass |
+| P0-5 | 点 blk Load；expander 不 Load | 现 heap 路径保留；expander 只改 expanded 集 | Pass |
+| P0-6 | Index 无页无 Tree | `treeChromeVisible({ kind: index, pageKind: undefined })` false | Pass |
+| P0-7 | 深链展开该表 | 选中 oid 出现在 expanded / catalog 子块 | Pass |
+| P1 | 长名 ellipsis + title | CSS ellipsis；表行 title=qualifiedName | Pass |
+| V-docs | README | 中英不再写「下拉选表」为 Table 入口 | Pass |
+| V-reg | web test | 退出码 0 | Pass（238） |
+| V-static | typecheck | 退出码 0 | Pass |
 
 ## 验证缺口
 

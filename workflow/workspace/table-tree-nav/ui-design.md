@@ -39,16 +39,17 @@ Table 模式、已连接：
 | 步骤 | 用户动作 | 系统反馈 | 空态 / 加载 / 错误 |
 |---|---|---|---|
 | 1 | Connect，kind=table | Tree 开，列出 tables | 无表：`no user heap tables` |
-| 2 | 点表名 | 选中、展开、Load blk 0 | 0 blk：空表提示，不请求 |
+| 2 | 点表名 | 选中、展开、Load blk 0；已展开再点则收起 | 0 blk：空表提示，不请求 |
 | 3 | 点箭头 | 只展开/收起块 | 大表窗口提示沿用 |
 | 4 | 点 blk | Load 该块 | 已是当前块则跳过 |
 | 5 | 切 Index | 树关、恢复下拉 | 有索引页后再出 B-tree 树 |
 
 ## 布局与视觉方向
 
-- 复用 `.pane-tree` / `.btree-tree-row` / 当前行 accent 条。
-- 表名 `.btree-tree-blk`：ellipsis + `title` 全名。块数用 `.btree-tree-kind` pill（`N blk`）。
+- 复用 `.pane-tree` / `.btree-tree-row`。选中表与当前块用文字 accent，不行底、无左边条，避免父子被色块拆开。行 `min-height: 1.4rem`、无垂直 margin。
+- 子行 `--tree-indent: 1.25rem` + 竖向引导线，表名 `.btree-tree-blk` ellipsis + `title` 全名。块数用 `.btree-tree-kind` pill（`N blk`）。
 - 无页时 `main-split` 仍挂树列 + 右侧 `pane-structure` 放提示（无 StructureMap / hex）。
+- 宽屏三栏（树 / 结构图 / hex）之间有可拖动分隔条；hex 默认与结构图等分剩余宽度，上限 1600px。宽度记在 localStorage（无凭据）。
 - 明确避开：新主色；把表名再塞回次带。
 
 ## 组件与交互约定
