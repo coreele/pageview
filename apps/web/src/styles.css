@@ -2025,7 +2025,7 @@ html.is-split-dragging * {
   content: none;
 }
 
-/* Catalog / page glyphs — triangles stay on section headers only. */
+/* Catalog glyphs — triangles stay on section headers only. */
 .btree-tree-row[data-role="table"] .btree-tree-expander::before,
 .btree-tree-row[data-role="index"] .btree-tree-expander::before,
 .btree-tree-row[data-role="page"] .btree-tree-expander::before {
@@ -2034,14 +2034,13 @@ html.is-split-dragging * {
   top: 50%;
   left: 50%;
   box-sizing: border-box;
-  border: 1px solid currentColor;
-  background: transparent;
   transform: translate(-50%, -50%);
 }
 
 .btree-tree-row[data-role="table"] .btree-tree-expander::before {
   width: 0.7rem;
   height: 0.52rem;
+  border: 1px solid currentColor;
   border-radius: 1px;
   background-image: linear-gradient(currentColor, currentColor),
     linear-gradient(currentColor, currentColor);
@@ -2050,17 +2049,23 @@ html.is-split-dragging * {
   background-repeat: no-repeat;
 }
 
+.btree-tree-row[data-role="index"] .btree-tree-expander::before,
+.btree-tree-row[data-role="page"] .btree-tree-expander::before {
+  width: 0.82rem;
+  height: 0.82rem;
+  border: 0;
+  background-color: currentColor;
+  -webkit-mask: var(--tree-glyph) center / contain no-repeat;
+  mask: var(--tree-glyph) center / contain no-repeat;
+}
+
+/* Index: key. Page: lined document. Silhouettes must stay distinct. */
 .btree-tree-row[data-role="index"] .btree-tree-expander::before {
-  width: 0.4rem;
-  height: 0.58rem;
-  border-bottom: 0;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+  --tree-glyph: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20fill%3D%27black%27%20fill-rule%3D%27evenodd%27%20d%3D%27M4.75%208m-3.5%200a3.5%203.5%200%201%200%207%200a3.5%203.5%200%201%200-7%200M4.75%208m-1.8%200a1.8%201.8%200%201%200%203.6%200a1.8%201.8%200%201%200-3.6%200M8.15%207.35h6.25v1.3h-1.25v2.2h-1.3V8.65h-1.15v1.55H9.4V8.65H8.15z%27%2F%3E%3C%2Fsvg%3E");
 }
 
 .btree-tree-row[data-role="page"] .btree-tree-expander::before {
-  width: 0.46rem;
-  height: 0.58rem;
-  border-radius: 1px 0.18rem 1px 1px;
+  --tree-glyph: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2016%2016%27%3E%3Cpath%20fill%3D%27black%27%20fill-rule%3D%27evenodd%27%20d%3D%27M3.6%201.3h5.9L13.4%205.2v9.5H3.6V1.3zm5.9%201.15V5.5h3.15L9.5%202.45zM5.3%208h5.4v1.2H5.3zm0%202.2h5.4v1.2H5.3zm0%202.2h3.6v1.2H5.3z%27%2F%3E%3C%2Fsvg%3E");
 }
 
 .btree-tree-label {

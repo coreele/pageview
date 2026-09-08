@@ -17,6 +17,14 @@ describe("tree nav expander (V-2)", () => {
     expect(css).toMatch(/\.btree-tree-row\[data-role="table"\] \.btree-tree-expander::before/);
     expect(css).toMatch(/\.btree-tree-row\[data-role="index"\] \.btree-tree-expander::before/);
     expect(css).toMatch(/\.btree-tree-row\[data-role="page"\] \.btree-tree-expander::before/);
+    const glyphs = Object.fromEntries(
+      [...css.matchAll(/\[data-role="(index|page)"\] \.btree-tree-expander::before \{\s*--tree-glyph:\s*url\("([^"]+)"\)/g)].map(
+        (m) => [m[1], m[2]],
+      ),
+    );
+    expect(glyphs.index).toMatch(/^data:image\/svg\+xml,/);
+    expect(glyphs.page).toMatch(/^data:image\/svg\+xml,/);
+    expect(glyphs.index).not.toEqual(glyphs.page);
   });
 });
 
