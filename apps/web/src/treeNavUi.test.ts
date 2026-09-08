@@ -19,11 +19,14 @@ describe("tree nav expander (V-2)", () => {
 });
 
 describe("tree nav current row (V-3)", () => {
-  it("stretches the row and uses an inset accent bar when the page is current", () => {
+  it("stretches the row and highlights current text without a fill", () => {
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
     expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*width:\s*100%/);
     expect(css).toMatch(
-      /\.btree-tree-row\[data-current="true"\]\[data-role="page"\]\s*\{[^}]*box-shadow:\s*inset 2px 0 0 var\(--accent\)/,
+      /\.btree-tree-row\[data-current="true"\] \.btree-tree-blk\s*\{[^}]*color:\s*var\(--accent\)/,
+    );
+    expect(css).not.toMatch(
+      /\.btree-tree-row\[data-current="true"\][^{]*\{[^}]*background:/,
     );
   });
 });
@@ -46,13 +49,12 @@ describe("tree nav hierarchy (table-tree-nav)", () => {
     );
   });
 
-  it("keeps table/index selection quieter than the current page", () => {
+  it("keeps selected table and block rows tight, without a fill", () => {
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
-    expect(css).toMatch(
-      /\.btree-tree-row\[data-current="true"\]\[data-role="table"\]/,
-    );
+    expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*margin:\s*0/);
+    expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*min-height:\s*1\.4rem/);
     expect(css).not.toMatch(
-      /\.btree-tree-row\[data-current="true"\]\[data-role="table"\][^{]*\{[^}]*box-shadow/,
+      /\.btree-tree-row\[data-current="true"\]\[data-role="table"\][^{]*\{[^}]*background:/,
     );
   });
 

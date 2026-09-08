@@ -1851,11 +1851,10 @@ input {
   gap: 0;
   width: 100%;
   box-sizing: border-box;
-  min-height: 1.7rem;
-  margin: 0.04rem 0;
+  min-height: 1.4rem;
+  margin: 0;
   padding-left: calc(0.35rem + var(--tree-depth) * var(--tree-indent));
   padding-right: 0.35rem;
-  border-radius: 4px;
 }
 
 .btree-tree-row[data-depth]:not([data-depth="0"])::before {
@@ -1869,18 +1868,12 @@ input {
   background: color-mix(in srgb, var(--border) 85%, var(--text-muted));
 }
 
-.btree-tree-row:hover:not([data-current="true"]) {
-  background: color-mix(in srgb, var(--border) 40%, var(--surface));
+.btree-tree-row:hover {
+  background: color-mix(in srgb, var(--border) 28%, var(--surface));
 }
 
-.btree-tree-row[data-current="true"][data-role="table"],
-.btree-tree-row[data-current="true"][data-role="index"] {
-  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
-}
-
-.btree-tree-row[data-current="true"][data-role="page"] {
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-  box-shadow: inset 2px 0 0 var(--accent);
+.btree-tree-row[data-current="true"] .btree-tree-blk {
+  color: var(--accent);
 }
 
 .btree-tree-expander,
@@ -1891,7 +1884,7 @@ input {
   background: transparent;
   border: 0;
   cursor: pointer;
-  padding: 0.15rem 0.2rem;
+  padding: 0.04rem 0.2rem;
 }
 
 .btree-tree-expander {
@@ -1899,7 +1892,7 @@ input {
   width: 0.85rem;
   flex: 0 0 0.85rem;
   align-self: stretch;
-  min-height: 1.7rem;
+  min-height: 1.4rem;
   padding: 0;
   color: var(--text-muted);
 }
