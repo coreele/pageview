@@ -36,6 +36,7 @@ import { HexDump } from "./HexDump";
 import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
 import { HeapPeekOverlay } from "./HeapPeekOverlay";
 import { BtreeTreePanel } from "./BtreeTreePanel";
+import { PageSplit } from "./PageSplit";
 import {
   EMPTY_BTREE_TREE,
   EMPTY_VISIBLE_TREE,
@@ -1888,12 +1889,10 @@ export function App() {
           )}
 
         {connected && mode === "page" && relationKind === "table" && tableSplitOpen && (
-          <div
-            className="main-split"
-            data-hex={heapPage && !hexCollapsed ? "expanded" : "collapsed"}
-            data-tree={btreeTree.collapsed ? "collapsed" : "expanded"}
-          >
-            {!btreeTree.collapsed && (
+          <PageSplit
+            treeOpen={!btreeTree.collapsed}
+            hexOpen={Boolean(heapPage && !hexCollapsed)}
+            tree={
               <BtreeTreePanel
                 tree={btreeTreeView}
                 ariaLabel="Tables"
@@ -1901,7 +1900,23 @@ export function App() {
                 onActivate={onTreeActivate}
                 onRetry={onTreeRetry}
               />
-            )}
+            }
+            hex={
+              heapPage ? (
+                <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
+                  <HexDump
+                    raw={heapPage.raw}
+                    freeRange={heapPage.freeSpace.range}
+                    freeDiff={diffIds.has("free")}
+                    highlight={highlight}
+                    locate={hexLocate}
+                    locateHandledNonceRef={hexLocateHandledNonceRef}
+                    onSelectOffset={onHexSelect}
+                  />
+                </section>
+              ) : null
+            }
+          >
             <section className="pane pane-structure" aria-label="Page structure">
               {loadState === "loading-page" && (
                 <div className="muted">
@@ -1941,12 +1956,26 @@ export function App() {
                 tableNoPageHint && <div className="panel muted">{tableNoPageHint}</div>
               )}
             </section>
+          </PageSplit>
+        )}
 
-            {heapPage && !hexCollapsed && (
+        {connected && mode === "page" && btreePage && pageView?.kind === "btree" && (
+          <PageSplit
+            treeOpen={!btreeTree.collapsed}
+            hexOpen={!hexCollapsed}
+            tree={
+              <BtreeTreePanel
+                tree={btreeTreeView}
+                onToggleExpand={onTreeToggleExpand}
+                onActivate={onTreeActivate}
+                onRetry={onTreeRetry}
+              />
+            }
+            hex={
               <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
                 <HexDump
-                  raw={heapPage.raw}
-                  freeRange={heapPage.freeSpace.range}
+                  raw={btreePage.raw}
+                  freeRange={btreePage.freeSpace.range}
                   freeDiff={diffIds.has("free")}
                   highlight={highlight}
                   locate={hexLocate}
@@ -1954,24 +1983,8 @@ export function App() {
                   onSelectOffset={onHexSelect}
                 />
               </section>
-            )}
-          </div>
-        )}
-
-        {connected && mode === "page" && btreePage && pageView?.kind === "btree" && (
-          <div
-            className="main-split"
-            data-hex={hexCollapsed ? "collapsed" : "expanded"}
-            data-tree={btreeTree.collapsed ? "collapsed" : "expanded"}
+            }
           >
-            {!btreeTree.collapsed && (
-              <BtreeTreePanel
-                tree={btreeTreeView}
-                onToggleExpand={onTreeToggleExpand}
-                onActivate={onTreeActivate}
-                onRetry={onTreeRetry}
-              />
-            )}
             <section className="pane pane-structure" aria-label="Index page structure">
               {loadState === "loading-page" && (
                 <div className="muted">
@@ -2017,21 +2030,7 @@ export function App() {
                 )}
               />
             </section>
-
-            {!hexCollapsed && (
-              <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
-                <HexDump
-                  raw={btreePage.raw}
-                  freeRange={btreePage.freeSpace.range}
-                  freeDiff={diffIds.has("free")}
-                  highlight={highlight}
-                  locate={hexLocate}
-                  locateHandledNonceRef={hexLocateHandledNonceRef}
-                  onSelectOffset={onHexSelect}
-                />
-              </section>
-            )}
-          </div>
+          </PageSplit>
         )}
       </main>
 

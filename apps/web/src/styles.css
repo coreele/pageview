@@ -466,6 +466,7 @@ input {
 /* Soften system scrollbars to match chrome (esp. structure pane between columns). */
 .main,
 .pane-structure,
+.pane-tree,
 .hex,
 .wal-list-pane,
 .wal-detail-pane {
@@ -475,6 +476,7 @@ input {
 
 .main::-webkit-scrollbar,
 .pane-structure::-webkit-scrollbar,
+.pane-tree::-webkit-scrollbar,
 .hex::-webkit-scrollbar,
 .wal-list-pane::-webkit-scrollbar,
 .wal-detail-pane::-webkit-scrollbar {
@@ -484,6 +486,7 @@ input {
 
 .main::-webkit-scrollbar-track,
 .pane-structure::-webkit-scrollbar-track,
+.pane-tree::-webkit-scrollbar-track,
 .hex::-webkit-scrollbar-track,
 .wal-list-pane::-webkit-scrollbar-track,
 .wal-detail-pane::-webkit-scrollbar-track {
@@ -492,6 +495,7 @@ input {
 
 .main::-webkit-scrollbar-thumb,
 .pane-structure::-webkit-scrollbar-thumb,
+.pane-tree::-webkit-scrollbar-thumb,
 .hex::-webkit-scrollbar-thumb,
 .wal-list-pane::-webkit-scrollbar-thumb,
 .wal-detail-pane::-webkit-scrollbar-thumb {
@@ -503,6 +507,7 @@ input {
 
 .main::-webkit-scrollbar-thumb:hover,
 .pane-structure::-webkit-scrollbar-thumb:hover,
+.pane-tree::-webkit-scrollbar-thumb:hover,
 .hex::-webkit-scrollbar-thumb:hover,
 .wal-list-pane::-webkit-scrollbar-thumb:hover,
 .wal-detail-pane::-webkit-scrollbar-thumb:hover {
@@ -513,6 +518,7 @@ input {
 
 .main::-webkit-scrollbar-corner,
 .pane-structure::-webkit-scrollbar-corner,
+.pane-tree::-webkit-scrollbar-corner,
 .hex::-webkit-scrollbar-corner,
 .wal-list-pane::-webkit-scrollbar-corner,
 .wal-detail-pane::-webkit-scrollbar-corner {
@@ -524,6 +530,41 @@ input {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
+}
+
+.split-gutter {
+  display: none;
+  width: 10px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  cursor: col-resize;
+  background: transparent;
+  align-self: stretch;
+  position: relative;
+}
+
+.split-gutter::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0.45rem;
+  bottom: 0.45rem;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: var(--border);
+}
+
+.split-gutter:hover::after,
+.split-gutter:focus-visible::after {
+  background: var(--accent);
+}
+
+html.is-split-dragging,
+html.is-split-dragging * {
+  cursor: col-resize !important;
+  user-select: none !important;
 }
 
 .pane {
@@ -1769,15 +1810,20 @@ input {
   }
 
   .main-paged .main-split {
-    grid-template-columns: minmax(280px, 0.55fr) minmax(280px, 0.45fr);
+    grid-template-columns: var(--page-split-cols, minmax(280px, 0.55fr) minmax(280px, 0.45fr));
+    gap: 0;
     flex: 1 1 auto;
     min-height: 0;
     align-items: stretch;
   }
 
+  .main-paged .split-gutter {
+    display: block;
+  }
+
   /* Collapsed: hex pane unmounted ? single column, structure fills main. */
   .main-paged .main-split[data-hex="collapsed"] {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: var(--page-split-cols, minmax(0, 1fr));
   }
 
   .main-paged .pane {
@@ -1814,18 +1860,10 @@ input {
     max-height: none;
   }
 
-  .main-paged .main-split[data-tree="expanded"][data-hex="expanded"] {
-    grid-template-columns: fit-content(13rem) minmax(0, 1fr) minmax(240px, 0.45fr);
-  }
-
-  .main-paged .main-split[data-tree="expanded"][data-hex="collapsed"] {
-    grid-template-columns: fit-content(13rem) minmax(0, 1fr);
-  }
-
   .main-paged .pane-tree {
-    width: max-content;
-    max-width: 13rem;
-    min-width: 10.5rem;
+    width: auto;
+    max-width: none;
+    min-width: 0;
     overflow: auto;
     min-height: 0;
   }
