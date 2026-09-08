@@ -12,7 +12,7 @@
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
 | 待归档 | 0 | — |
-| 已归档 | 30 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，drop-load-refresh，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，url-deeplink，wal-viewer |
+| 已归档 | 31 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，drop-load-refresh，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -82,3 +82,4 @@
 | index-tree-nav | archived | `workflow/archive/2026/index-tree-nav/main.md` |
 | drop-load-refresh | archived | `workflow/archive/2026/drop-load-refresh/main.md` |
 | chrome-order | archived | `workflow/archive/2026/chrome-order/main.md` |
+| tuple-diff-parent | cancelled | `workflow/archive/2026/tuple-diff-parent/main.md` |
