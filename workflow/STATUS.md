@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | tree-nav-ui |
-| 已归档 | 24 | add-ci，auto-install-extensions，btree-tree-view，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 25 | add-ci，auto-install-extensions，btree-tree-view，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，tree-nav-ui，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| tree-nav-ui | tree-nav-ui → main | 待 FF 合入 |
+| — | | |
 
 ## 归档索引
 
@@ -74,5 +74,6 @@
 | page-diagram-32b | archived | `workflow/archive/2026/page-diagram-32b/main.md` |
 | pd-flags-tuple-view | archived | `workflow/archive/2026/pd-flags-tuple-view/main.md` |
 | pg-page-viewer | archived | `workflow/archive/2026/pg-page-viewer/main.md` |
+| tree-nav-ui | archived | `workflow/archive/2026/tree-nav-ui/main.md` |
 | url-deeplink | archived | `workflow/archive/2026/url-deeplink/main.md` |
 | wal-viewer | archived | `workflow/archive/2026/wal-viewer/main.md` |

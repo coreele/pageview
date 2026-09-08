@@ -4,7 +4,7 @@
 
 - 依据 Spec: N/A
 - 依据 Design: N/A
-- 依据 UI: `workflow/workspace/tree-nav-ui/ui-design.md`
+- 依据 UI: `workflow/archive/2026/tree-nav-ui/ui-design.md`
 - 路径等级: fast
 - Review 门禁: skipped（fast：树面板排版与 CSS，对照 ui-design 即可）
 - 最低验证层: unit + static
