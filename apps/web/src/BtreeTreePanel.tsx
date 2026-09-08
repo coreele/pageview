@@ -25,8 +25,10 @@ function TreeNode({
   return (
     <div
       className="btree-tree-row"
-      style={{ paddingLeft: `${0.35 + row.depth * 0.85}rem` }}
+      style={{ ["--tree-depth" as string]: String(row.depth) }}
       data-current={row.current ? "true" : undefined}
+      data-role={row.role}
+      data-depth={row.depth}
       data-row={row.key}
     >
       {row.expandable ? (
@@ -85,8 +87,11 @@ export function BtreeTreePanel({
 }: Props) {
   const rootRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    rootRef.current
-      ?.querySelector<HTMLElement>('.btree-tree-row[data-current="true"]')
+    const root = rootRef.current;
+    const currentPage = root?.querySelector<HTMLElement>(
+      '.btree-tree-row[data-role="page"][data-current="true"]',
+    );
+    (currentPage ?? root?.querySelector<HTMLElement>('.btree-tree-row[data-current="true"]'))
       ?.scrollIntoView({ block: "nearest" });
   }, [tree]);
 

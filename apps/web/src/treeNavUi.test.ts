@@ -19,11 +19,11 @@ describe("tree nav expander (V-2)", () => {
 });
 
 describe("tree nav current row (V-3)", () => {
-  it("stretches the row and uses an inset accent bar when current", () => {
+  it("stretches the row and uses an inset accent bar when the page is current", () => {
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
     expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*width:\s*100%/);
     expect(css).toMatch(
-      /\.btree-tree-row\[data-current="true"\]\s*\{[^}]*box-shadow:\s*inset 2px 0 0 var\(--accent\)/,
+      /\.btree-tree-row\[data-current="true"\]\[data-role="page"\]\s*\{[^}]*box-shadow:\s*inset 2px 0 0 var\(--accent\)/,
     );
   });
 });
@@ -34,5 +34,31 @@ describe("tree nav expander spacing (V-4)", () => {
     expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*gap:\s*0/);
     expect(css).toMatch(/\.btree-tree-expander\s*\{[^}]*width:\s*0\.85rem/);
     expect(css).toMatch(/\.btree-tree-label\s*\{[^}]*padding-left:\s*0\.1rem/);
+  });
+});
+
+describe("tree nav hierarchy (table-tree-nav)", () => {
+  it("indents nested rows and draws a guide rail", () => {
+    const css = readFileSync(join(srcDir, "styles.css"), "utf8");
+    expect(css).toMatch(/--tree-indent:\s*1\.25rem/);
+    expect(css).toMatch(
+      /\.btree-tree-row\[data-depth\]:not\(\[data-depth="0"\]\)::before/,
+    );
+  });
+
+  it("keeps table/index selection quieter than the current page", () => {
+    const css = readFileSync(join(srcDir, "styles.css"), "utf8");
+    expect(css).toMatch(
+      /\.btree-tree-row\[data-current="true"\]\[data-role="table"\]/,
+    );
+    expect(css).not.toMatch(
+      /\.btree-tree-row\[data-current="true"\]\[data-role="table"\][^{]*\{[^}]*box-shadow/,
+    );
+  });
+
+  it("marks role and depth on each row", () => {
+    const text = readFileSync(join(srcDir, "BtreeTreePanel.tsx"), "utf8");
+    expect(text).toMatch(/data-role=\{row\.role\}/);
+    expect(text).toMatch(/data-depth=\{row\.depth\}/);
   });
 });

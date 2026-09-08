@@ -1843,6 +1843,9 @@ input {
 }
 
 .btree-tree-row {
+  --tree-depth: 0;
+  --tree-indent: 1.25rem;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0;
@@ -1850,15 +1853,32 @@ input {
   box-sizing: border-box;
   min-height: 1.7rem;
   margin: 0.04rem 0;
+  padding-left: calc(0.35rem + var(--tree-depth) * var(--tree-indent));
   padding-right: 0.35rem;
   border-radius: 4px;
+}
+
+.btree-tree-row[data-depth]:not([data-depth="0"])::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  left: calc(0.35rem + (var(--tree-depth) - 1) * var(--tree-indent) + 0.42rem);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--border) 85%, var(--text-muted));
 }
 
 .btree-tree-row:hover:not([data-current="true"]) {
   background: color-mix(in srgb, var(--border) 40%, var(--surface));
 }
 
-.btree-tree-row[data-current="true"] {
+.btree-tree-row[data-current="true"][data-role="table"],
+.btree-tree-row[data-current="true"][data-role="index"] {
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface));
+}
+
+.btree-tree-row[data-current="true"][data-role="page"] {
   background: color-mix(in srgb, var(--accent) 16%, var(--surface));
   box-shadow: inset 2px 0 0 var(--accent);
 }
