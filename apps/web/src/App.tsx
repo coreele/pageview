@@ -35,13 +35,15 @@ import {
 import { HexDump } from "./HexDump";
 import { HeapDetail, BtreeStructureDetail, StructureMap } from "./StructureMap";
 import { HeapPeekOverlay } from "./HeapPeekOverlay";
-import { BtreeTreePanel } from "./BtreeTreePanel";
+import { BtreeTreePanel, type CatalogSectionId } from "./BtreeTreePanel";
 import { PageSplit } from "./PageSplit";
 import {
   EMPTY_BTREE_TREE,
   EMPTY_VISIBLE_TREE,
+  ensureIndexExpanded,
   ensureTableExpanded,
   fetchKey,
+  indexNameClickCollapses,
   markLoading,
   pendingFetches,
   putError,
@@ -53,10 +55,12 @@ import {
   tableNameClickCollapses,
   toggleExpanded,
   toggleIndexExpanded,
+  toggleIndexSectionCollapsed,
   toggleTableExpanded,
+  toggleTableSectionCollapsed,
   treeChromeVisible,
+  visibleIndexCatalog,
   visibleTableCatalog,
-  visibleTree,
   withPathExpansion,
   type BtreeTreeState,
   type TreeRow,
@@ -86,13 +90,11 @@ import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff
 import {
   canLoadIndex,
   filterIndexesByTable,
-  formatIndexOption,
   indexOptionTitle,
   indexSelectionSurvives,
   levelText,
   nonBtreeHint,
   pageTypeBadge,
-  tableFilterOptions,
 } from "./indexView";
 import {
   btreePageNav,
@@ -646,13 +648,13 @@ export function App() {
     setBlkno(0);
   };
 
-  /** P0-12: switching relation clears page/selection/highlight/diff; blkno resets to 0 (metapage). */
+  /** P0-12: switching index clears page/selection/highlight/diff; blkno resets to 0 (metapage). */
   const onSelectIndex = (oid: number) => {
     setSelectedIndexOid(oid);
     resetPageView();
-    resetTreeContext();
     setSchema(null);
     setBlkno(0);
+    setBtreeTree((s) => ensureIndexExpanded(s, oid));
   };
 
   /** P1-1: same-index block navigation (btpo_prev/next, child t_tid, root/fastroot). */
@@ -716,14 +718,41 @@ export function App() {
     })();
   }, [treePendingKey]);
 
-  const btreeTreeView = useMemo(() => {
-    if (relationKind === "table") {
-      if (loadState === "loading-tables" && tables.length === 0) return EMPTY_VISIBLE_TREE;
-      return visibleTableCatalog(tables, selectedOid, loadedBlkno, btreeTree.expandedTableOids);
+  const tableTreeView = useMemo(() => {
+    if (loadState === "loading-tables" && tables.length === 0) return EMPTY_VISIBLE_TREE;
+    return visibleTableCatalog(
+      tables,
+      selectedOid,
+      relationKind === "table" ? loadedBlkno : null,
+      btreeTree.expandedTableOids,
+    );
+  }, [loadedBlkno, btreeTree.expandedTableOids, tables, selectedOid, relationKind, loadState]);
+
+  const indexTreeView = useMemo(() => {
+    if (!indexesFetched) {
+      return { rows: [], orphan: null, emptyHint: "Loading indexes…" };
     }
-    if (!pageView || pageView.kind !== "btree") return EMPTY_VISIBLE_TREE;
-    return visibleTree(btreeTree, pageView.index.oid, loadedBlkno);
-  }, [pageView, loadedBlkno, btreeTree, tables, selectedOid, relationKind, loadState]);
+    const emptyHint =
+      indexes.length === 0
+        ? "No user indexes (system schemas excluded)"
+        : "No indexes for this table";
+    return visibleIndexCatalog(
+      filteredIndexes,
+      btreeTree,
+      selectedIndexOid,
+      relationKind === "index" && pageView?.kind === "btree" ? loadedBlkno : null,
+      emptyHint,
+    );
+  }, [
+    indexesFetched,
+    indexes.length,
+    filteredIndexes,
+    btreeTree,
+    selectedIndexOid,
+    relationKind,
+    pageView?.kind,
+    loadedBlkno,
+  ]);
 
   const activateTable = (oid: number) => {
     const t = tables.find((x) => x.oid === oid);
@@ -733,6 +762,7 @@ export function App() {
       setBtreeTree((s) => toggleTableExpanded(s, oid));
       return;
     }
+    if (relationKind !== "table") setRelationKind("table");
     if (!sameTable) {
       void onSelectTable(oid);
     } else {
@@ -742,6 +772,26 @@ export function App() {
     if (sameTable && pageView?.kind === "heap") return;
     setBlkno(0);
     void loadBlk(oid, 0);
+  };
+
+  const activateIndex = (oid: number) => {
+    const idx = indexes.find((x) => x.oid === oid);
+    if (!idx) return;
+    const sameIndex = selectedIndexOid === oid && relationKind === "index";
+    if (indexNameClickCollapses(selectedIndexOid, oid, btreeTree.expandedIndexOids) && sameIndex) {
+      setBtreeTree((s) => toggleIndexExpanded(s, oid));
+      return;
+    }
+    if (relationKind !== "index") setRelationKind("index");
+    if (!sameIndex) {
+      onSelectIndex(oid);
+    } else {
+      setBtreeTree((s) => ensureIndexExpanded(s, oid));
+    }
+    if (!canLoadIndex(idx) || idx.blocks === 0) return;
+    if (sameIndex && pageView?.kind === "btree") return;
+    setBlkno(0);
+    void loadIndexBlk(oid, 0);
   };
 
   const onTreeToggleExpand = (row: TreeRow) => {
@@ -757,13 +807,24 @@ export function App() {
     setBtreeTree((s) => toggleExpanded(s, row.indexOid, row.blkno!));
   };
 
+  const onToggleSection = (id: CatalogSectionId) => {
+    setBtreeTree((s) =>
+      id === "table" ? toggleTableSectionCollapsed(s) : toggleIndexSectionCollapsed(s),
+    );
+  };
+
   const onTreeActivate = (row: TreeRow) => {
     if (row.role === "table") {
       activateTable(row.indexOid);
       return;
     }
+    if (row.role === "index") {
+      activateIndex(row.indexOid);
+      return;
+    }
     if (row.blkno == null) return;
-    if (relationKind === "table") {
+    if (row.key.startsWith("heap:")) {
+      if (relationKind !== "table") setRelationKind("table");
       if (selectedOid === row.indexOid && loadedBlkno === row.blkno && pageView?.kind === "heap") {
         return;
       }
@@ -780,10 +841,13 @@ export function App() {
       void loadBlk(row.indexOid, row.blkno);
       return;
     }
-    if (selectedIndexOid == null) return;
-    if (pageView?.kind === "btree" && loadedBlkno === row.blkno) return;
+    if (relationKind !== "index") setRelationKind("index");
+    if (selectedIndexOid !== row.indexOid) setSelectedIndexOid(row.indexOid);
+    if (pageView?.kind === "btree" && loadedBlkno === row.blkno && selectedIndexOid === row.indexOid) {
+      return;
+    }
     setBlkno(row.blkno);
-    void loadIndexBlk(selectedIndexOid, row.blkno);
+    void loadIndexBlk(row.indexOid, row.blkno);
   };
 
   const onTreeRetry = (row: TreeRow) => {
@@ -807,32 +871,15 @@ export function App() {
   const closeHeapPeek = useCallback(() => setHeapPeek(closeHeapPeekSlot()), []);
 
   /**
-   * Change-3 annex 3 (rules 1/5, annex-2 carry-over): the Index-mode table select is a
-   * filter only — no page load. Its selection is retained as the normal Table-mode
-   * selection (input state). The page view always clears (P0-12); the index selection
-   * resets only when the filter drops it.
+   * Change-3 annex 3: table selection still filters the index list. Page view
+   * clears when switching kinds from chrome; catalog tree state is kept.
    */
-  const onSelectIndexFilter = (tableOid: number | null) => {
-    setSelectedOid(tableOid);
-    resetPageView();
-    resetTreeContext();
-    setSchema(null);
-    if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, tableOid))) {
-      setSelectedIndexOid(null);
-    }
-  };
-
   const onSwitchRelationKind = (kind: RelationKind) => {
     if (kind === relationKind) return;
     setRelationKind(kind);
     resetPageView();
-    resetTreeContext();
     setSchema(null);
-    if (kind === "table") {
-      setBtreeTree((s) => setTreeCollapsed(s, false));
-    }
-    // Change-3 annex 3 (annex-2 rule 1 carry-over): the filter (selectedOid) may have
-    // changed while in Table mode — drop the index selection if it no longer survives.
+    setBtreeTree((s) => setTreeCollapsed(s, false));
     if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, selectedOid))) {
       setSelectedIndexOid(null);
     }
@@ -875,9 +922,14 @@ export function App() {
     mode === "page" &&
     relationKind === "table" &&
     (Boolean(heapPage) || !btreeTree.collapsed);
+  const indexSplitOpen =
+    connected &&
+    mode === "page" &&
+    relationKind === "index" &&
+    (Boolean(btreePage) || !btreeTree.collapsed);
 
   useEffect(() => {
-    if (connected && mode === "page" && relationKind === "table") {
+    if (connected && mode === "page") {
       setBtreeTree((s) => (s.collapsed ? setTreeCollapsed(s, false) : s));
     }
   }, [connected, mode, relationKind]);
@@ -895,8 +947,25 @@ export function App() {
     if (selectedTable && selectedTable.blocks > 0) {
       return "Select blkno and press Load to fetch a raw page.";
     }
-    if (btreeTree.collapsed) return "Open Tree to pick a table.";
+    if (btreeTree.collapsed) return "Open Tree to pick a table or index.";
     return "Select a heap table to begin.";
+  })();
+
+  const indexNoPageHint = (() => {
+    if (loadState === "loading-page" || loadState === "loading-indexes") return null;
+    const nb = nonBtreeHint(selectedIndex);
+    if (nb) return nb;
+    if (selectedIndex && selectedIndex.blocks === 0) {
+      return "Empty index (0 blocks).";
+    }
+    if (selectedIndex && !btreePage) {
+      return "Enter a blkno and Load (0 = metapage).";
+    }
+    if (!selectedIndex && indexesFetched && filteredIndexes.length > 0) {
+      return "Pick an index to start (blkno 0 is the metapage).";
+    }
+    if (btreeTree.collapsed) return "Open Tree to pick a table or index.";
+    return null;
   })();
 
   const canLoad =
@@ -914,6 +983,7 @@ export function App() {
     relationKind === "index" &&
     selectedIndexOid != null &&
     canLoadIndex(selectedIndex) &&
+    (selectedIndex?.blocks ?? 0) > 0 &&
     loadState !== "loading-page";
 
   const triggerLoadIndex = () => {
@@ -975,12 +1045,11 @@ export function App() {
     };
   }, [connected, mode]);
 
-  // index-viewer: lazily fetch the index list when the index kind is first
-  // entered on this connection (ui-design flow 2; retry on re-entry after failure).
+  // Fetch the index list on connect so the index catalog is usable in Table kind.
   useEffect(() => {
-    if (!connected || mode !== "page" || relationKind !== "index" || indexesFetched) return;
+    if (!connected || mode !== "page" || indexesFetched) return;
     void refreshIndexes();
-  }, [connected, mode, relationKind, indexesFetched, refreshIndexes]);
+  }, [connected, mode, indexesFetched, refreshIndexes]);
 
   const onWalLoad = async () => {
     if (!connected) {
@@ -1118,8 +1187,15 @@ export function App() {
       setSelectedOid(state.table);
       if (state.kind === "index") {
         const filtered = filterIndexesByTable(indexes, state.table);
-        setSelectedIndexOid(indexSelectionSurvives(state.index, filtered) ? state.index : null);
+        const indexOid = indexSelectionSurvives(state.index, filtered) ? state.index : null;
+        setSelectedIndexOid(indexOid);
         setBlkno(state.blkno ?? 0);
+        setBtreeTree((s) => {
+          let next = setTreeCollapsed(s, false);
+          if (state.table != null) next = ensureTableExpanded(next, state.table);
+          if (indexOid != null) next = ensureIndexExpanded(next, indexOid);
+          return next;
+        });
       } else {
         setBtreeTree((s) => {
           let next = setTreeCollapsed(s, false);
@@ -1479,60 +1555,6 @@ export function App() {
                   </>
                 ) : (
                   <>
-                    <label className="control">
-                      <span className="control-label">table</span>
-                      <select
-                        className="table-select"
-                        value={selectedOid ?? ""}
-                        disabled={indexes.length === 0 || loadState === "loading-indexes"}
-                        title="Filter indexes by table"
-                        onChange={(e) => {
-                          onSelectIndexFilter(e.target.value === "" ? null : Number(e.target.value));
-                        }}
-                      >
-                        {tableFilterOptions(indexes).map((o) => (
-                          <option key={o.tableOid ?? "all"} value={o.tableOid ?? ""}>
-                            {o.tableQualifiedName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="control">
-                      <span className="control-label">index</span>
-                      <select
-                        className="index-select"
-                        value={selectedIndexOid ?? ""}
-                        disabled={
-                          indexes.length === 0 ||
-                          loadState === "loading-indexes" ||
-                          !indexesFetched ||
-                          filteredIndexes.length === 0
-                        }
-                        title={selectedIndex ? indexOptionTitle(selectedIndex) : undefined}
-                        onChange={(e) => {
-                          if (e.target.value !== "") onSelectIndex(Number(e.target.value));
-                        }}
-                      >
-                        <option value="" disabled={filteredIndexes.length > 0}>
-                          {loadState === "loading-indexes" || !indexesFetched
-                            ? "loading indexes…"
-                            : indexes.length === 0
-                              ? "No user indexes (system schemas excluded)"
-                              : filteredIndexes.length === 0
-                                ? "No indexes for this table"
-                                : "select an index…"}
-                        </option>
-                        {filteredIndexes.map((i) => (
-                          <option
-                            key={i.oid}
-                            value={i.oid}
-                            title={indexOptionTitle(i)}
-                          >
-                            {formatIndexOption(i)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
                     {loadState === "loading-indexes" && (
                       <span className="muted">
                         <span className="spinner" />
@@ -1858,35 +1880,9 @@ export function App() {
           <div className="panel muted">{tableNoPageHint}</div>
         )}
 
-        {connected && mode === "page" && relationKind === "index" && loadState === "loading-indexes" && (
-          <div className="panel muted">
-            <span className="spinner" /> Loading indexes…
-          </div>
+        {connected && mode === "page" && relationKind === "index" && !btreePage && !indexSplitOpen && indexNoPageHint && (
+          <div className="panel muted">{indexNoPageHint}</div>
         )}
-
-        {connected && mode === "page" && relationKind === "index" &&
-          loadState !== "loading-indexes" && indexesFetched && indexes.length === 0 && !error && (
-            <div className="panel muted">No user indexes (system schemas excluded)</div>
-          )}
-
-        {connected && mode === "page" && relationKind === "index" &&
-          loadState !== "loading-indexes" && indexesFetched && indexes.length > 0 &&
-          filteredIndexes.length === 0 && !error && (
-            <div className="panel muted">No indexes for this table</div>
-          )}
-
-        {connected && mode === "page" && relationKind === "index" &&
-          loadState !== "loading-indexes" && !selectedIndex && !btreePage && !error &&
-          filteredIndexes.length > 0 && (
-            <div className="panel muted">Pick an index to start (blkno 0 is the metapage).</div>
-          )}
-
-        {connected && mode === "page" && relationKind === "index" &&
-          loadState !== "loading-indexes" && selectedIndex && !btreePage && !error && (
-            <div className="panel muted">
-              Enter a blkno and Load (0 = metapage).
-            </div>
-          )}
 
         {connected && mode === "page" && relationKind === "table" && tableSplitOpen && (
           <PageSplit
@@ -1894,8 +1890,11 @@ export function App() {
             hexOpen={Boolean(heapPage && !hexCollapsed)}
             tree={
               <BtreeTreePanel
-                tree={btreeTreeView}
-                ariaLabel="Tables"
+                tableTree={tableTreeView}
+                indexTree={indexTreeView}
+                tableSectionCollapsed={btreeTree.tableSectionCollapsed}
+                indexSectionCollapsed={btreeTree.indexSectionCollapsed}
+                onToggleSection={onToggleSection}
                 onToggleExpand={onTreeToggleExpand}
                 onActivate={onTreeActivate}
                 onRetry={onTreeRetry}
@@ -1959,30 +1958,36 @@ export function App() {
           </PageSplit>
         )}
 
-        {connected && mode === "page" && btreePage && pageView?.kind === "btree" && (
+        {connected && mode === "page" && relationKind === "index" && indexSplitOpen && (
           <PageSplit
             treeOpen={!btreeTree.collapsed}
-            hexOpen={!hexCollapsed}
+            hexOpen={Boolean(btreePage && !hexCollapsed)}
             tree={
               <BtreeTreePanel
-                tree={btreeTreeView}
-                onToggleExpand={onTreeToggleExpand}
+                tableTree={tableTreeView}
+                indexTree={indexTreeView}
+                tableSectionCollapsed={btreeTree.tableSectionCollapsed}
+                indexSectionCollapsed={btreeTree.indexSectionCollapsed}
+                onToggleSection={onToggleSection}
                 onActivate={onTreeActivate}
+                onToggleExpand={onTreeToggleExpand}
                 onRetry={onTreeRetry}
               />
             }
             hex={
-              <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
-                <HexDump
-                  raw={btreePage.raw}
-                  freeRange={btreePage.freeSpace.range}
-                  freeDiff={diffIds.has("free")}
-                  highlight={highlight}
-                  locate={hexLocate}
-                  locateHandledNonceRef={hexLocateHandledNonceRef}
-                  onSelectOffset={onHexSelect}
-                />
-              </section>
+              btreePage ? (
+                <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
+                  <HexDump
+                    raw={btreePage.raw}
+                    freeRange={btreePage.freeSpace.range}
+                    freeDiff={diffIds.has("free")}
+                    highlight={highlight}
+                    locate={hexLocate}
+                    locateHandledNonceRef={hexLocateHandledNonceRef}
+                    onSelectOffset={onHexSelect}
+                  />
+                </section>
+              ) : null
             }
           >
             <section className="pane pane-structure" aria-label="Index page structure">
@@ -1991,44 +1996,50 @@ export function App() {
                   <span className="spinner" /> Loading page…
                 </div>
               )}
-              {btreePage.warnings.length > 0 && (
-                <div className="panel parse-warnings" role="status">
-                  <strong>Page data anomalies</strong>: {btreePage.warnings.join("; ")}. Parseable
-                  parts are shown as-is.
-                </div>
-              )}
-              <StructureMap
-                raw={btreePage.raw}
-                freeRange={btreePage.freeSpace.range}
-                fields={fields ?? []}
-                selectedId={selectedId}
-                highlight={highlight}
-                diffIds={diffIds}
-                detailOpen={!detailCollapsed}
-                onSelect={onSelectStructure}
-                emptyStateText={
-                  btreePage.pageType === "meta"
-                    ? "metapage: no ItemIds / tuples; content is BTMetaPageData"
-                    : btreePage.tuples.length === 0
-                      ? "empty page: no index tuples; no key data, structure still browsable"
-                      : null
-                }
-                renderDetail={() => (
-                  <BtreeStructureDetail
-                    page={btreePage}
+              {btreePage ? (
+                <>
+                  {btreePage.warnings.length > 0 && (
+                    <div className="panel parse-warnings" role="status">
+                      <strong>Page data anomalies</strong>: {btreePage.warnings.join("; ")}. Parseable
+                      parts are shown as-is.
+                    </div>
+                  )}
+                  <StructureMap
+                    raw={btreePage.raw}
+                    freeRange={btreePage.freeSpace.range}
                     fields={fields ?? []}
                     selectedId={selectedId}
+                    highlight={highlight}
+                    diffIds={diffIds}
+                    detailOpen={!detailCollapsed}
                     onSelect={onSelectStructure}
-                    onLoadIndexBlock={loadIndexBlock}
-                    keyValues={keyValuesSection}
-                    onJumpToHeap={
-                      pageView?.kind === "btree"
-                        ? (block) => openHeapPeek(heapPeekRequest(pageView.index, block))
-                        : undefined
+                    emptyStateText={
+                      btreePage.pageType === "meta"
+                        ? "metapage: no ItemIds / tuples; content is BTMetaPageData"
+                        : btreePage.tuples.length === 0
+                          ? "empty page: no index tuples; no key data, structure still browsable"
+                          : null
                     }
+                    renderDetail={() => (
+                      <BtreeStructureDetail
+                        page={btreePage}
+                        fields={fields ?? []}
+                        selectedId={selectedId}
+                        onSelect={onSelectStructure}
+                        onLoadIndexBlock={loadIndexBlock}
+                        keyValues={keyValuesSection}
+                        onJumpToHeap={
+                          pageView?.kind === "btree"
+                            ? (block) => openHeapPeek(heapPeekRequest(pageView.index, block))
+                            : undefined
+                        }
+                      />
+                    )}
                   />
-                )}
-              />
+                </>
+              ) : (
+                indexNoPageHint && <div className="panel muted">{indexNoPageHint}</div>
+              )}
             </section>
           </PageSplit>
         )}

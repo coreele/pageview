@@ -1,9 +1,14 @@
 import { useEffect, useRef } from "react";
 import { treeKindTokens, type TreeRow, type VisibleTree } from "./btreeTree";
 
+export type CatalogSectionId = "table" | "index";
+
 type Props = {
-  tree: VisibleTree;
-  ariaLabel?: string;
+  tableTree: VisibleTree;
+  indexTree: VisibleTree;
+  tableSectionCollapsed: boolean;
+  indexSectionCollapsed: boolean;
+  onToggleSection: (id: CatalogSectionId) => void;
   onToggleExpand: (row: TreeRow) => void;
   onActivate: (row: TreeRow) => void;
   onRetry: (row: TreeRow) => void;
@@ -78,9 +83,73 @@ function TreeNode({
   );
 }
 
-export function BtreeTreePanel({
+function TreeSection({
+  id,
+  title,
+  collapsed,
   tree,
-  ariaLabel = "B-tree pages",
+  onToggleSection,
+  onToggleExpand,
+  onActivate,
+  onRetry,
+}: {
+  id: CatalogSectionId;
+  title: string;
+  collapsed: boolean;
+  tree: VisibleTree;
+  onToggleSection: (id: CatalogSectionId) => void;
+  onToggleExpand: (row: TreeRow) => void;
+  onActivate: (row: TreeRow) => void;
+  onRetry: (row: TreeRow) => void;
+}) {
+  return (
+    <div className="tree-section" data-section={id} data-collapsed={collapsed ? "true" : undefined}>
+      <button
+        type="button"
+        className="tree-section-head"
+        aria-expanded={!collapsed}
+        onClick={() => onToggleSection(id)}
+      >
+        <span className="btree-tree-expander" aria-hidden="true" aria-expanded={!collapsed} />
+        <span className="tree-section-title">{title}</span>
+      </button>
+      {!collapsed && (
+        <div className="tree-section-body">
+          {tree.emptyHint && <div className="muted">{tree.emptyHint}</div>}
+          {tree.rows.map((row) => (
+            <TreeNode
+              key={row.key}
+              row={row}
+              onToggleExpand={onToggleExpand}
+              onActivate={onActivate}
+              onRetry={onRetry}
+            />
+          ))}
+          {tree.orphan && (
+            <div className="btree-tree-orphan" role="status">
+              <div className="muted">
+                Current block is not reachable from root in the cached tree.
+              </div>
+              <TreeNode
+                row={tree.orphan}
+                onToggleExpand={onToggleExpand}
+                onActivate={onActivate}
+                onRetry={onRetry}
+              />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function BtreeTreePanel({
+  tableTree,
+  indexTree,
+  tableSectionCollapsed,
+  indexSectionCollapsed,
+  onToggleSection,
   onToggleExpand,
   onActivate,
   onRetry,
@@ -93,43 +162,30 @@ export function BtreeTreePanel({
     );
     (currentPage ?? root?.querySelector<HTMLElement>('.btree-tree-row[data-current="true"]'))
       ?.scrollIntoView({ block: "nearest" });
-  }, [tree]);
+  }, [tableTree, indexTree]);
 
   return (
-    <section
-      id="btree-tree-panel"
-      ref={rootRef}
-      className="pane pane-tree"
-      aria-label={ariaLabel}
-    >
-      {tree.emptyHint && (
-        <div className="muted">{tree.emptyHint}</div>
-      )}
-      {tree.rows.length === 0 && !tree.orphan && !tree.emptyHint && (
-        <div className="muted">Loading tree…</div>
-      )}
-      {tree.rows.map((row) => (
-        <TreeNode
-          key={row.key}
-          row={row}
-          onToggleExpand={onToggleExpand}
-          onActivate={onActivate}
-          onRetry={onRetry}
-        />
-      ))}
-      {tree.orphan && (
-        <div className="btree-tree-orphan" role="status">
-          <div className="muted">
-            Current block is not reachable from root in the cached tree.
-          </div>
-          <TreeNode
-            row={tree.orphan}
-            onToggleExpand={onToggleExpand}
-            onActivate={onActivate}
-            onRetry={onRetry}
-          />
-        </div>
-      )}
+    <section id="btree-tree-panel" ref={rootRef} className="pane pane-tree" aria-label="Catalog">
+      <TreeSection
+        id="table"
+        title="table"
+        collapsed={tableSectionCollapsed}
+        tree={tableTree}
+        onToggleSection={onToggleSection}
+        onToggleExpand={onToggleExpand}
+        onActivate={onActivate}
+        onRetry={onRetry}
+      />
+      <TreeSection
+        id="index"
+        title="index"
+        collapsed={indexSectionCollapsed}
+        tree={indexTree}
+        onToggleSection={onToggleSection}
+        onToggleExpand={onToggleExpand}
+        onActivate={onActivate}
+        onRetry={onRetry}
+      />
     </section>
   );
 }

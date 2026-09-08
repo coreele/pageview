@@ -25,7 +25,7 @@
 - **高键与 posting list** — 非最右页首元组标记 hikey；dedup posting 元组（PG13+）显示 TID 数与完整可滚动列表
 - **键值解码** — index tuple 键按列类型解码（int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domain），含 NULL、include/↓/nulls-first 徽标与点击列高亮对应字节；不支持类型（如 jsonb）或表达式索引优雅降级为仅 hex
 - **块导航** — 一键加载左右页（`btpo_prev`/`btpo_next`）、root/fastroot 与子页；叶页 heap TID 可直接跳到所属表对应块
-- **树面板** — chrome **Tree** 开关（亮色=开启）。Table 模式：连库后默认**开**，列出 `schema.table`，其下为堆块；点表名加载 blk 0，点块号加载该页。Index 模式：仍默认关；加载索引页后显示该 B-tree 拓扑。点击页节点加载该页，不离开结构图/hex
+- **树面板** — chrome **Tree** 开关（亮色=开启）。连库后 Table / Index 都默认**开**。导航分 **table** / **index** 两段（可整段折叠，每段最高一半面板）。点表名加载堆 blk 0；点 B-tree 索引加载 metapage blk 0；点子行加载该页，不离开结构图/hex。index 段跟随当前选中表过滤（未选表则列出全部）。
 - **拦截** — 非 B-tree 访问方法（hash/gist/spgist/brin/gin）在 UI 与服务端双重拦截（`INDEX_NOT_BTREE`）
 
 ### WAL 模式
@@ -64,7 +64,7 @@ pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
 ```
 
-打开 Web UI，连接数据库（或依赖 `.env`），然后使用 **Page**（在 Tree 面板选表，或切到 Index + 块号 + Load）或 **WAL**（start/end LSN + Load）。
+打开 Web UI，连接数据库（或依赖 `.env`），然后使用 **Page**（在 Tree 面板选表或索引 + 块号 + Load）或 **WAL**（start/end LSN + Load）。
 
 ## 环境变量
 

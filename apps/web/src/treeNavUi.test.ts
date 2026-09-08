@@ -63,4 +63,21 @@ describe("tree nav hierarchy (table-tree-nav)", () => {
     expect(text).toMatch(/data-role=\{row\.role\}/);
     expect(text).toMatch(/data-depth=\{row\.depth\}/);
   });
+
+  it("renders collapsible table and index sections", () => {
+    const text = readFileSync(join(srcDir, "BtreeTreePanel.tsx"), "utf8");
+    expect(text).toMatch(/data-section=\{id\}/);
+    expect(text).toMatch(/title="table"/);
+    expect(text).toMatch(/title="index"/);
+    const css = readFileSync(join(srcDir, "styles.css"), "utf8");
+    expect(css).toMatch(/\.tree-section\s*\{[^}]*max-height:\s*50%/);
+  });
+});
+
+describe("index-tree-nav chrome (P0-3)", () => {
+  it("does not keep table or index dropdowns in App", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    expect(text).not.toMatch(/className="index-select"/);
+    expect(text).not.toMatch(/className="table-select"/);
+  });
 });

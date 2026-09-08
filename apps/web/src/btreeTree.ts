@@ -28,6 +28,8 @@ export type BtreeTreeState = {
   slices: Record<number, IndexTreeSlice>;
   expandedIndexOids: number[];
   expandedTableOids: number[];
+  tableSectionCollapsed: boolean;
+  indexSectionCollapsed: boolean;
 };
 
 export type TreeRow = {
@@ -47,6 +49,8 @@ export type TreeRow = {
   status: "idle" | "loading" | "ready" | "error";
   error?: AppError;
   blockCount?: number;
+  accessMethod?: string;
+  valid?: boolean;
 };
 
 export type TreeFetch = { oid: number; blkno: number };
@@ -61,11 +65,25 @@ export type VisibleTree = {
 export function treeKindTokens(
   row: Pick<
     TreeRow,
-    "role" | "expandable" | "pageType" | "level" | "isRoot" | "status" | "blockCount"
+    | "role"
+    | "expandable"
+    | "pageType"
+    | "level"
+    | "isRoot"
+    | "status"
+    | "blockCount"
+    | "accessMethod"
+    | "valid"
   >,
 ): string[] {
   if (row.role === "table") return [`${row.blockCount ?? 0} blk`];
-  if (row.role === "index") return row.expandable ? ["btree"] : [];
+  if (row.role === "index") {
+    const tokens: string[] = row.expandable
+      ? ["btree", `${row.blockCount ?? 0} blk`]
+      : [row.accessMethod ?? "index"];
+    if (row.valid === false) tokens.push("invalid");
+    return tokens;
+  }
   if (row.status === "loading" || row.pageType === "unknown") return [];
   if (row.pageType === "meta") return ["meta"];
   const tokens: string[] = [row.pageType];
@@ -81,6 +99,8 @@ export const EMPTY_BTREE_TREE: BtreeTreeState = {
   slices: {},
   expandedIndexOids: [],
   expandedTableOids: [],
+  tableSectionCollapsed: false,
+  indexSectionCollapsed: false,
 };
 
 export const EMPTY_VISIBLE_TREE: VisibleTree = { rows: [], orphan: null, emptyHint: null };
@@ -91,6 +111,8 @@ export function resetBtreeTree(): BtreeTreeState {
     slices: {},
     expandedIndexOids: [],
     expandedTableOids: [],
+    tableSectionCollapsed: false,
+    indexSectionCollapsed: false,
   };
 }
 
@@ -98,8 +120,7 @@ export function treeChromeVisible(opts: {
   relationKind: "table" | "index";
   pageKind: string | undefined;
 }): boolean {
-  if (opts.relationKind === "table") return true;
-  return opts.pageKind === "btree";
+  return opts.relationKind === "table" || opts.relationKind === "index";
 }
 
 export function setTreeCollapsed(state: BtreeTreeState, collapsed: boolean): BtreeTreeState {
@@ -151,6 +172,16 @@ export function tableNameClickCollapses(
   expandedOids: readonly number[],
 ): boolean {
   return selectedOid === clickedOid && expandedOids.includes(clickedOid);
+}
+
+export const indexNameClickCollapses = tableNameClickCollapses;
+
+export function toggleTableSectionCollapsed(state: BtreeTreeState): BtreeTreeState {
+  return { ...state, tableSectionCollapsed: !state.tableSectionCollapsed };
+}
+
+export function toggleIndexSectionCollapsed(state: BtreeTreeState): BtreeTreeState {
+  return { ...state, indexSectionCollapsed: !state.indexSectionCollapsed };
 }
 
 export function seedCurrentPage(
@@ -240,7 +271,7 @@ function readyPage(slice: IndexTreeSlice, blkno: number): ParsedBtreePage | null
 }
 
 export function pendingFetches(state: BtreeTreeState): TreeFetch[] {
-  if (state.collapsed) return [];
+  if (state.collapsed || state.indexSectionCollapsed) return [];
   const need: TreeFetch[] = [];
   for (const oid of state.expandedIndexOids) {
     const slice = sliceOf(state, oid);
@@ -383,6 +414,59 @@ export function visibleTableCatalog(
   return { rows, orphan: null, emptyHint };
 }
 
+export type IndexCatalogInfo = {
+  oid: number;
+  qualifiedName: string;
+  accessMethod: string;
+  blocks: number;
+  valid: boolean;
+};
+
+export function visibleIndexCatalog(
+  indexes: readonly IndexCatalogInfo[],
+  state: BtreeTreeState,
+  selectedIndexOid: number | null,
+  loadedBlkno: number | null,
+  emptyHint = "No user indexes (system schemas excluded)",
+): VisibleTree {
+  if (indexes.length === 0) {
+    return { rows: [], orphan: null, emptyHint };
+  }
+  const rows: TreeRow[] = [];
+  let orphan: TreeRow | null = null;
+  for (const idx of indexes) {
+    const btree = idx.accessMethod === "btree";
+    const expanded = state.expandedIndexOids.includes(idx.oid);
+    rows.push({
+      key: `index:${idx.oid}`,
+      indexOid: idx.oid,
+      blkno: null,
+      role: "index",
+      title: idx.qualifiedName,
+      depth: 0,
+      pageType: "unknown",
+      level: null,
+      isRoot: false,
+      chips: [],
+      expandable: btree,
+      expanded,
+      current: selectedIndexOid === idx.oid,
+      status: "ready",
+      blockCount: idx.blocks,
+      accessMethod: idx.accessMethod,
+      valid: idx.valid,
+    });
+    if (!expanded || !btree) continue;
+    const currentBlk = selectedIndexOid === idx.oid ? loadedBlkno : null;
+    const inner = visibleTree(state, idx.oid, currentBlk, 1);
+    if (inner.orphan && (selectedIndexOid === idx.oid || orphan == null)) {
+      orphan = inner.orphan;
+    }
+    rows.push(...inner.rows);
+  }
+  return { rows, orphan, emptyHint: null };
+}
+
 function childrenOf(slice: IndexTreeSlice, blkno: number): number[] {
   const page = readyPage(slice, blkno);
   return page ? btreeDownlinks(page) : [];
@@ -458,6 +542,7 @@ export function visibleTree(
   state: BtreeTreeState,
   oid: number,
   currentBlkno: number | null,
+  depthOffset = 0,
 ): VisibleTree {
   const listed = new Set<string>();
   const rows: TreeRow[] = [];
@@ -474,7 +559,7 @@ export function visibleTree(
   };
 
   if (slice.cache[0] || readyMap(slice.cache).has(0)) {
-    walkPages(0, 0);
+    walkPages(0, depthOffset);
   }
 
   let orphan: TreeRow | null = null;
@@ -482,7 +567,7 @@ export function visibleTree(
     const { orphan: isOrphan } = pathFromCache(readyMap(slice.cache), currentBlkno);
     const key = `${oid}:${currentBlkno}`;
     if (isOrphan && !listed.has(key)) {
-      orphan = pageRow(slice, oid, currentBlkno, 0, currentBlkno);
+      orphan = pageRow(slice, oid, currentBlkno, depthOffset, currentBlkno);
     }
   }
 

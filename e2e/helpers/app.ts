@@ -42,6 +42,10 @@ export async function selectTableOid(page: Page, oid: number): Promise<void> {
   await page.locator(`#btree-tree-panel [data-row="table:${oid}"] .btree-tree-label`).click();
 }
 
+export async function selectIndexOid(page: Page, oid: number): Promise<void> {
+  await page.locator(`#btree-tree-panel [data-row="index:${oid}"] .btree-tree-label`).click();
+}
+
 export async function waitPageBlk(page: Page, blkno: number): Promise<void> {
   const stats = page.getByLabel("Page statistics");
   await expect(stats).toBeVisible({ timeout: 15_000 });

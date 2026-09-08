@@ -1866,7 +1866,7 @@ html.is-split-dragging * {
     width: auto;
     max-width: none;
     min-width: 0;
-    overflow: auto;
+    overflow: hidden;
     min-height: 0;
   }
 }
@@ -1875,11 +1875,60 @@ html.is-split-dragging * {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  overflow: auto;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.4rem 0.3rem;
+  min-height: 0;
+}
+
+.tree-section {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 50%;
+  flex: 0 1 auto;
+}
+
+.tree-section[data-collapsed="true"] {
+  max-height: none;
+  flex: 0 0 auto;
+}
+
+.tree-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  margin: 0;
+  padding: 0.1rem 0.15rem;
+  font: inherit;
+  color: var(--text-muted);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tree-section-head:hover {
+  color: var(--text);
+}
+
+.tree-section-title {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.tree-section-body {
+  overflow: auto;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+.tree-section-head[aria-expanded="true"] .btree-tree-expander::before {
+  transform: translate(-20%, -50%) rotate(90deg);
 }
 
 .btree-tree-row {

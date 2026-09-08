@@ -15,12 +15,16 @@ import {
   seedCurrentPage,
   setTreeCollapsed,
   tableNameClickCollapses,
+  indexNameClickCollapses,
   toggleExpanded,
   toggleIndexExpanded,
+  toggleIndexSectionCollapsed,
   toggleTableExpanded,
+  toggleTableSectionCollapsed,
   treeChromeVisible,
   treeKindTokens,
   visibleHeapBlockList,
+  visibleIndexCatalog,
   visibleTableCatalog,
   visibleTree,
   withPathExpansion,
@@ -64,9 +68,9 @@ describe("treeChromeVisible", () => {
     expect(treeChromeVisible({ relationKind: "table", pageKind: "heap" })).toBe(true);
   });
 
-  it("is true for index only after a btree page (P0-6)", () => {
-    expect(treeChromeVisible({ relationKind: "index", pageKind: undefined })).toBe(false);
-    expect(treeChromeVisible({ relationKind: "index", pageKind: "heap" })).toBe(false);
+  it("is true for index kind even with no page (P0-7)", () => {
+    expect(treeChromeVisible({ relationKind: "index", pageKind: undefined })).toBe(true);
+    expect(treeChromeVisible({ relationKind: "index", pageKind: "heap" })).toBe(true);
     expect(treeChromeVisible({ relationKind: "index", pageKind: "btree" })).toBe(true);
   });
 });
@@ -361,5 +365,113 @@ describe("treeKindTokens (V-1)", () => {
         blockCount: 12,
       }),
     ).toEqual(["12 blk"]);
+  });
+
+  it("labels a btree index with btree and block count", () => {
+    expect(
+      treeKindTokens({
+        role: "index",
+        expandable: true,
+        pageType: "unknown",
+        level: null,
+        isRoot: false,
+        status: "ready",
+        blockCount: 4,
+        accessMethod: "btree",
+        valid: true,
+      }),
+    ).toEqual(["btree", "4 blk"]);
+  });
+
+  it("labels a non-btree index with its access method (P0-5)", () => {
+    expect(
+      treeKindTokens({
+        role: "index",
+        expandable: false,
+        pageType: "unknown",
+        level: null,
+        isRoot: false,
+        status: "ready",
+        blockCount: 1,
+        accessMethod: "hash",
+        valid: true,
+      }),
+    ).toEqual(["hash"]);
+  });
+});
+
+const INDEXES = [
+  {
+    oid: 24576,
+    qualifiedName: "public.tb_pkey",
+    accessMethod: "btree",
+    blocks: 2,
+    valid: true,
+  },
+  {
+    oid: 24577,
+    qualifiedName: "public.tb_hash",
+    accessMethod: "hash",
+    blocks: 1,
+    valid: true,
+  },
+];
+
+describe("visibleIndexCatalog (P0-2 / P0-4 / P0-5)", () => {
+  it("lists the provided indexes and not others (P0-2)", () => {
+    const { rows, emptyHint } = visibleIndexCatalog(INDEXES, EMPTY_BTREE_TREE, null, null);
+    expect(emptyHint).toBeNull();
+    expect(rows.map((r) => r.key)).toEqual(["index:24576", "index:24577"]);
+    expect(rows.find((r) => r.indexOid === 24576)?.expandable).toBe(true);
+    expect(rows.find((r) => r.indexOid === 24577)?.expandable).toBe(false);
+  });
+
+  it("nests btree pages under an expanded index (P0-4)", () => {
+    let s = setTreeCollapsed(EMPTY_BTREE_TREE, false);
+    s = toggleIndexExpanded(s, 24576);
+    s = putReady(s, 24576, 0, meta);
+    const { rows } = visibleIndexCatalog(INDEXES, s, 24576, 0);
+    expect(rows.find((r) => r.key === "index:24576")?.current).toBe(true);
+    expect(rows.find((r) => r.key === "index:24576")?.expanded).toBe(true);
+    const pages = rows.filter((r) => r.role === "page");
+    expect(pages[0]?.blkno).toBe(0);
+    expect(pages[0]?.depth).toBe(1);
+    expect(pages[0]?.current).toBe(true);
+  });
+
+  it("does not nest children under a hash index (P0-5)", () => {
+    let s = toggleIndexExpanded(EMPTY_BTREE_TREE, 24577);
+    const { rows } = visibleIndexCatalog(INDEXES, s, 24577, null);
+    expect(rows.filter((r) => r.role === "page")).toEqual([]);
+  });
+
+  it("uses the no-indexes-for-table hint when the filtered list is empty (P0-2)", () => {
+    const { rows, emptyHint } = visibleIndexCatalog([], EMPTY_BTREE_TREE, null, null, "No indexes for this table");
+    expect(rows).toEqual([]);
+    expect(emptyHint).toBe("No indexes for this table");
+  });
+});
+
+describe("catalog section collapse (P0-6)", () => {
+  it("toggles only the named section", () => {
+    let s = toggleIndexSectionCollapsed(EMPTY_BTREE_TREE);
+    expect(s.indexSectionCollapsed).toBe(true);
+    expect(s.tableSectionCollapsed).toBe(false);
+    s = toggleTableSectionCollapsed(s);
+    expect(s.tableSectionCollapsed).toBe(true);
+    expect(s.indexSectionCollapsed).toBe(true);
+  });
+
+  it("skips btree fetches while the index section is collapsed", () => {
+    let s = setTreeCollapsed(EMPTY_BTREE_TREE, false);
+    s = toggleIndexExpanded(s, OID);
+    expect(pendingFetches(s)).toEqual([{ oid: OID, blkno: 0 }]);
+    s = toggleIndexSectionCollapsed(s);
+    expect(pendingFetches(s)).toEqual([]);
+  });
+
+  it("collapses when the label of the selected expanded index is clicked again", () => {
+    expect(indexNameClickCollapses(24576, 24576, [24576])).toBe(true);
+    expect(indexNameClickCollapses(24576, 24576, [])).toBe(false);
   });
 });
