@@ -6,6 +6,12 @@
 import type { ParsedBtreePage, BtreeIndexTuple } from "./btree.js";
 import type { StructureField } from "./structure-fields.js";
 import { PAGE_HEADER_SIZE } from "./parse.js";
+import type { ByteRange } from "./types.js";
+import {
+  decodeIndexTupleKeys,
+  type DecodedKeyColumn,
+  type IndexColumnMeta,
+} from "./btree-decode.js";
 
 function field(
   partial: Omit<StructureField, "fullLabel"> & { fullLabel?: string },
@@ -22,6 +28,58 @@ function hex0x(n: number): string {
 
 function tidText(t: { blockNumber: number; offsetNumber: number }): string {
   return `(${t.blockNumber},${t.offsetNumber})`;
+}
+
+/** Fits a typical 8-byte key cell (`cellCapacityChars` ≈ 14). */
+export const INDEX_KEY_CELL_MAX_CHARS = 14;
+
+export function clipKeyCellText(text: string, maxChars = INDEX_KEY_CELL_MAX_CHARS): string {
+  if (text.length <= maxChars) return text;
+  if (maxChars < 2) return "…";
+  return `${text.slice(0, maxChars - 1)}…`;
+}
+
+export function keyBytesHexCellText(raw: Uint8Array, range: ByteRange): string {
+  const start = range.start;
+  const end = Math.min(range.end, raw.length);
+  const n = Math.max(0, end - start);
+  if (n === 0) return "";
+  const fullHex = n * 2;
+  const shown =
+    fullHex <= INDEX_KEY_CELL_MAX_CHARS ? n : Math.floor((INDEX_KEY_CELL_MAX_CHARS - 1) / 2);
+  let hex = "";
+  for (let i = 0; i < shown; i++) {
+    hex += raw[start + i]!.toString(16).padStart(2, "0");
+  }
+  return n > shown ? `${hex}…` : hex;
+}
+
+export function compactKeyCellText(cols: DecodedKeyColumn[]): string {
+  if (cols.length === 0) return "";
+  const parts = cols.map((c) => {
+    if (c.status === "null") return "NULL";
+    if (c.status === "value" && c.display) return c.display;
+    if (c.status === "unsupported") return `?${c.typname}`;
+    return "…";
+  });
+  return clipKeyCellText(parts.join(", "));
+}
+
+export function applyIndexKeyCellValues(
+  fields: StructureField[],
+  page: ParsedBtreePage,
+  columns: IndexColumnMeta[] | null,
+): StructureField[] {
+  if (columns == null || columns.length === 0) return fields;
+  return fields.map((f) => {
+    const m = /^tuple-(\d+)\.key$/.exec(f.id);
+    if (!m) return f;
+    const tuple = page.tuples.find((t) => t.lpIndex === Number(m[1]));
+    if (!tuple) return f;
+    const text = compactKeyCellText(decodeIndexTupleKeys(page, tuple, columns));
+    if (!text) return f;
+    return { ...f, valueText: text };
+  });
 }
 
 function headerFields(page: ParsedBtreePage, out: StructureField[]): void {
@@ -186,6 +244,7 @@ function tupleFields(page: ParsedBtreePage, out: StructureField[]): void {
           fullLabel: `itup lp[${t.lpIndex}] key bytes${tupleMarkerText(t)}`,
           range: t.keyRange,
           region: "tuple",
+          valueText: keyBytesHexCellText(page.raw, t.keyRange),
         }),
       );
     }

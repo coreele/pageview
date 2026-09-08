@@ -4,6 +4,7 @@ import {
   decodeIndexTupleKeys,
   decodePageTuples,
   deriveBtreeStructureFields,
+  applyIndexKeyCellValues,
   deriveStructureFields,
   PageParseError,
   parsePage,
@@ -297,10 +298,12 @@ export function App() {
   // Structure fields for the loaded page (selection/hex linkage/diff consumers).
   const fields = useMemo<StructureField[] | null>(() => {
     if (!pageView) return null;
-    return pageView.kind === "heap"
-      ? deriveStructureFields(pageView.page)
-      : deriveBtreeStructureFields(pageView.page);
-  }, [pageView]);
+    if (pageView.kind === "heap") return deriveStructureFields(pageView.page);
+    const base = deriveBtreeStructureFields(pageView.page);
+    const state = deriveKeyColumnsState(indexColumns, pageView.index.oid);
+    const cols = state?.kind === "columns" ? toIndexColumnMeta(state.data.columns) : null;
+    return applyIndexKeyCellValues(base, pageView.page, cols);
+  }, [pageView, indexColumns]);
 
   // index-key-decode T6: key-values section for the selected tuple on the
   // loaded B-tree page. Derived purely from cached metadata + parsed page;

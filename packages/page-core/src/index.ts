@@ -86,6 +86,13 @@ export type {
 } from "./btree.js";
 export { deriveBtreeStructureFields } from "./btree-structure.js";
 export {
+  INDEX_KEY_CELL_MAX_CHARS,
+  applyIndexKeyCellValues,
+  clipKeyCellText,
+  compactKeyCellText,
+  keyBytesHexCellText,
+} from "./btree-structure.js";
+export {
   btreeDownlinks,
   btreeTreeNodeSummary,
   pathFromCache,

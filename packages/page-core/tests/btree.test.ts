@@ -14,6 +14,11 @@ import {
   buildBtreePage,
   decodeBtpoFlags,
   deriveBtreeStructureFields,
+  applyIndexKeyCellValues,
+  INDEX_KEY_CELL_MAX_CHARS,
+  clipKeyCellText,
+  compactKeyCellText,
+  keyBytesHexCellText,
   parseBtreePage,
   PageParseError,
   STANDARD_PAGE_SIZE,
@@ -277,6 +282,7 @@ describe("deriveBtreeStructureFields", () => {
     expect(byId.get("tuple-0.t_tid")).toMatchObject({ region: "tuple" });
     expect(byId.get("tuple-0.t_info")).toBeDefined();
     expect(byId.get("tuple-0.key")).toBeDefined();
+    expect(byId.get("tuple-0.key")?.valueText).toBeTruthy();
     expect(byId.get("tuple-1.posting-tids")).toMatchObject({ region: "tuple" });
 
     expect(byId.get("special.btpo_prev")).toMatchObject({
@@ -364,5 +370,50 @@ describe("parseBtreePage — DEF-1 regression (real metapage capture)", () => {
     ]) {
       expect(byId.get(id)).toBeDefined();
     }
+  });
+});
+
+describe("index key cell text (V-1 / V-2 / V-3)", () => {
+  it("clips long strings with an ellipsis and keeps length ≤ max", () => {
+    expect(clipKeyCellText("12345678901234")).toBe("12345678901234");
+    expect(clipKeyCellText("123456789012345").length).toBe(INDEX_KEY_CELL_MAX_CHARS);
+    expect(clipKeyCellText("123456789012345").endsWith("…")).toBe(true);
+  });
+
+  it("puts a compact hex preview on the key field so the cell is not empty", () => {
+    const key = new Uint8Array(8);
+    new DataView(key.buffer).setInt32(0, 10, true);
+    const page = parseBtreePage(
+      buildBtreePage({ pageType: "leaf", tuples: [{ tidBlock: 0, tidOffset: 10, keyBytes: key }] }),
+    );
+    const field = deriveBtreeStructureFields(page).find((f) => f.id === "tuple-0.key");
+    expect(field?.valueText).toBe(keyBytesHexCellText(page.raw, page.tuples[0]!.keyRange));
+    expect(field?.valueText?.length).toBeGreaterThan(0);
+    expect(field!.valueText!.length).toBeLessThanOrEqual(INDEX_KEY_CELL_MAX_CHARS);
+  });
+
+  it("overlays decoded int4 display when column metadata is present", () => {
+    const key = new Uint8Array(8);
+    new DataView(key.buffer).setInt32(0, 10, true);
+    const page = parseBtreePage(
+      buildBtreePage({ pageType: "leaf", tuples: [{ tidBlock: 0, tidOffset: 10, keyBytes: key }] }),
+    );
+    const fields = deriveBtreeStructureFields(page);
+    const overlaid = applyIndexKeyCellValues(fields, page, [
+      { attnum: 1, name: "id", typoid: 23, typname: "int4" },
+    ]);
+    expect(overlaid.find((f) => f.id === "tuple-0.key")?.valueText).toBe("10");
+  });
+
+  it("joins decoded columns and still clips", () => {
+    expect(compactKeyCellText([{ attnum: 1, name: "a", typname: "int4", status: "value", display: "1" }])).toBe(
+      "1",
+    );
+    expect(
+      compactKeyCellText([
+        { attnum: 1, name: "a", typname: "int4", status: "null" },
+        { attnum: 2, name: "b", typname: "text", status: "value", display: "'hello-world-extra'" },
+      ]).endsWith("…"),
+    ).toBe(true);
   });
 });
