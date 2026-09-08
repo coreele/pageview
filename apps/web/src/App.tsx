@@ -96,6 +96,8 @@ import {
   navButtonTitle,
   toolbarNavEnabled,
 } from "./pageToolbarNav";
+import { chromeToggleClass, themeToggleLabel } from "./chromeToggle";
+import { ThemeGlyph } from "./ThemeGlyph";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
 import {
   buildUrlState,
@@ -1654,34 +1656,37 @@ export function App() {
         {((mode === "page" && pageView) || (mode === "wal" && connected)) && (
           <div className="chrome-actions">
             <button
-              className="chrome-detail"
+              className={chromeToggleClass(!detailCollapsed)}
               type="button"
+              aria-pressed={!detailCollapsed}
               aria-expanded={!detailCollapsed}
               aria-controls={mode === "wal" ? "wal-detail-panel" : "selection-detail-panel"}
               onClick={() => setDetailCollapsed((v) => !v)}
             >
-              {detailCollapsed ? "Show detail" : "Collapse detail"}
+              Detail
             </button>
             {mode === "page" && (
               <button
-                className="chrome-collapse"
+                className={chromeToggleClass(!hexCollapsed)}
                 type="button"
+                aria-pressed={!hexCollapsed}
                 aria-expanded={!hexCollapsed}
                 aria-controls="hex-panel"
                 onClick={() => setHexCollapsed((v) => !v)}
               >
-                {hexCollapsed ? "Show hex" : "Collapse hex"}
+                Hex
               </button>
             )}
             {mode === "page" && treeChromeVisible(pageView?.kind) && (
               <button
-                className="chrome-tree"
+                className={chromeToggleClass(!btreeTree.collapsed)}
                 type="button"
+                aria-pressed={!btreeTree.collapsed}
                 aria-expanded={!btreeTree.collapsed}
                 aria-controls="btree-tree-panel"
                 onClick={() => setBtreeTree((s) => setTreeCollapsed(s, !s.collapsed))}
               >
-                {btreeTree.collapsed ? "Show tree" : "Collapse tree"}
+                Tree
               </button>
             )}
           </div>
@@ -1689,10 +1694,10 @@ export function App() {
         <button
           className="chrome-theme"
           type="button"
-          aria-label="Toggle color theme"
+          aria-label={themeToggleLabel(theme)}
           onClick={toggleTheme}
         >
-          Theme: {theme}
+          <ThemeGlyph theme={theme} />
         </button>
       </header>
 

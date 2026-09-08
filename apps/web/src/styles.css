@@ -215,9 +215,26 @@ input {
   gap: 0.4rem;
 }
 
+.chrome-toggle--on {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+  font-weight: 600;
+}
+
 .chrome-theme {
   grid-area: theme;
   justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  padding: 0.35rem;
+}
+
+.chrome-theme__icon {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
 }
 
 .chrome-controls {
