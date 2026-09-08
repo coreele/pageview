@@ -3,6 +3,7 @@ import {
   DEFAULT_PAGE_SPLIT,
   dragHex,
   dragTree,
+  hexDragStart,
   loadStoredSplit,
   pageSplitTemplate,
   storeSplit,
@@ -84,6 +85,11 @@ export function PageSplit({
     startRef.current = split;
   };
 
+  const beginHex = () => {
+    const measured = rootRef.current?.querySelector(".pane-hex")?.getBoundingClientRect().width;
+    startRef.current = hexDragStart(split, measured ?? 0);
+  };
+
   const widthOf = () => rootRef.current?.clientWidth ?? 0;
 
   return (
@@ -106,7 +112,7 @@ export function PageSplit({
       {hexOpen ? (
         <SplitGutter
           label="Resize hex pane"
-          onBegin={begin}
+          onBegin={beginHex}
           onDrag={(dx) => commit(dragHex(startRef.current, dx, widthOf(), treeOpen))}
         />
       ) : null}
