@@ -56,13 +56,42 @@ export function keyBytesHexCellText(raw: Uint8Array, range: ByteRange): string {
 
 export function compactKeyCellText(cols: DecodedKeyColumn[]): string {
   if (cols.length === 0) return "";
-  const parts = cols.map((c) => {
-    if (c.status === "null") return "NULL";
-    if (c.status === "value" && c.display) return c.display;
-    if (c.status === "unsupported") return `?${c.typname}`;
-    return "…";
-  });
+  const parts = cols.map((c) => decodedKeyCellText(c) ?? "…");
   return clipKeyCellText(parts.join(", "));
+}
+
+function decodedKeyCellText(c: DecodedKeyColumn): string | null {
+  if (c.status === "null") return "NULL";
+  if (c.status === "value" && c.display) return c.display;
+  if (c.status === "unsupported") return `?${c.typname}`;
+  return null;
+}
+
+/** Drawable key columns with value bytes, stretched to fill the key blob (incl. alignment pad). */
+function keyColumnStructureFields(
+  lp: number,
+  tuple: BtreeIndexTuple,
+  decoded: DecodedKeyColumn[],
+): StructureField[] {
+  const drawable = decoded.flatMap((c) => {
+    const text = decodedKeyCellText(c);
+    if (!text || !c.range || c.range.end <= c.range.start) return [];
+    return [{ c, text, range: c.range }];
+  });
+  if (drawable.length === 0) return [];
+  return drawable.map((item, i) => {
+    const start = i === 0 ? tuple.keyRange.start : item.range.start;
+    const nextStart = drawable[i + 1]?.range.start ?? tuple.keyRange.end;
+    const end = Math.max(item.range.end, nextStart);
+    return field({
+      id: `tuple-${lp}.col-${item.c.attnum}`,
+      label: item.c.name,
+      fullLabel: `itup lp[${lp}].${item.c.name} (${item.c.typname})`,
+      range: { start, end },
+      region: "tuple",
+      valueText: clipKeyCellText(item.text),
+    });
+  });
 }
 
 export function applyIndexKeyCellValues(
@@ -71,15 +100,31 @@ export function applyIndexKeyCellValues(
   columns: IndexColumnMeta[] | null,
 ): StructureField[] {
   if (columns == null || columns.length === 0) return fields;
-  return fields.map((f) => {
+  const out: StructureField[] = [];
+  for (const f of fields) {
     const m = /^tuple-(\d+)\.key$/.exec(f.id);
-    if (!m) return f;
+    if (!m) {
+      out.push(f);
+      continue;
+    }
     const tuple = page.tuples.find((t) => t.lpIndex === Number(m[1]));
-    if (!tuple) return f;
-    const text = compactKeyCellText(decodeIndexTupleKeys(page, tuple, columns));
-    if (!text) return f;
-    return { ...f, valueText: text };
-  });
+    if (!tuple) {
+      out.push(f);
+      continue;
+    }
+    const replacements = keyColumnStructureFields(
+      Number(m[1]),
+      tuple,
+      decodeIndexTupleKeys(page, tuple, columns),
+    );
+    if (replacements.length === 0) {
+      out.push(f);
+      continue;
+    }
+    out.push({ ...f, visualOnly: true });
+    out.push(...replacements);
+  }
+  return out;
 }
 
 function headerFields(page: ParsedBtreePage, out: StructureField[]): void {

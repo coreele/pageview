@@ -392,7 +392,7 @@ describe("index key cell text (V-1 / V-2 / V-3)", () => {
     expect(field!.valueText!.length).toBeLessThanOrEqual(INDEX_KEY_CELL_MAX_CHARS);
   });
 
-  it("overlays decoded int4 display when column metadata is present", () => {
+    it("replaces the key blob with per-column decoded values", () => {
     const key = new Uint8Array(8);
     new DataView(key.buffer).setInt32(0, 10, true);
     const page = parseBtreePage(
@@ -402,7 +402,12 @@ describe("index key cell text (V-1 / V-2 / V-3)", () => {
     const overlaid = applyIndexKeyCellValues(fields, page, [
       { attnum: 1, name: "id", typoid: 23, typname: "int4" },
     ]);
-    expect(overlaid.find((f) => f.id === "tuple-0.key")?.valueText).toBe("10");
+    expect(overlaid.find((f) => f.id === "tuple-0.key")?.visualOnly).toBe(true);
+    const col = overlaid.find((f) => f.id === "tuple-0.col-1");
+    expect(col?.label).toBe("id");
+    expect(col?.valueText).toBe("10");
+    expect(col?.visualOnly).toBeFalsy();
+    expect(col?.range).toEqual(page.tuples[0]!.keyRange);
   });
 
   it("joins decoded columns and still clips", () => {

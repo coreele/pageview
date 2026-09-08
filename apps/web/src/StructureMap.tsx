@@ -798,7 +798,7 @@ export function StructureMap({
   );
   const regions = useMemo(() => new Set(fields.map((f) => f.region)), [fields]);
   const selectedField = useMemo(
-    () => fields.find((f) => f.id === selectedId && !f.visualOnly) ?? null,
+    () => fields.find((f) => f.id === selectedId) ?? null,
     [fields, selectedId],
   );
 
