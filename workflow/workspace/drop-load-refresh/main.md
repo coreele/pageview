@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 待合入 | | | |
 
 ## 进度笔记
 
@@ -28,3 +28,5 @@
 - 2026-09-08 Analyst：`spec.md`。进入 `spec-approval`。
 - 2026-09-08 用户问「为啥 Single 还开 Tree」。澄清：Single 从不打开目录；那句话只是草稿里的空态提示，已从 Spec 删掉。
 - 2026-09-08 用户确认 Spec（「ok」）。Planner：`ui-design.md`、`plan.md`。进入 `developing`。
+- 2026-09-08 用户修订 chrome：不要 Tree\|Single 两组；Tree 亮=目录，暗=按 blkno 查找；Single 只用于沟通。Spec / UI / Plan 已改。实现 `fa596be`。Review Approve。QA 轮次 1 Pass。进入 `merge-approval`。
+- 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。

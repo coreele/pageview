@@ -4,7 +4,7 @@
 >
 > **feature-id**：`drop-load-refresh`
 >
-> **确认记录**：路径 `standard`；Spec 用户确认 **approved**（2026-09-08「ok」）。Tree / Single 互斥；Tree 精简次带、点 blk 加载/再点 Refresh；Single 保持现次带、不加下拉、不自动开树。
+> **确认记录**：路径 `standard`；Spec 用户确认 **approved**（2026-09-08「ok」）。同日修订：chrome 仍是单独 **Tree** 开关（亮=目录，暗=按 blkno 查找）；「Single」只用于沟通，界面不出现该字。
 
 ## 背景与目标
 
@@ -30,20 +30,19 @@
 
 ## 范围与可见行为
 
-### 1. 右上角 Tree / Single
+### 1. 右上角 Tree 开关
 
-Page 模式、已连接：右上角现 **Tree** 单按钮改为与 Page|WAL 同类的两组：**Tree** | **Single**（仍在 Detail / Hex 旁，不进 WAL）。
+Page 模式、已连接：右上角仍是单独的 **Tree** 按钮（与 Detail / Hex 同类，不进 WAL）。**不是** Tree | Single 两组；界面不出现 “Single”。
 
-| 模式 | 开关 | 左列 | 用途 |
+| 模式（沟通名） | 开关 | 左列 | 用途 |
 |---|---|---|---|
-| Tree | Tree 亮 | TABLE / INDEX 目录 | 按关系/块浏览 |
-| Single | Single 亮 | 无目录 | 对**当前选中**表或索引按 blkno 查一页 |
+| Tree | Tree **亮**（`aria-pressed=true`） | TABLE / INDEX 目录 | 按关系/块浏览 |
+| Single | Tree **暗** | 无目录 | 对**当前选中**表或索引按 blkno 查一页 |
 
-- 两组互斥；不能同时亮。
-- 连库后、Page 默认 **Tree**（与现在默认开树一致）。
-- 不写入 URL / localStorage。F5 后回到默认 Tree；深链 Load 不强制改模式（实现保持默认 Tree 即可，与现 restore 开树一致）。
-- WAL：无此开关。
-- Detail / Hex 独立，不随 Tree/Single 改变。
+- 连库后、Page 默认 Tree 亮（与现在默认开树一致）。
+- 不写入 URL / localStorage。F5 后回到默认 Tree 亮；深链 Load 不强制改模式（实现保持默认开树即可）。
+- WAL：无 Tree 开关。
+- Detail / Hex 独立，不随 Tree 亮暗改变。
 
 ### 2. Tree 模式次带
 
@@ -111,26 +110,26 @@ N/A。
 
 ### P0
 
-- **P0-1** Given Page 已连接，When 看右上角，Then 有互斥的 **Tree** 与 **Single**；默认 Tree 亮、左列目录在、次带无 Table/Index/blkno/Load/Refresh/Prev/Next。
-- **P0-2** Given Tree 模式，When 点 **Single**，Then 左列消失；次带为 Table|Index、blkno、Load、Refresh、Prev、Next。
+- **P0-1** Given Page 已连接，When 看右上角，Then 只有 **Tree** 开关（无 Single 字样）；默认亮、左列目录在、次带无 Table/Index/blkno/Load/Refresh/Prev/Next。
+- **P0-2** Given Tree 亮，When 再点 **Tree** 使其变暗，Then 左列消失；次带为 Table|Index、blkno、Load、Refresh、Prev、Next。
 - **P0-3** Given Tree 已显示 heap blk 0，When 再点树里同一 `blk 0` 名字，Then Refresh（非空操作）。
 - **P0-4** Given Tree 已显示 heap blk 0，When 点另一 blk，Then 普通 Load 该块。
 - **P0-5** Given Tree 已显示某 B-tree 页，When 再点同一页行，Then `loadIndexBlk(..., { refresh: true })`。
-- **P0-6** Given Tree 选中一张表并已 Load，When 切到 Single 并 Load 另一合法 blkno，Then 成功且无目录。
-- **P0-7** Given WAL，When 看 chrome，Then 无 Tree/Single 开关；WAL Load 仍在。
+- **P0-6** Given Tree 选中一张表并已 Load，When 关掉 Tree 并 Load 另一合法 blkno，Then 成功且无目录。
+- **P0-7** Given WAL，When 看 chrome，Then 无 Tree 开关；WAL Load 仍在。
 
 ### P1
 
 - 点 page expander 不刷新；再点表名仍收起。
 - 同一 blk Refresh 不新增 history。
 - Single 未选关系时不能 Load；主区不提示去开 Tree。
-- README 中英写明 Tree 浏览 vs Single 按 blkno 查找。
+- README 中英写明 Tree 亮=目录浏览、Tree 暗=按 blkno 查找（不必出现 “Single” 作为界面名）。
 
 ## 开放问题
 
 N/A（下列默认已写入范围；若驳回请改对应条）：
 
-- 右上角改为 **Tree | Single** 两组，不再是单独的 Tree 开关。
-- Tree 次带去掉 Table/Index、blkno、Load、Refresh、Prev/Next；Single 次带保持现状。
-- Single 不加回表/索引下拉，也切不过去 Tree。
-- Tree/Single 不进 URL；连库默认 Tree。
+- 右上角保持单独 **Tree** 开关：亮=目录模式，暗=按 blkno 查找；不展示 Single。
+- Tree 亮时次带去掉 Table/Index、blkno、Load、Refresh、Prev/Next；Tree 暗时次带保持现状。
+- Tree 暗时不加回表/索引下拉，也不自动把 Tree 再点亮。
+- Tree 亮暗不进 URL；连库默认 Tree 亮。
