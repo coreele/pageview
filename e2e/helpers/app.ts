@@ -33,13 +33,13 @@ export function tableSelect(page: Page) {
 }
 
 export async function waitTableListed(page: Page, name: string): Promise<void> {
-  await expect(tableSelect(page).locator("option", { hasText: name })).toHaveCount(1, {
+  await expect(page.locator("#btree-tree-panel .btree-tree-blk", { hasText: name })).toHaveCount(1, {
     timeout: 15_000,
   });
 }
 
 export async function selectTableOid(page: Page, oid: number): Promise<void> {
-  await tableSelect(page).selectOption(String(oid));
+  await page.locator(`#btree-tree-panel [data-row="table:${oid}"] .btree-tree-label`).click();
 }
 
 export async function waitPageBlk(page: Page, blkno: number): Promise<void> {

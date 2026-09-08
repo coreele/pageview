@@ -9,15 +9,18 @@ import {
   pendingFetches,
   putError,
   putReady,
+  ensureTableExpanded,
   resetBtreeTree,
   retryNode,
   seedCurrentPage,
   setTreeCollapsed,
   toggleExpanded,
   toggleIndexExpanded,
+  toggleTableExpanded,
   treeChromeVisible,
   treeKindTokens,
   visibleHeapBlockList,
+  visibleTableCatalog,
   visibleTree,
   withPathExpansion,
 } from "./btreeTree";
@@ -55,10 +58,15 @@ function openedAtLeaf() {
 }
 
 describe("treeChromeVisible", () => {
-  it("is true for btree and heap page views (P0-3 / P0-9)", () => {
-    expect(treeChromeVisible("btree")).toBe(true);
-    expect(treeChromeVisible("heap")).toBe(true);
-    expect(treeChromeVisible(undefined)).toBe(false);
+  it("is true for table kind even with no page (P0-1)", () => {
+    expect(treeChromeVisible({ relationKind: "table", pageKind: undefined })).toBe(true);
+    expect(treeChromeVisible({ relationKind: "table", pageKind: "heap" })).toBe(true);
+  });
+
+  it("is true for index only after a btree page (P0-6)", () => {
+    expect(treeChromeVisible({ relationKind: "index", pageKind: undefined })).toBe(false);
+    expect(treeChromeVisible({ relationKind: "index", pageKind: "heap" })).toBe(false);
+    expect(treeChromeVisible({ relationKind: "index", pageKind: "btree" })).toBe(true);
   });
 });
 
@@ -175,6 +183,64 @@ describe("visibleHeapBlockList (P0-9 / P0-10)", () => {
   });
 });
 
+const CATALOG = [
+  { oid: 16384, qualifiedName: "public.orders", blocks: 5 },
+  { oid: 16385, qualifiedName: "public.empty", blocks: 0 },
+  { oid: 16386, qualifiedName: "public.events", blocks: 3 },
+];
+
+describe("visibleTableCatalog (P0-1 / P0-4 / P0-7)", () => {
+  it("lists tables with no children when none are expanded", () => {
+    const { rows, emptyHint, orphan } = visibleTableCatalog(CATALOG, null, null, []);
+    expect(orphan).toBeNull();
+    expect(emptyHint).toBeNull();
+    expect(rows.map((r) => r.key)).toEqual(["table:16384", "table:16385", "table:16386"]);
+    expect(rows.every((r) => r.role === "table" && r.depth === 0 && !r.expanded)).toBe(true);
+    expect(rows.find((r) => r.indexOid === 16384)?.expandable).toBe(true);
+    expect(rows.find((r) => r.indexOid === 16385)?.expandable).toBe(false);
+    expect(rows.find((r) => r.indexOid === 16384)?.blockCount).toBe(5);
+  });
+
+  it("expands the selected table's heap window and highlights the loaded blk (P0-7)", () => {
+    const { rows } = visibleTableCatalog(CATALOG, 16384, 2, [16384]);
+    expect(rows.find((r) => r.key === "table:16384")?.current).toBe(true);
+    expect(rows.find((r) => r.key === "table:16384")?.expanded).toBe(true);
+    const blks = rows.filter((r) => r.role === "page");
+    expect(blks.map((r) => r.blkno)).toEqual([0, 1, 2, 3, 4]);
+    expect(blks.every((r) => r.depth === 1 && r.indexOid === 16384)).toBe(true);
+    expect(blks.find((r) => r.blkno === 2)?.current).toBe(true);
+    expect(blks.find((r) => r.blkno === 2)?.key).toBe("heap:16384:2");
+  });
+
+  it("lists a 0-block table with no children (P0-4)", () => {
+    const { rows, emptyHint } = visibleTableCatalog(CATALOG, 16385, null, [16385]);
+    expect(rows.filter((r) => r.role === "page")).toEqual([]);
+    expect(rows.find((r) => r.key === "table:16385")?.current).toBe(true);
+    expect(emptyHint).toBeNull();
+  });
+
+  it("shows no-tables hint when the catalog is empty (P0-1)", () => {
+    const { rows, emptyHint } = visibleTableCatalog([], null, null, []);
+    expect(rows).toEqual([]);
+    expect(emptyHint).toBe("no user heap tables");
+  });
+
+  it("windows a large selected table around the loaded block", () => {
+    const huge = [{ oid: 1, qualifiedName: "public.huge", blocks: 3000 }];
+    const { rows, emptyHint } = visibleTableCatalog(huge, 1, 1500, [1]);
+    const blks = rows.filter((r) => r.role === "page");
+    expect(blks).toHaveLength(HEAP_BLOCK_LIST_CAP);
+    expect(blks.find((r) => r.blkno === 1500)?.current).toBe(true);
+    expect(emptyHint).toMatch(/^Showing blk \d+–\d+ of 3000$/);
+  });
+
+  it("ensureTableExpanded replaces the expanded set with the selected oid", () => {
+    let s = toggleTableExpanded(EMPTY_BTREE_TREE, 16386);
+    s = ensureTableExpanded(s, 16384);
+    expect(s.expandedTableOids).toEqual([16384]);
+  });
+});
+
 describe("expand / error / reset (P0-2 / P0-7 / P1-3)", () => {
   it("collapse flag is independent of cache (P0-2)", () => {
     let s = openedAtLeaf();
@@ -273,5 +339,19 @@ describe("treeKindTokens (V-1)", () => {
         status: "loading",
       }),
     ).toEqual([]);
+  });
+
+  it("labels a table node with its block count (P0-1)", () => {
+    expect(
+      treeKindTokens({
+        role: "table",
+        expandable: true,
+        pageType: "unknown",
+        level: null,
+        isRoot: false,
+        status: "ready",
+        blockCount: 12,
+      }),
+    ).toEqual(["12 blk"]);
   });
 });

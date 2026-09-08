@@ -19,11 +19,12 @@ test("M1: selection replaceState, Load push, failure/unloaded do not write, back
   await waitTableListed(page, seed.heapName);
 
   await selectTableOid(page, seed.heapOid);
-  const selected = searchFor({ mode: "page", kind: "table", table: seed.heapOid });
-  await expectSearch(page, selected);
+  await waitPageBlk(page, 0);
+  const loaded0 = searchFor({ mode: "page", kind: "table", table: seed.heapOid, blkno: 0 });
+  await expectSearch(page, loaded0);
 
   await page.getByLabel("blkno").fill("5");
-  await expectSearch(page, selected);
+  await expectSearch(page, loaded0);
 
   await pageLoadButton(page).click();
   await waitPageBlk(page, 5);
@@ -36,7 +37,7 @@ test("M1: selection replaceState, Load push, failure/unloaded do not write, back
   await expectSearch(page, loaded);
 
   await page.goBack();
-  await expectSearch(page, selected);
+  await expectSearch(page, loaded0);
   await page.goForward();
   await waitPageBlk(page, 5);
   await expectSearch(page, loaded);

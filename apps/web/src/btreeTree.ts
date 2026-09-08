@@ -1,6 +1,7 @@
 /**
- * Session state for the optional B-tree tree panel (btree-tree-view).
- * One slice per index oid. Table mode uses a flat heap-block list, not this cache.
+ * Session state for the optional tree panel (btree-tree-view / table-tree-nav).
+ * Index mode: one cache slice per index oid. Table mode: catalog of heap tables
+ * with block lists as children; that view does not use this cache.
  * Fetch I/O stays in App.
  */
 import {
@@ -26,13 +27,14 @@ export type BtreeTreeState = {
   collapsed: boolean;
   slices: Record<number, IndexTreeSlice>;
   expandedIndexOids: number[];
+  expandedTableOids: number[];
 };
 
 export type TreeRow = {
   key: string;
   indexOid: number;
   blkno: number | null;
-  role: "index" | "page";
+  role: "index" | "page" | "table";
   title: string;
   depth: number;
   pageType: "meta" | "internal" | "leaf" | "unknown";
@@ -44,6 +46,7 @@ export type TreeRow = {
   current: boolean;
   status: "idle" | "loading" | "ready" | "error";
   error?: AppError;
+  blockCount?: number;
 };
 
 export type TreeFetch = { oid: number; blkno: number };
@@ -56,8 +59,12 @@ export type VisibleTree = {
 
 /** Type pills for a tree row. Heap-ready / loading unknown rows stay unlabeled. */
 export function treeKindTokens(
-  row: Pick<TreeRow, "role" | "expandable" | "pageType" | "level" | "isRoot" | "status">,
+  row: Pick<
+    TreeRow,
+    "role" | "expandable" | "pageType" | "level" | "isRoot" | "status" | "blockCount"
+  >,
 ): string[] {
+  if (row.role === "table") return [`${row.blockCount ?? 0} blk`];
   if (row.role === "index") return row.expandable ? ["btree"] : [];
   if (row.status === "loading" || row.pageType === "unknown") return [];
   if (row.pageType === "meta") return ["meta"];
@@ -73,16 +80,26 @@ export const EMPTY_BTREE_TREE: BtreeTreeState = {
   collapsed: true,
   slices: {},
   expandedIndexOids: [],
+  expandedTableOids: [],
 };
 
 export const EMPTY_VISIBLE_TREE: VisibleTree = { rows: [], orphan: null, emptyHint: null };
 
 export function resetBtreeTree(): BtreeTreeState {
-  return { collapsed: true, slices: {}, expandedIndexOids: [] };
+  return {
+    collapsed: true,
+    slices: {},
+    expandedIndexOids: [],
+    expandedTableOids: [],
+  };
 }
 
-export function treeChromeVisible(pageKind: string | undefined): boolean {
-  return pageKind === "btree" || pageKind === "heap";
+export function treeChromeVisible(opts: {
+  relationKind: "table" | "index";
+  pageKind: string | undefined;
+}): boolean {
+  if (opts.relationKind === "table") return true;
+  return opts.pageKind === "btree";
 }
 
 export function setTreeCollapsed(state: BtreeTreeState, collapsed: boolean): BtreeTreeState {
@@ -109,6 +126,21 @@ export function toggleIndexExpanded(state: BtreeTreeState, oid: number): BtreeTr
     expandedIndexOids: has
       ? state.expandedIndexOids.filter((id) => id !== oid)
       : [...state.expandedIndexOids, oid],
+  };
+}
+
+export function ensureTableExpanded(state: BtreeTreeState, oid: number): BtreeTreeState {
+  if (state.expandedTableOids.length === 1 && state.expandedTableOids[0] === oid) return state;
+  return { ...state, expandedTableOids: [oid] };
+}
+
+export function toggleTableExpanded(state: BtreeTreeState, oid: number): BtreeTreeState {
+  const has = state.expandedTableOids.includes(oid);
+  return {
+    ...state,
+    expandedTableOids: has
+      ? state.expandedTableOids.filter((id) => id !== oid)
+      : [...state.expandedTableOids, oid],
   };
 }
 
@@ -286,6 +318,60 @@ export function visibleHeapBlockList(
       ? `Showing blk ${start}–${end - 1} of ${blockCount}`
       : null,
   };
+}
+
+export type HeapTableInfo = {
+  oid: number;
+  qualifiedName: string;
+  blocks: number;
+};
+
+export function visibleTableCatalog(
+  tables: readonly HeapTableInfo[],
+  selectedOid: number | null,
+  loadedBlkno: number | null,
+  expandedOids: readonly number[],
+): VisibleTree {
+  if (tables.length === 0) {
+    return { rows: [], orphan: null, emptyHint: "no user heap tables" };
+  }
+  const rows: TreeRow[] = [];
+  let emptyHint: string | null = null;
+  for (const table of tables) {
+    const expanded = expandedOids.includes(table.oid);
+    rows.push({
+      key: `table:${table.oid}`,
+      indexOid: table.oid,
+      blkno: null,
+      role: "table",
+      title: table.qualifiedName,
+      depth: 0,
+      pageType: "unknown",
+      level: null,
+      isRoot: false,
+      chips: [],
+      expandable: table.blocks > 0,
+      expanded,
+      current: selectedOid === table.oid,
+      status: "ready",
+      blockCount: table.blocks,
+    });
+    if (!expanded || table.blocks <= 0) continue;
+    const currentBlk = selectedOid === table.oid ? loadedBlkno : null;
+    const inner = visibleHeapBlockList(table.blocks, currentBlk);
+    if (inner.emptyHint && (selectedOid === table.oid || emptyHint == null)) {
+      emptyHint = inner.emptyHint;
+    }
+    for (const child of inner.rows) {
+      rows.push({
+        ...child,
+        key: `heap:${table.oid}:${child.blkno}`,
+        indexOid: table.oid,
+        depth: 1,
+      });
+    }
+  }
+  return { rows, orphan: null, emptyHint };
 }
 
 function childrenOf(slice: IndexTreeSlice, blkno: number): number[] {

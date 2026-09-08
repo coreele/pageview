@@ -20,7 +20,8 @@ function TreeNode({
   onActivate: (row: TreeRow) => void;
   onRetry: (row: TreeRow) => void;
 }) {
-  const label = row.role === "index" ? row.title : `blk ${row.blkno}`;
+  const named = row.role === "index" || row.role === "table";
+  const label = named ? row.title : `blk ${row.blkno}`;
   return (
     <div
       className="btree-tree-row"
@@ -48,7 +49,7 @@ function TreeNode({
         type="button"
         className="btree-tree-label"
         aria-current={row.current ? "true" : undefined}
-        title={row.role === "index" ? row.title : undefined}
+        title={named ? row.title : undefined}
         onClick={() => onActivate(row)}
       >
         <span className="btree-tree-blk">{label}</span>

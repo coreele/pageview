@@ -39,6 +39,7 @@ import { BtreeTreePanel } from "./BtreeTreePanel";
 import {
   EMPTY_BTREE_TREE,
   EMPTY_VISIBLE_TREE,
+  ensureTableExpanded,
   fetchKey,
   markLoading,
   pendingFetches,
@@ -50,8 +51,9 @@ import {
   setTreeCollapsed,
   toggleExpanded,
   toggleIndexExpanded,
+  toggleTableExpanded,
   treeChromeVisible,
-  visibleHeapBlockList,
+  visibleTableCatalog,
   visibleTree,
   withPathExpansion,
   type BtreeTreeState,
@@ -630,7 +632,7 @@ export function App() {
     setPageView(null);
     setLoadedBlkno(null);
     setDiffIds(new Set());
-    resetTreeContext();
+    setBtreeTree((s) => ensureTableExpanded(s, oid));
     // url-deeplink: new selection invalidates the loaded block's URL param.
     setUrlLoaded((u) => ({ ...u, blkno: null }));
     const t = tables.find((x) => x.oid === oid);
@@ -713,14 +715,34 @@ export function App() {
   }, [treePendingKey]);
 
   const btreeTreeView = useMemo(() => {
-    if (!pageView) return EMPTY_VISIBLE_TREE;
-    if (pageView.kind === "heap") {
-      return visibleHeapBlockList(selectedTable?.blocks ?? 0, loadedBlkno);
+    if (relationKind === "table") {
+      if (loadState === "loading-tables" && tables.length === 0) return EMPTY_VISIBLE_TREE;
+      return visibleTableCatalog(tables, selectedOid, loadedBlkno, btreeTree.expandedTableOids);
     }
+    if (!pageView || pageView.kind !== "btree") return EMPTY_VISIBLE_TREE;
     return visibleTree(btreeTree, pageView.index.oid, loadedBlkno);
-  }, [pageView, loadedBlkno, btreeTree, selectedTable]);
+  }, [pageView, loadedBlkno, btreeTree, tables, selectedOid, relationKind, loadState]);
+
+  const activateTable = (oid: number) => {
+    const t = tables.find((x) => x.oid === oid);
+    if (!t) return;
+    const sameTable = selectedOid === oid;
+    if (!sameTable) {
+      void onSelectTable(oid);
+    } else {
+      setBtreeTree((s) => ensureTableExpanded(s, oid));
+    }
+    if (t.blocks === 0) return;
+    if (sameTable && loadedBlkno === 0 && pageView?.kind === "heap") return;
+    setBlkno(0);
+    void loadBlk(oid, 0);
+  };
 
   const onTreeToggleExpand = (row: TreeRow) => {
+    if (row.role === "table") {
+      setBtreeTree((s) => toggleTableExpanded(s, row.indexOid));
+      return;
+    }
     if (row.role === "index") {
       setBtreeTree((s) => toggleIndexExpanded(s, row.indexOid));
       return;
@@ -730,11 +752,26 @@ export function App() {
   };
 
   const onTreeActivate = (row: TreeRow) => {
+    if (row.role === "table") {
+      activateTable(row.indexOid);
+      return;
+    }
     if (row.blkno == null) return;
-    if (pageView?.kind === "heap") {
-      if (selectedOid == null || loadedBlkno === row.blkno) return;
+    if (relationKind === "table") {
+      if (selectedOid === row.indexOid && loadedBlkno === row.blkno && pageView?.kind === "heap") {
+        return;
+      }
+      if (selectedOid !== row.indexOid) {
+        setSelectedOid(row.indexOid);
+        setPageView(null);
+        setLoadedBlkno(null);
+        setDiffIds(new Set());
+        setUrlLoaded((u) => ({ ...u, blkno: null }));
+        setSchema(null);
+        setBtreeTree((s) => ensureTableExpanded(s, row.indexOid));
+      }
       setBlkno(row.blkno);
-      void loadBlk(selectedOid, row.blkno);
+      void loadBlk(row.indexOid, row.blkno);
       return;
     }
     if (selectedIndexOid == null) return;
@@ -785,6 +822,9 @@ export function App() {
     resetPageView();
     resetTreeContext();
     setSchema(null);
+    if (kind === "table") {
+      setBtreeTree((s) => setTreeCollapsed(s, false));
+    }
     // Change-3 annex 3 (annex-2 rule 1 carry-over): the filter (selectedOid) may have
     // changed while in Table mode — drop the index selection if it no longer survives.
     if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, selectedOid))) {
@@ -822,6 +862,37 @@ export function App() {
   };
 
   const connected = Boolean(session?.connected);
+  const showTableTreeToggle =
+    connected && mode === "page" && treeChromeVisible({ relationKind, pageKind: pageView?.kind });
+  const tableSplitOpen =
+    connected &&
+    mode === "page" &&
+    relationKind === "table" &&
+    (Boolean(heapPage) || !btreeTree.collapsed);
+
+  useEffect(() => {
+    if (connected && mode === "page" && relationKind === "table") {
+      setBtreeTree((s) => (s.collapsed ? setTreeCollapsed(s, false) : s));
+    }
+  }, [connected, mode, relationKind]);
+
+  useEffect(() => {
+    if (relationKind !== "table" || selectedOid == null) return;
+    setBtreeTree((s) => ensureTableExpanded(s, selectedOid));
+  }, [selectedOid, relationKind]);
+
+  const tableNoPageHint = (() => {
+    if (selectedTable?.blocks === 0) {
+      return "Empty relation (0 blocks). Insert rows or pick another table.";
+    }
+    if (loadState === "loading-page") return null;
+    if (selectedTable && selectedTable.blocks > 0) {
+      return "Select blkno and press Load to fetch a raw page.";
+    }
+    if (btreeTree.collapsed) return "Open Tree to pick a table.";
+    return "Select a heap table to begin.";
+  })();
+
   const canLoad =
     relationKind === "table" &&
     selectedOid != null &&
@@ -1044,6 +1115,11 @@ export function App() {
         setSelectedIndexOid(indexSelectionSurvives(state.index, filtered) ? state.index : null);
         setBlkno(state.blkno ?? 0);
       } else {
+        setBtreeTree((s) => {
+          let next = setTreeCollapsed(s, false);
+          if (state.table != null) next = ensureTableExpanded(next, state.table);
+          return next;
+        });
         const t = state.table != null ? tables.find((x) => x.oid === state.table) : null;
         if (!(t != null && t.blocks === 0)) setBlkno(state.blkno ?? 0);
       }
@@ -1344,27 +1420,6 @@ export function App() {
 
                 {relationKind === "table" ? (
                   <>
-                    <label className="control">
-                      <span className="control-label">table</span>
-                      <select
-                        className="table-select"
-                        value={selectedOid ?? ""}
-                        disabled={tables.length === 0 || loadState === "loading-tables"}
-                        title={selectedTable?.qualifiedName ?? undefined}
-                        onChange={(e) => {
-                          if (e.target.value !== "") void onSelectTable(Number(e.target.value));
-                        }}
-                      >
-                        <option value="" disabled={tables.length > 0}>
-                          {tables.length === 0 ? "no user heap tables" : "select a table…"}
-                        </option>
-                        {tables.map((t) => (
-                          <option key={t.oid} value={t.oid}>
-                            {t.qualifiedName} ({t.blocks} blk)
-                          </option>
-                        ))}
-                      </select>
-                    </label>
                     {loadState === "loading-tables" && (
                       <span className="muted">
                         <span className="spinner" />
@@ -1653,19 +1708,23 @@ export function App() {
           )}
         </div>
 
-        {((mode === "page" && pageView) || (mode === "wal" && connected)) && (
+        {((mode === "page" && pageView) ||
+          (mode === "wal" && connected) ||
+          showTableTreeToggle) && (
           <div className="chrome-actions">
-            <button
-              className={chromeToggleClass(!detailCollapsed)}
-              type="button"
-              aria-pressed={!detailCollapsed}
-              aria-expanded={!detailCollapsed}
-              aria-controls={mode === "wal" ? "wal-detail-panel" : "selection-detail-panel"}
-              onClick={() => setDetailCollapsed((v) => !v)}
-            >
-              Detail
-            </button>
-            {mode === "page" && (
+            {((mode === "page" && pageView) || (mode === "wal" && connected)) && (
+              <button
+                className={chromeToggleClass(!detailCollapsed)}
+                type="button"
+                aria-pressed={!detailCollapsed}
+                aria-expanded={!detailCollapsed}
+                aria-controls={mode === "wal" ? "wal-detail-panel" : "selection-detail-panel"}
+                onClick={() => setDetailCollapsed((v) => !v)}
+              >
+                Detail
+              </button>
+            )}
+            {mode === "page" && pageView && (
               <button
                 className={chromeToggleClass(!hexCollapsed)}
                 type="button"
@@ -1677,7 +1736,7 @@ export function App() {
                 Hex
               </button>
             )}
-            {mode === "page" && treeChromeVisible(pageView?.kind) && (
+            {mode === "page" && showTableTreeToggle && (
               <button
                 className={chromeToggleClass(!btreeTree.collapsed)}
                 type="button"
@@ -1701,7 +1760,7 @@ export function App() {
         </button>
       </header>
 
-      <main className={`main${mode === "page" && pageView ? " main-paged" : ""}${mode === "wal" ? " main-wal" : ""}`}>
+      <main className={`main${(mode === "page" && pageView) || tableSplitOpen ? " main-paged" : ""}${mode === "wal" ? " main-wal" : ""}`}>
         {error && (
           <div className="panel error-panel" role="alert">
             <div>
@@ -1789,18 +1848,8 @@ export function App() {
           />
         )}
 
-        {connected && mode === "page" && relationKind === "table" && !heapPage && selectedTable?.blocks === 0 && (
-          <div className="panel muted">
-            Empty relation (0 blocks). Insert rows or pick another table.
-          </div>
-        )}
-
-        {connected && mode === "page" && relationKind === "table" && !heapPage && !error && selectedTable && selectedTable.blocks > 0 && (
-          <div className="panel muted">Select blkno and press Load to fetch a raw page.</div>
-        )}
-
-        {connected && mode === "page" && relationKind === "table" && !selectedTable && !error && (
-          <div className="panel muted">Select a heap table to begin.</div>
+        {connected && mode === "page" && relationKind === "table" && !heapPage && !tableSplitOpen && tableNoPageHint && (
+          <div className="panel muted">{tableNoPageHint}</div>
         )}
 
         {connected && mode === "page" && relationKind === "index" && loadState === "loading-indexes" && (
@@ -1833,16 +1882,16 @@ export function App() {
             </div>
           )}
 
-        {connected && mode === "page" && heapPage && (
+        {connected && mode === "page" && relationKind === "table" && tableSplitOpen && (
           <div
             className="main-split"
-            data-hex={hexCollapsed ? "collapsed" : "expanded"}
+            data-hex={heapPage && !hexCollapsed ? "expanded" : "collapsed"}
             data-tree={btreeTree.collapsed ? "collapsed" : "expanded"}
           >
             {!btreeTree.collapsed && (
               <BtreeTreePanel
                 tree={btreeTreeView}
-                ariaLabel="Heap blocks"
+                ariaLabel="Tables"
                 onToggleExpand={onTreeToggleExpand}
                 onActivate={onTreeActivate}
                 onRetry={onTreeRetry}
@@ -1854,37 +1903,41 @@ export function App() {
                   <span className="spinner" /> Loading page…
                 </div>
               )}
-              <StructureMap
-                raw={heapPage.raw}
-                freeRange={heapPage.freeSpace.range}
-                fields={fields ?? []}
-                selectedId={selectedId}
-                highlight={highlight}
-                diffIds={diffIds}
-                detailOpen={!detailCollapsed}
-                onSelect={onSelectStructure}
-                emptyStateText={
-                  heapPage.tuples.length === 0
-                    ? "No NORMAL tuples on this page. Free space dominates; structure is still browsable."
-                    : null
-                }
-                renderDetail={() => (
-                  <HeapDetail
-                    page={heapPage}
-                    selectedId={selectedId}
-                    currentBlkno={blkno}
-                    onLoadCrossBlock={(target) => {
-                      if (selectedOid != null) {
-                        setBlkno(target);
-                        void loadBlk(selectedOid, target);
-                      }
-                    }}
-                  />
-                )}
-              />
+              {heapPage ? (
+                <StructureMap
+                  raw={heapPage.raw}
+                  freeRange={heapPage.freeSpace.range}
+                  fields={fields ?? []}
+                  selectedId={selectedId}
+                  highlight={highlight}
+                  diffIds={diffIds}
+                  detailOpen={!detailCollapsed}
+                  onSelect={onSelectStructure}
+                  emptyStateText={
+                    heapPage.tuples.length === 0
+                      ? "No NORMAL tuples on this page. Free space dominates; structure is still browsable."
+                      : null
+                  }
+                  renderDetail={() => (
+                    <HeapDetail
+                      page={heapPage}
+                      selectedId={selectedId}
+                      currentBlkno={blkno}
+                      onLoadCrossBlock={(target) => {
+                        if (selectedOid != null) {
+                          setBlkno(target);
+                          void loadBlk(selectedOid, target);
+                        }
+                      }}
+                    />
+                  )}
+                />
+              ) : (
+                tableNoPageHint && <div className="panel muted">{tableNoPageHint}</div>
+              )}
             </section>
 
-            {!hexCollapsed && (
+            {heapPage && !hexCollapsed && (
               <section id="hex-panel" className="pane pane-hex" aria-label="Hex dump panel">
                 <HexDump
                   raw={heapPage.raw}

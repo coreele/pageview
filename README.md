@@ -25,7 +25,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 - **Hikey & posting lists** — high-key mark on the first tuple of non-rightmost pages; dedup posting tuples (PG13+) with TID count and full scrollable list
 - **Key value decoding** — index tuple keys decoded per column type (int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domains) with NULL, include/↓/nulls-first badges and click-to-highlight column bytes; unsupported types (e.g. jsonb) or expression indexes degrade gracefully to hex-only
 - **Block navigation** — load siblings (`btpo_prev`/`btpo_next`), root/fastroot, and child pages with one click; leaf heap TIDs jump straight to the owning table's block
-- **Tree panel** — optional chrome **Tree** toggle (on = panel visible; default off). On an index page it shows that B-tree's page topology; on a heap page it is a flat list of block numbers. Clicking a row loads that page without leaving the structure/hex view
+- **Tree panel** — chrome **Tree** toggle (on = panel visible). Table mode: after connect the panel defaults **on** and lists `schema.table` with heap blocks nested underneath — click a table to load blk 0, or a block number to load that page. Index mode: still defaults off; after an index page is loaded it shows that B-tree's topology. Clicking a page row loads it without leaving the structure/hex view
 - **Guards** — non-B-tree access methods (hash/gist/spgist/brin/gin) blocked in the UI and by the server (`INDEX_NOT_BTREE`)
 
 ### WAL mode
@@ -64,7 +64,7 @@ pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
 ```
 
-Open the web UI, connect (or rely on `.env`), then use **Page** (table or index + blkno + Load) or **WAL** (start/end LSN + Load).
+Open the web UI, connect (or rely on `.env`), then use **Page** (pick a table in the Tree panel, or switch to Index + blkno + Load) or **WAL** (start/end LSN + Load).
 
 ## Environment
 
