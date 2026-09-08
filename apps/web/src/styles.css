@@ -1176,8 +1176,15 @@ input {
 .flag-list {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.15rem;
+  gap: 0.28rem;
   margin-top: 0.35rem;
+}
+
+.flag-list .set,
+.flag-list .unset {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
 }
 
 .flag-list .set {
@@ -1186,6 +1193,25 @@ input {
 .flag-list .unset {
   color: var(--text-muted);
   opacity: 0.75;
+}
+
+.flag-mark {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.62rem;
+  height: 0.62rem;
+  margin-top: 0.22em;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.flag-mark--set {
+  background: var(--text);
+}
+
+.flag-mark--unset {
+  border: 1.5px solid var(--text-muted);
+  background: transparent;
 }
 
 .infomask-bit-pair {
@@ -1421,6 +1447,12 @@ input {
   line-height: 1.35;
 }
 
+.infomask-bit-strip__ref-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
 .infomask-bit-strip__ref-list li.is-unset {
   color: var(--text-muted);
   opacity: 0.85;
@@ -1428,11 +1460,6 @@ input {
 
 .infomask-bit-strip__ref-list li.is-set {
   font-weight: 600;
-}
-
-.infomask-bit-strip__ref-mark {
-  display: inline-block;
-  width: 0.9rem;
 }
 
 .infomask-bit-strip__ref-name {

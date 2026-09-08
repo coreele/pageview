@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import type { FlagBit } from "page-core";
+import { FlagMark } from "./FlagMark";
 
 export function formatInfomaskHex(label: string, value: number): string {
   return `${label}=0x${value.toString(16)}`;
@@ -134,9 +135,7 @@ export function InfomaskBitPair({ infomask, infomask2, bits, bits2 }: PairProps)
           <ul className="infomask-bit-strip__ref-list">
             {refBits.map((b) => (
               <li key={b.name} className={b.set ? "is-set" : "is-unset"}>
-                <span className="infomask-bit-strip__ref-mark" aria-hidden="true">
-                  {b.set ? "●" : "○"}
-                </span>
+                <FlagMark set={b.set} />
                 <span className="infomask-bit-strip__ref-name">{b.name}</span>
                 <span className="infomask-bit-strip__tip-sep"> — </span>
                 <span className="infomask-bit-strip__ref-meaning">{b.meaning}</span>
@@ -200,9 +199,7 @@ export function FlagBitStripSolo({
           <ul className="infomask-bit-strip__ref-list">
             {bits.map((b) => (
               <li key={b.name} className={b.set ? "is-set" : "is-unset"}>
-                <span className="infomask-bit-strip__ref-mark" aria-hidden="true">
-                  {b.set ? "●" : "○"}
-                </span>
+                <FlagMark set={b.set} />
                 <span className="infomask-bit-strip__ref-name">{b.name}</span>
                 <span className="infomask-bit-strip__tip-sep"> — </span>
                 <span className="infomask-bit-strip__ref-meaning">{b.meaning}</span>

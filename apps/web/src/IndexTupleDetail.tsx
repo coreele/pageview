@@ -1,4 +1,5 @@
 import type { ByteRange, BtreeIndexTuple, ParsedBtreePage } from "page-core";
+import { FlagMark } from "./FlagMark";
 import { formatBytesPreview, tidRole, tInfoRows } from "./indexDetail";
 import { keyRowId, pivotHeapTidText, type KeyValuesSection } from "./indexKeyDetail";
 
@@ -101,7 +102,8 @@ export function IndexTupleDetail({
       <div className="flag-list" aria-label="t_info bits">
         {tInfoRows(tuple).map((r) => (
           <div key={r.name} className={r.set ? "set" : "unset"} tabIndex={0}>
-            {r.set ? "●" : "○"} {r.name} — {r.meaning}
+            <FlagMark set={r.set} />
+            {r.name} — {r.meaning}
           </div>
         ))}
       </div>

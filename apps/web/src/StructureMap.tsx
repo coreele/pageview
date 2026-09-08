@@ -18,6 +18,7 @@ import {
   type StructureField,
 } from "page-core";
 import { FlagBitStripSolo, InfomaskBitPair } from "./InfomaskBitStrip";
+import { FlagMark } from "./FlagMark";
 import { siblingNav } from "./blockNav";
 import { findTupleBySelection, metapageRows } from "./indexDetail";
 import { IndexTupleDetail } from "./IndexTupleDetail";
@@ -477,7 +478,8 @@ export function ItemIdFlagDetail({ item }: { item: ItemId }) {
     <div className="flag-list" aria-label="ItemId flags">
       {decodeItemIdFlags(item.flags).map((b) => (
         <div key={b.name} className={b.set ? "set" : "unset"} tabIndex={0}>
-          {b.set ? "●" : "○"} {b.name} — {b.meaning}
+          <FlagMark set={b.set} />
+          {b.name} — {b.meaning}
         </div>
       ))}
     </div>
