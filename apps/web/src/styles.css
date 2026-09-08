@@ -1862,6 +1862,7 @@ input {
   width: 1.35rem;
   flex: 0 0 1.35rem;
   align-self: stretch;
+  min-height: 1.7rem;
   color: var(--text-muted);
 }
 
