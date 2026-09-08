@@ -121,13 +121,16 @@ describe("page browse mode (drop-load-refresh)", () => {
 
   it("keeps WAL Load without Tree|Single (P0-7)", () => {
     const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
-    const walStart = text.indexOf('aria-label="WAL context"');
-    const browseStart = text.indexOf('aria-label="Page browse mode"');
-    expect(walStart).toBeGreaterThan(-1);
-    expect(browseStart).toBeGreaterThan(walStart);
-    const walChrome = text.slice(text.indexOf('aria-label="start LSN"'), walStart);
-    expect(walChrome).toMatch(/"Load"/);
-    expect(walChrome).not.toMatch(/Page browse mode/);
-    expect(walChrome).not.toMatch(/\bSingle\b/);
+    const walBlock = text.slice(
+      text.indexOf('{!connected ?'),
+      text.indexOf('aria-label="WAL context"'),
+    );
+    expect(walBlock.length).toBeGreaterThan(0);
+    expect(walBlock).toMatch(/"Load"/);
+    expect(walBlock).toContain("recent 20");
+    expect(walBlock).not.toMatch(/Page browse mode/);
+    expect(walBlock).not.toMatch(/\bSingle\b/);
+    expect(text).toMatch(/mode === "page" && showTableTreeToggle &&/);
+    expect(text).toMatch(/aria-label="Page browse mode"/);
   });
 });
