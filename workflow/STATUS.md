@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | chrome-toggles |
-| 已归档 | 25 | add-ci，auto-install-extensions，btree-tree-view，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，tree-nav-ui，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 26 | add-ci，auto-install-extensions，btree-tree-view，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，tree-nav-ui，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| chrome-toggles | chrome-toggles → main | 待 FF 合入 |
+| — | | |
 
 ## 归档索引
 
@@ -56,6 +56,7 @@
 | btree-tree-view | archived | `workflow/archive/2026/btree-tree-view/main.md` |
 | auto-install-extensions | archived | `workflow/archive/2026/auto-install-extensions/main.md` |
 | ci-drop-e2e | archived | `workflow/archive/2026/ci-drop-e2e/main.md` |
+| chrome-toggles | archived | `workflow/archive/2026/chrome-toggles/main.md` |
 | column-align-pad | archived | `workflow/archive/2026/column-align-pad/main.md` |
 | deleted-tuple-color | cancelled | `workflow/archive/2026/deleted-tuple-color/main.md` |
 | detail-panel-polish | archived | `workflow/archive/2026/detail-panel-polish/main.md` |
