@@ -39,10 +39,10 @@ chrome-actions 顺序 Tree → Detail → Hex；深色月亮按钮使用与开�
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | Tree 在 Detail/Hex 左 | App 源码 chrome-actions 切片 Tree 先于 Detail | |
-| V-2 | 深色月亮同开态底 | CSS `[data-theme="dark"] .chrome-theme` 含 accent 18% mix | |
-| V-reg | web test | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | Tree 在 Detail/Hex 左 | App 源码 chrome-actions 切片 Tree 先于 Detail | Pass |
+| V-2 | 深色月亮同开态底 | CSS `[data-theme="dark"] .chrome-theme` 含 accent 18% mix | Pass |
+| V-reg | web test | 退出码 0 | Pass |
+| V-static | typecheck | 退出码 0 | Pass |
 
 ## 验证缺口
 
