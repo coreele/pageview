@@ -18,7 +18,7 @@
  * by the existing Load-time `BAD_LSN` contract.
  */
 import type { AppError } from "./api";
-import { canLoadIndex, filterIndexesByTable, type IndexRowLike } from "./indexView";
+import { canLoadIndex, type IndexRowLike } from "./indexView";
 
 export type UrlState = {
   mode: "page" | "wal";
@@ -213,13 +213,13 @@ export function buildUrlState(state: UrlState): string {
  * - `load-table`: missing blkno defaults to 0; a listed 0-block table stays a
  *   no-load (existing empty-relation guard); an unlisted oid still loads so
  *   the server answers NOT_HEAP_TABLE (P0-9).
- * - `load-index`: reuses filterIndexesByTable/canLoadIndex — an index listed
- *   under a different table than the filter is dropped silently (runtime
- *   indexSelectionSurvives semantics), a listed non-B-tree never loads
- *   (guard), an unlisted oid still loads so the client answers NOT_INDEX.
+ * - `load-index`: reuses canLoadIndex — a listed B-tree loads even when
+ *   `table=` names a different owner (catalogs are independent), a listed
+ *   non-B-tree never loads (guard), an unlisted oid still loads so the
+ *   client answers NOT_INDEX.
  * - `load-wal`: both LSNs present; start<=end is Load's existing BAD_LSN job.
  * - `none`: input-side restoration only (missing table/index, single LSN,
- *   guards, inconsistent filter).
+ *   guards).
  */
 export function planRestoreActions(state: UrlState, ctx: RestoreCtx): RestoreAction {
   if (!ctx.connected) return { type: "wait" };
@@ -239,10 +239,6 @@ export function planRestoreActions(state: UrlState, ctx: RestoreCtx): RestoreAct
   if (!ctx.indexesFetched) return { type: "wait" };
   if (state.index == null) return { type: "none" };
   const index = ctx.indexes.find((i) => i.oid === state.index) ?? null;
-  if (index != null) {
-    const filtered = filterIndexesByTable([...ctx.indexes], state.table);
-    if (!filtered.some((i) => i.oid === state.index)) return { type: "none" };
-    if (!canLoadIndex(index)) return { type: "none" };
-  }
+  if (index != null && !canLoadIndex(index)) return { type: "none" };
   return { type: "load-index", oid: state.index, blkno: state.blkno ?? 0 };
 }

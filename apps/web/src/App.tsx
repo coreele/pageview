@@ -89,7 +89,6 @@ import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
   canLoadIndex,
-  filterIndexesByTable,
   indexOptionTitle,
   indexSelectionSurvives,
   levelText,
@@ -278,13 +277,6 @@ export function App() {
   const selectedIndex = useMemo(
     () => indexes.find((i) => i.oid === selectedIndexOid) ?? null,
     [indexes, selectedIndexOid],
-  );
-  // Change-3 annex 3: Index-mode table filter is client-side (selectedOid doubles as
-  // the filter value; null = empty default option = no filtering). Table-mode loading
-  // is untouched. Options list only tables that own indexes (derived from `indexes`).
-  const filteredIndexes = useMemo(
-    () => filterIndexesByTable(indexes, selectedOid),
-    [indexes, selectedOid],
   );
   const heapPage = pageView?.kind === "heap" ? pageView.page : null;
   const btreePage = pageView?.kind === "btree" ? pageView.page : null;
@@ -732,21 +724,15 @@ export function App() {
     if (!indexesFetched) {
       return { rows: [], orphan: null, emptyHint: "Loading indexes…" };
     }
-    const emptyHint =
-      indexes.length === 0
-        ? "No user indexes (system schemas excluded)"
-        : "No indexes for this table";
     return visibleIndexCatalog(
-      filteredIndexes,
+      indexes,
       btreeTree,
       selectedIndexOid,
       relationKind === "index" && pageView?.kind === "btree" ? loadedBlkno : null,
-      emptyHint,
     );
   }, [
     indexesFetched,
-    indexes.length,
-    filteredIndexes,
+    indexes,
     btreeTree,
     selectedIndexOid,
     relationKind,
@@ -871,8 +857,8 @@ export function App() {
   const closeHeapPeek = useCallback(() => setHeapPeek(closeHeapPeekSlot()), []);
 
   /**
-   * Change-3 annex 3: table selection still filters the index list. Page view
-   * clears when switching kinds from chrome; catalog tree state is kept.
+   * Table and index catalogs are independent: switching kinds clears the page
+   * but keeps the index selection if that oid is still in the full list.
    */
   const onSwitchRelationKind = (kind: RelationKind) => {
     if (kind === relationKind) return;
@@ -880,7 +866,7 @@ export function App() {
     resetPageView();
     setSchema(null);
     setBtreeTree((s) => setTreeCollapsed(s, false));
-    if (!indexSelectionSurvives(selectedIndexOid, filterIndexesByTable(indexes, selectedOid))) {
+    if (!indexSelectionSurvives(selectedIndexOid, indexes)) {
       setSelectedIndexOid(null);
     }
   };
@@ -961,7 +947,7 @@ export function App() {
     if (selectedIndex && !btreePage) {
       return "Enter a blkno and Load (0 = metapage).";
     }
-    if (!selectedIndex && indexesFetched && filteredIndexes.length > 0) {
+    if (!selectedIndex && indexesFetched && indexes.length > 0) {
       return "Pick an index to start (blkno 0 is the metapage).";
     }
     if (btreeTree.collapsed) return "Open Tree to pick a table or index.";
@@ -1154,7 +1140,7 @@ export function App() {
 
     const state = pendingRestore;
     // 1) input-side restoration, mirroring the runtime handlers (mode/kind
-    //    switch semantics, indexSelectionSurvives for the index selection,
+    //    switch semantics, indexSelectionSurvives against the full index list,
     //    the empty-table branch of onSelectTable). A fresh wal entry with a
     //    deep-link LSN suppresses the recent-20 prefill once (P0-6).
     if (state.mode === "wal") {
@@ -1186,8 +1172,7 @@ export function App() {
       setSchema(null);
       setSelectedOid(state.table);
       if (state.kind === "index") {
-        const filtered = filterIndexesByTable(indexes, state.table);
-        const indexOid = indexSelectionSurvives(state.index, filtered) ? state.index : null;
+        const indexOid = indexSelectionSurvives(state.index, indexes) ? state.index : null;
         setSelectedIndexOid(indexOid);
         setBlkno(state.blkno ?? 0);
         setBtreeTree((s) => {

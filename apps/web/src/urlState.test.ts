@@ -291,7 +291,7 @@ describe("planRestoreActions — load branches (Spec restore decision table)", (
     });
   });
 
-  it("page+index (B-tree, in filter) loads with blkno defaulting to 0", () => {
+  it("page+index (B-tree) loads with blkno defaulting to 0", () => {
     expect(planRestoreActions(st({ kind: "index", table: 16384, index: 24576, blkno: 1 }), ctx())).toEqual({
       type: "load-index",
       oid: 24576,
@@ -300,6 +300,14 @@ describe("planRestoreActions — load branches (Spec restore decision table)", (
     expect(planRestoreActions(st({ kind: "index", index: 24576 }), ctx())).toEqual({
       type: "load-index",
       oid: 24576,
+      blkno: 0,
+    });
+  });
+
+  it("loads a listed B-tree even when table param names a different owner", () => {
+    expect(planRestoreActions(st({ kind: "index", table: 16384, index: 24590 }), ctx())).toEqual({
+      type: "load-index",
+      oid: 24590,
       blkno: 0,
     });
   });
@@ -340,17 +348,11 @@ describe("planRestoreActions — no-load branches (guards and partial params)", 
     });
   });
 
-  it("inconsistent filter (index exists but under another table): filter wins, index dropped silently", () => {
-    expect(planRestoreActions(st({ kind: "index", table: 16384, index: 24590 }), ctx())).toEqual({
-      type: "none",
-    });
-  });
-
   it("no table param: input-side only", () => {
     expect(planRestoreActions(st({ blkno: 5 }), ctx())).toEqual({ type: "none" });
   });
 
-  it("kind=index without index param: input-side only (filter restored)", () => {
+  it("kind=index without index param: input-side only", () => {
     expect(planRestoreActions(st({ kind: "index", table: 16384 }), ctx())).toEqual({ type: "none" });
   });
 

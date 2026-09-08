@@ -430,7 +430,7 @@ const INDEXES = [
 ];
 
 describe("visibleIndexCatalog (P0-2 / P0-4 / P0-5)", () => {
-  it("lists the provided indexes and not others (P0-2)", () => {
+  it("lists every provided index (P0-2)", () => {
     const { rows, emptyHint } = visibleIndexCatalog(INDEXES, EMPTY_BTREE_TREE, null, null);
     expect(emptyHint).toBeNull();
     expect(rows.map((r) => r.key)).toEqual(["index:24576", "index:24577"]);
@@ -459,10 +459,10 @@ describe("visibleIndexCatalog (P0-2 / P0-4 / P0-5)", () => {
     expect(rows.filter((r) => r.role === "page")).toEqual([]);
   });
 
-  it("uses the no-indexes-for-table hint when the filtered list is empty (P0-2)", () => {
-    const { rows, emptyHint } = visibleIndexCatalog([], EMPTY_BTREE_TREE, null, null, "No indexes for this table");
+  it("uses the no-user-indexes hint when the list is empty", () => {
+    const { rows, emptyHint } = visibleIndexCatalog([], EMPTY_BTREE_TREE, null, null);
     expect(rows).toEqual([]);
-    expect(emptyHint).toBe("No indexes for this table");
+    expect(emptyHint).toBe("No user indexes (system schemas excluded)");
   });
 });
 

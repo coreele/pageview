@@ -93,3 +93,11 @@ describe("index-tree-nav chrome (P0-3)", () => {
     expect(text).not.toMatch(/className="table-select"/);
   });
 });
+
+describe("index-tree-nav catalog (P0-2)", () => {
+  it("feeds the full index list to the catalog and does not filter by table", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    expect(text).toMatch(/visibleIndexCatalog\(\s*indexes,/);
+    expect(text).not.toMatch(/filterIndexesByTable/);
+  });
+});
