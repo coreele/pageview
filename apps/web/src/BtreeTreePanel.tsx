@@ -56,7 +56,7 @@ function TreeNode({
         type="button"
         className="btree-tree-label"
         aria-current={row.current ? "true" : undefined}
-        title={named ? row.title : undefined}
+        title={named ? (row.hoverTitle ?? row.title) : undefined}
         onClick={() => onActivate(row)}
       >
         <span className="btree-tree-blk">{label}</span>
@@ -108,6 +108,7 @@ function TreeSection({
         type="button"
         className="tree-section-head"
         aria-expanded={!collapsed}
+        aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
         onClick={() => onToggleSection(id)}
       >
         <span className="btree-tree-expander" aria-hidden="true" aria-expanded={!collapsed} />
@@ -168,7 +169,7 @@ export function BtreeTreePanel({
     <section id="btree-tree-panel" ref={rootRef} className="pane pane-tree" aria-label="Catalog">
       <TreeSection
         id="table"
-        title="table"
+        title="TABLE"
         collapsed={tableSectionCollapsed}
         tree={tableTree}
         onToggleSection={onToggleSection}
@@ -178,7 +179,7 @@ export function BtreeTreePanel({
       />
       <TreeSection
         id="index"
-        title="index"
+        title="INDEX"
         collapsed={indexSectionCollapsed}
         tree={indexTree}
         onToggleSection={onToggleSection}

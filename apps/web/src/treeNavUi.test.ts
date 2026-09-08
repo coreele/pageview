@@ -67,10 +67,12 @@ describe("tree nav hierarchy (table-tree-nav)", () => {
   it("renders collapsible table and index sections", () => {
     const text = readFileSync(join(srcDir, "BtreeTreePanel.tsx"), "utf8");
     expect(text).toMatch(/data-section=\{id\}/);
-    expect(text).toMatch(/title="table"/);
-    expect(text).toMatch(/title="index"/);
+    expect(text).toMatch(/title="TABLE"/);
+    expect(text).toMatch(/title="INDEX"/);
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
     expect(css).toMatch(/\.tree-section\s*\{[^}]*max-height:\s*50%/);
+    expect(css).toMatch(/\.tree-section-title\s*\{[^}]*text-transform:\s*uppercase/);
+    expect(css).toMatch(/\.tree-section \+ \.tree-section\s*\{[^}]*border-top:/);
   });
 });
 

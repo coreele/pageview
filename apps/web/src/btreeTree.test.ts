@@ -204,6 +204,8 @@ describe("visibleTableCatalog (P0-1 / P0-4 / P0-7)", () => {
     expect(rows.find((r) => r.indexOid === 16384)?.expandable).toBe(true);
     expect(rows.find((r) => r.indexOid === 16385)?.expandable).toBe(false);
     expect(rows.find((r) => r.indexOid === 16384)?.blockCount).toBe(5);
+    expect(rows.find((r) => r.key === "table:16384")?.title).toBe("orders");
+    expect(rows.find((r) => r.key === "table:16384")?.hoverTitle).toBe("public.orders");
   });
 
   it("expands the selected table's heap window and highlights the loaded blk (P0-7)", () => {
@@ -353,7 +355,7 @@ describe("treeKindTokens (V-1)", () => {
     ).toEqual([]);
   });
 
-  it("labels a table node with its block count (P0-1)", () => {
+  it("labels a table node with no kind pills", () => {
     expect(
       treeKindTokens({
         role: "table",
@@ -364,10 +366,10 @@ describe("treeKindTokens (V-1)", () => {
         status: "ready",
         blockCount: 12,
       }),
-    ).toEqual(["12 blk"]);
+    ).toEqual([]);
   });
 
-  it("labels a btree index with btree and block count", () => {
+  it("labels a btree index with btree only", () => {
     expect(
       treeKindTokens({
         role: "index",
@@ -380,7 +382,7 @@ describe("treeKindTokens (V-1)", () => {
         accessMethod: "btree",
         valid: true,
       }),
-    ).toEqual(["btree", "4 blk"]);
+    ).toEqual(["btree"]);
   });
 
   it("labels a non-btree index with its access method (P0-5)", () => {
@@ -422,6 +424,8 @@ describe("visibleIndexCatalog (P0-2 / P0-4 / P0-5)", () => {
     const { rows, emptyHint } = visibleIndexCatalog(INDEXES, EMPTY_BTREE_TREE, null, null);
     expect(emptyHint).toBeNull();
     expect(rows.map((r) => r.key)).toEqual(["index:24576", "index:24577"]);
+    expect(rows.find((r) => r.indexOid === 24576)?.title).toBe("tb_pkey");
+    expect(rows.find((r) => r.indexOid === 24576)?.hoverTitle).toBe("public.tb_pkey");
     expect(rows.find((r) => r.indexOid === 24576)?.expandable).toBe(true);
     expect(rows.find((r) => r.indexOid === 24577)?.expandable).toBe(false);
   });

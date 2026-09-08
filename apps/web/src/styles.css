@@ -1896,28 +1896,46 @@ html.is-split-dragging * {
   flex: 0 0 auto;
 }
 
+.tree-section + .tree-section {
+  border-top: 1px solid var(--border);
+  padding-top: 0.15rem;
+  margin-top: 0.1rem;
+}
+
 .tree-section-head {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 0.1rem;
   width: 100%;
   margin: 0;
-  padding: 0.1rem 0.15rem;
+  padding: 0.28rem 0.2rem;
   font: inherit;
-  color: var(--text-muted);
-  background: transparent;
+  color: var(--text);
+  background: var(--surface);
   border: 0;
   cursor: pointer;
   text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .tree-section-head:hover {
   color: var(--text);
+  background: color-mix(in srgb, var(--border) 22%, var(--surface));
 }
 
 .tree-section-title {
-  font-size: 0.72rem;
-  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tree-section-head .btree-tree-expander {
+  color: var(--text);
+  width: 1rem;
+  flex-basis: 1rem;
 }
 
 .tree-section-body {

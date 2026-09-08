@@ -51,6 +51,7 @@ export type TreeRow = {
   blockCount?: number;
   accessMethod?: string;
   valid?: boolean;
+  hoverTitle?: string;
 };
 
 export type TreeFetch = { oid: number; blkno: number };
@@ -76,11 +77,9 @@ export function treeKindTokens(
     | "valid"
   >,
 ): string[] {
-  if (row.role === "table") return [`${row.blockCount ?? 0} blk`];
+  if (row.role === "table") return [];
   if (row.role === "index") {
-    const tokens: string[] = row.expandable
-      ? ["btree", `${row.blockCount ?? 0} blk`]
-      : [row.accessMethod ?? "index"];
+    const tokens: string[] = row.expandable ? ["btree"] : [row.accessMethod ?? "index"];
     if (row.valid === false) tokens.push("invalid");
     return tokens;
   }
@@ -362,9 +361,17 @@ export function visibleHeapBlockList(
 
 export type HeapTableInfo = {
   oid: number;
+  name?: string;
   qualifiedName: string;
   blocks: number;
 };
+
+/** Bare relation name for catalog rows; schema stays in the hover title. */
+export function relationLeafName(qualifiedName: string, name?: string): string {
+  if (name) return name;
+  const dot = qualifiedName.lastIndexOf(".");
+  return dot >= 0 ? qualifiedName.slice(dot + 1) : qualifiedName;
+}
 
 export function visibleTableCatalog(
   tables: readonly HeapTableInfo[],
@@ -384,7 +391,8 @@ export function visibleTableCatalog(
       indexOid: table.oid,
       blkno: null,
       role: "table",
-      title: table.qualifiedName,
+      title: relationLeafName(table.qualifiedName, table.name),
+      hoverTitle: table.qualifiedName,
       depth: 0,
       pageType: "unknown",
       level: null,
@@ -416,6 +424,7 @@ export function visibleTableCatalog(
 
 export type IndexCatalogInfo = {
   oid: number;
+  name?: string;
   qualifiedName: string;
   accessMethod: string;
   blocks: number;
@@ -442,7 +451,8 @@ export function visibleIndexCatalog(
       indexOid: idx.oid,
       blkno: null,
       role: "index",
-      title: idx.qualifiedName,
+      title: relationLeafName(idx.qualifiedName, idx.name),
+      hoverTitle: idx.qualifiedName,
       depth: 0,
       pageType: "unknown",
       level: null,

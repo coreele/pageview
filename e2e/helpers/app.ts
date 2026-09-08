@@ -33,7 +33,8 @@ export function tableSelect(page: Page) {
 }
 
 export async function waitTableListed(page: Page, name: string): Promise<void> {
-  await expect(page.locator("#btree-tree-panel .btree-tree-blk", { hasText: name })).toHaveCount(1, {
+  const leaf = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1) : name;
+  await expect(page.locator("#btree-tree-panel .btree-tree-blk", { hasText: leaf })).toHaveCount(1, {
     timeout: 15_000,
   });
 }
