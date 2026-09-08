@@ -38,7 +38,7 @@ N/A：Load / 展开 / Retry / 空态文案不变。
 
 ## 布局与视觉方向
 
-- 构图与层级: 行铺满面板内宽（至少 `min-width: 10.5rem`），选中不再缩成文字胶囊。
+- 构图与层级: 行铺满面板内宽（至少 `min-width: 10.5rem`），选中不再缩成文字胶囊。expander 图形贴近 `blk` 文案：窄槽 + 行 `gap: 0`，不要在三角/圆点右侧再留半个按钮宽。
 - 色彩 / 字体 / 氛围: 复用 `--surface` `--border` `--accent` `--text-muted`。当前行 `color-mix(--accent 16%, --surface)` + `inset` 左侧 2px `--accent`。blk 号 `font-variant-numeric: tabular-nums`、略加字重。类型标签小 pill（浅底 + 圆角），不用 `.legend-chip` 色块以免抢结构图图例。
 - 明确避开: Unicode `▾▸•`；把 `leaf L0 root` 再拼成单字符串；加宽列。
 

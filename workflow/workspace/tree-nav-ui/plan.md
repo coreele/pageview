@@ -21,11 +21,12 @@
 
 1. **kind tokens**（完成条件：`treeKindTokens` 对 meta / leaf+L0+root / heap ready / loading 有单测）
 2. **面板排版**（完成条件：`BtreeTreePanel` 渲染拆开的 kind；expander 无 `▾▸•`；CSS 当前行整宽 + 左条 + hover）
-3. **回归**（完成条件：既有 `btreeTree` / web 测试绿）
+3. **expander 贴文案**（完成条件：行 `gap: 0`；expander 槽宽 ≤ 0.9rem）
+4. **回归**（完成条件：既有 `btreeTree` / web 测试绿）
 
 ## 依赖与顺序
 
-1 → 2 → 3。
+1 → 2 → 3 → 4。
 
 ## 触碰路径
 
@@ -40,11 +41,12 @@
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | kind 拆成 token | leaf+root → `leaf`,`L0`,`root`；meta → `meta`；heap ready → `[]` | |
-| V-2 | expander 非 Unicode 几何 | `BtreeTreePanel.tsx` 无 `▾▸•`；CSS 含 caret/dot 规则 | |
-| V-3 | 当前行整宽高亮 | CSS `.btree-tree-row` `width: 100%` 且 current 含 inset accent | |
-| V-reg | web 测试 | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | kind 拆成 token | leaf+root → `leaf`,`L0`,`root`；meta → `meta`；heap ready → `[]` | 通过 |
+| V-2 | expander 非 Unicode 几何 | `BtreeTreePanel.tsx` 无 `▾▸•`；CSS 含 caret/dot 规则 | 通过 |
+| V-3 | 当前行整宽高亮 | CSS `.btree-tree-row` `width: 100%` 且 current 含 inset accent | 通过 |
+| V-4 | expander 贴近 blk 文案 | 行 `gap: 0`；`.btree-tree-expander` 槽宽 ≤ 0.9rem | 通过 |
+| V-reg | web 测试 | 退出码 0 | 通过 |
+| V-static | typecheck | 退出码 0 | 通过 |
 
 ## 验证缺口
 
@@ -72,3 +74,4 @@
 | 日期 | 摘要 |
 |---|---|
 | 2026-09-08 | 初稿 |
+| 2026-09-08 | 用户反馈：收紧箭头/圆点与文字间距 |

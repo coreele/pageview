@@ -19,9 +19,13 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | FF 合入 main | | | |
 
 ## 进度笔记
 
 - 2026-09-08 Manager 登记。用户截图树面板并要求「优化一下导航部分的 UI」。路径 `fast`：纯视觉与标签排版，不改导航语义。Spec/Design/Review skipped。
 - 2026-09-08 Planner：`ui-design.md`、`plan.md`。进入 `developing`。
+- 2026-09-08 Developer：kind pills、整行高亮、CSS caret。提交 `dbd98fa` / `a2f2bfb`。Review skipped。QA Pass。进入 `merge-approval`。
+- 2026-09-08 用户：箭头/圆点与 `blk` 文字间距过大。回 `developing`。
+- 2026-09-08 Developer：expander 槽 0.85rem、行 gap 0。提交 `243f6e3`。QA 第 2 轮 Pass。进入 `merge-approval`。
+- 2026-09-08 用户授权合并（「合入」）。状态 `done`。第三阶段提交纳入工作流文档。
