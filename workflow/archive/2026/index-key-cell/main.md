@@ -7,7 +7,7 @@
 文档影响: N/A（README 未描述结构图 key 格文案）
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/index-key-cell/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/index-key-cell/`，无子目录、无版本后缀。
 
 ## 门禁
 
@@ -19,7 +19,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | FF 合入 main | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -29,3 +29,4 @@
 - 2026-09-08 用户：「可以显示具体值吗」。回 `developing`：有列元数据时按列拆成解码值格（与 heap 列格同形），不再把 hex 当作主展示。
 - 2026-09-08 Developer：`applyIndexKeyCellValues` 换成 `tuple-N.col-*`。提交 `32d4772`。Review skipped。QA 第 2 轮 Pass。进入 `merge-approval`。
 - 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
+- 2026-09-08 FF 合入 `main`（`a7fb8af`，实现 `32d4772`）并归档至 `workflow/archive/2026/index-key-cell/`。

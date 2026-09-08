@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | index-key-cell |
-| 已归档 | 23 | add-ci，auto-install-extensions，btree-tree-view，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 24 | add-ci，auto-install-extensions，btree-tree-view，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| index-key-cell | index-key-cell → main | 待 FF 合入 |
+| — | | |
 
 ## 归档索引
 
@@ -64,6 +64,7 @@
 | fix-dev-web-page-core | archived | `workflow/archive/2026/fix-dev-web-page-core/main.md` |
 | fix-e2e-wal-core-ts | archived | `workflow/archive/2026/fix-e2e-wal-core-ts/main.md` |
 | hex-collapse | archived | `workflow/archive/2026/hex-collapse/main.md` |
+| index-key-cell | archived | `workflow/archive/2026/index-key-cell/main.md` |
 | index-key-decode | archived | `workflow/archive/2026/index-key-decode/main.md` |
 | index-viewer | archived | `workflow/archive/2026/index-viewer/main.md` |
 | infomask-detail | archived | `workflow/archive/2026/infomask-detail/main.md` |
