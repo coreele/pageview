@@ -11,10 +11,12 @@ describe("tree nav expander (V-2)", () => {
     expect(text).not.toMatch(/[▾▸•]/);
   });
 
-  it("draws a CSS caret and leaf dot", () => {
+  it("draws a CSS caret on section headers and type icons on rows", () => {
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
-    expect(css).toMatch(/\.btree-tree-expander::before/);
-    expect(css).toMatch(/\.btree-tree-expander--leaf::before/);
+    expect(css).toMatch(/\.tree-section-head \.btree-tree-expander::before/);
+    expect(css).toMatch(/\.btree-tree-row\[data-role="table"\] \.btree-tree-expander::before/);
+    expect(css).toMatch(/\.btree-tree-row\[data-role="index"\] \.btree-tree-expander::before/);
+    expect(css).toMatch(/\.btree-tree-row\[data-role="page"\] \.btree-tree-expander::before/);
   });
 });
 
@@ -35,7 +37,7 @@ describe("tree nav expander spacing (V-4)", () => {
   it("keeps the caret/dot slot tight against the blk label", () => {
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
     expect(css).toMatch(/\.btree-tree-row\s*\{[^}]*gap:\s*0/);
-    expect(css).toMatch(/\.btree-tree-expander\s*\{[^}]*width:\s*0\.85rem/);
+    expect(css).toMatch(/\.btree-tree-expander\s*\{[^}]*width:\s*0\.95rem/);
     expect(css).toMatch(/\.btree-tree-label\s*\{[^}]*padding-left:\s*0\.1rem/);
   });
 });

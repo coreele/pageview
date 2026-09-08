@@ -1994,17 +1994,7 @@ html.is-split-dragging * {
   padding: 0.04rem 0.2rem;
 }
 
-.btree-tree-expander {
-  position: relative;
-  width: 0.85rem;
-  flex: 0 0 0.85rem;
-  align-self: stretch;
-  min-height: 1.4rem;
-  padding: 0;
-  color: var(--text-muted);
-}
-
-.btree-tree-expander::before {
+.tree-section-head .btree-tree-expander::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -2017,27 +2007,60 @@ html.is-split-dragging * {
   transform-origin: 30% 50%;
 }
 
-.btree-tree-expander[aria-expanded="true"]::before {
-  transform: translate(-20%, -50%) rotate(90deg);
+.btree-tree-expander {
+  position: relative;
+  width: 0.95rem;
+  flex: 0 0 0.95rem;
+  align-self: stretch;
+  min-height: 1.4rem;
+  padding: 0;
+  color: var(--text-muted);
 }
 
 .btree-tree-expander--leaf {
   cursor: default;
 }
 
-.btree-tree-expander--leaf::before {
+.btree-tree-expander--loading::before {
+  content: none;
+}
+
+/* Catalog / page glyphs — triangles stay on section headers only. */
+.btree-tree-row[data-role="table"] .btree-tree-expander::before,
+.btree-tree-row[data-role="index"] .btree-tree-expander::before,
+.btree-tree-row[data-role="page"] .btree-tree-expander::before {
   content: "";
-  left: 0.28rem;
-  width: 0.28rem;
-  height: 0.28rem;
-  border: 0;
-  border-radius: 50%;
-  background: currentColor;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  border: 1px solid currentColor;
+  background: transparent;
   transform: translate(-50%, -50%);
 }
 
-.btree-tree-expander--loading::before {
-  content: none;
+.btree-tree-row[data-role="table"] .btree-tree-expander::before {
+  width: 0.7rem;
+  height: 0.52rem;
+  border-radius: 1px;
+  background-image: linear-gradient(currentColor, currentColor),
+    linear-gradient(currentColor, currentColor);
+  background-size: 1px 100%, 100% 1px;
+  background-position: 50% 0, 0 50%;
+  background-repeat: no-repeat;
+}
+
+.btree-tree-row[data-role="index"] .btree-tree-expander::before {
+  width: 0.4rem;
+  height: 0.58rem;
+  border-bottom: 0;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+
+.btree-tree-row[data-role="page"] .btree-tree-expander::before {
+  width: 0.46rem;
+  height: 0.58rem;
+  border-radius: 1px 0.18rem 1px 1px;
 }
 
 .btree-tree-label {
