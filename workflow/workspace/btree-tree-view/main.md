@@ -19,7 +19,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入 main 后归档 | | | |
 
 ## 进度笔记
 
@@ -27,3 +27,9 @@
 - 2026-09-07 Analyst 初稿 Spec（互斥 structure\|tree）。进入 `spec-approval`。
 - 2026-09-07 用户确认并改交互：「tree 视图做和 detail/hex 一样做类似开关即可」。Spec 重写为 chrome Show/Collapse tree、默认折叠、三联区保留、URL 不编码。开放问题全部裁决。Spec 用户确认 `approved`。
 - 2026-09-07 Planner：`design.md`（client 按需 raw page + page-core 纯函数 + 独立树缓存）、`ui-design.md`、`plan.md`。进入 `developing`。
+- 2026-09-07 Developer：实现树开关面板。代码提交 `fe9d523`。已 rebase `origin/main` `872e7f6`。Review Approve。QA Pass。进入 `merge-approval`。
+- 2026-09-07 用户反馈树列过宽（`0.28fr` / `22rem` 在宽屏占约四分之一，内容仅两行）。回 `developing` 收窄为 `fit-content(13rem)`。提交 `36b5ff3`。Review 复审 Approve。QA 轮次 2 Pass。再入 `merge-approval`。
+- 2026-09-08 用户扩大范围：「tree 功能同步到 table 模式，允许单独开工作项也可以在此工作项完成」。本项内完成：表页同样 Show tree，列出该表索引并展开 B-tree 页拓扑。Spec 增 P0-9/P0-10，修订 P0-3/P0-7。提交 `3dae723`。Review Approve。QA 轮次 3 Pass。再入 `merge-approval`。
+- 2026-09-08 用户更正：「table 模式本身的导航，它没有 tree 结构就是一个列表了」。回 `developing`。Spec P0-9/P0-10 改为堆块号扁平列表；点行 `loadBlk`，不切 index、不列索引。`3dae723` 的森林实现作废。
+- 2026-09-08 Developer 提交 `d086861`。Review Approve。QA 轮次 4 Pass。再入 `merge-approval`。
+- 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。

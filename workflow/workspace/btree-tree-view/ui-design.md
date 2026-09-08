@@ -4,7 +4,7 @@
 
 ## 背景与范围
 
-在已加载 B-tree 索引页时，chrome 增加与 **Collapse detail / Collapse hex** 同类的 **Show tree / Collapse tree**。展开后主分栏多一块树面板；结构图与 hex 仍在。heap / WAL 无此按钮。
+在已加载 B-tree 索引页**或 heap 表页**时，chrome 增加与 **Collapse detail / Collapse hex** 同类的 **Show tree / Collapse tree**。展开后主分栏多一块导航面板；结构图与 hex 仍在。索引模式为 B-tree 拓扑；表模式为堆块号扁平列表。WAL 无此按钮。
 
 ## 非目标
 
@@ -21,14 +21,15 @@
 | 看清自己在哪一层 | 打开树，当前 blk 高亮 | 路径自动展开 |
 | 跳到子页/root | 点节点，三联区换成该页 | 树保持开 |
 | 关掉树 | Collapse tree | 面板卸载，不占列 |
-| 看表 / WAL | 无树按钮 | P0-3 |
+| 看表页块列表 | 打开面板，点另一 blk | 扁平，无 expander |
+| WAL | 无树按钮 | P0-3 |
 
 ## 信息架构与关键界面
 
 ```text
 ┌─ 主带 ─────────────────────────────────────────────────────────┐
 │ 标题 · 徽标 · [Show detail] [Show hex] [Show tree?] · Theme     │
-│                         tree 仅 btree page_loaded 时出现         │
+│                         tree 在 btree 或 heap page_loaded 时出现 │
 ├─ 次带 ─────────────────────────────────────────────────────────┤
 │ 表|索引 · 选择 · blkno · Load · Refresh · 页统计（不变）         │
 ├─ Main ─────────────────────────────────────────────────────────┤
@@ -55,9 +56,9 @@ chrome-actions 从左到右：**detail → hex → tree（若有）**。Theme �
 
 ## 布局与视觉方向
 
-- 构图与层级: 树是导航列，结构图仍是主扫读面。宽屏（≥960）三列时树列 `minmax(180px, 0.28fr)` 且 `max-width: 22rem`，避免压死结构图。
+- 构图与层级: 树是导航列，结构图仍是主扫读面。宽屏（≥960）树列 **`fit-content(13rem)`**（约 168–208px），不随视口 `fr` 膨胀；内容更短时随行宽收缩。
 - 色彩: 复用 `--surface` `--border` `--accent` `--text-muted`。当前节点 `color-mix(--accent 18%, --surface)` 背景（可对齐 `.chrome-badge` 选中浓度）。类型芯片用现有 `.legend-chip` / meta-item 字号。
-- 明确避开: 新主色；树里再画 32B 图；折叠后残留「Tree collapsed」占位列。
+- 明确避开: 新主色；树里再画 32B 图；折叠后残留「Tree collapsed」占位列；宽屏树列使用 `0.28fr` / `22rem`（2026-09-07 用户反馈过宽，已废止）。
 
 节点行：
 
@@ -87,7 +88,7 @@ chrome-actions 从左到右：**detail → hex → tree（若有）**。Theme �
 |---|---|
 | 断点 / 适配 | `<960`：树在结构图**之上**全宽；hex 仍在下（既有单列）。`≥960`：树列、结构列、hex 列从左到右 |
 | 键盘 / 焦点 | 开关在 chrome tab 序中位于 hex 之后；折叠卸载后面板不可聚焦 |
-| 语义 / 对比度 | 树 `aria-label="B-tree pages"`；当前节点 `aria-current="true"`；light/dark 均用 token，不写死灰字 |
+| 语义 / 对比度 | 索引树 `aria-label="B-tree pages"`；表列表 `aria-label="Heap blocks"`；当前节点 `aria-current="true"`；light/dark 均用 token，不写死灰字 |
 
 ## 开放问题
 
@@ -97,7 +98,7 @@ N/A（Spec 已裁决开关形态与默认折叠）。
 
 | 风险 | 影响 | 缓解 |
 |---|---|---|
-| 三列过窄 | 结构图难扫 | 树列 max-width 22rem；用户可 Collapse hex 或 tree |
+| 三列过窄 | 结构图难扫 | 树列固定 `fit-content(13rem)`，不抢 fr；用户可 Collapse hex 或 tree |
 | expander 与 Load 抢点击 | 误加载 | 箭头与标签分控件 |
 
 ## 对 Plan 与 Developer 的要点
@@ -109,6 +110,6 @@ N/A（Spec 已裁决开关形态与默认折叠）。
 
 ### Developer
 
-- heap 的 `main-split` 不增加 `data-tree`
+- heap 的 `main-split` 同样可有 `data-tree`，内容是块列表
 - 不要在树 pane 内再放 Collapse tree
 - 文案英文，与 Show hex / Collapse detail 一致

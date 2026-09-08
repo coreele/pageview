@@ -17,14 +17,14 @@
 
 ## 目标摘要
 
-B-tree 索引页增加与 hex/detail 同类的 **Show tree / Collapse tree** 面板：按需展示拓扑、高亮当前块、点节点加载该页；默认折叠；不改 server、URL、heap、WAL。
+B-tree 索引页与 heap 表页增加与 hex/detail 同类的 **Show tree / Collapse tree** 面板：索引按需展示拓扑，表为块号列表；高亮当前块、点节点加载该页；默认折叠；不改 server、URL、WAL。
 
 ## 任务拆解
 
 1. **page-core 纯函数**（完成条件：`btreeDownlinks` / 节点摘要 / `pathFromCache` 有单测；不改 `parseBtreePage`）
 2. **web 树状态模块**（完成条件：缓存、展开、打开时该 fetch 的 blk 集合、P0-5 计数、换关系 reset；mock fetch）
 3. **`BtreeTreePanel`**（完成条件：节点列表、expander 与 Load 分离、高亮、失败 Retry、孤立警告）
-4. **App 接线**（完成条件：chrome 按钮仅 btree 页；折叠卸载 pane；展开 fetch 不调用 `loadIndexBlk`；激活节点走 `loadIndexBlock`；reset 清树；heap 分栏不变）
+4. **App 接线**（完成条件：chrome 按钮在 btree/heap 页；折叠卸载 pane；索引展开 fetch 不调用 `loadIndexBlk`；索引点节点走 `loadIndexBlock`；表点行走 `loadBlk` 且不切 kind；换表/换索引/换 kind/WAL reset 清树）
 5. **布局 CSS**（完成条件：`data-tree`；宽屏树列受限宽；窄屏树在上；折叠无占位列）
 6. **用户文档**（完成条件：README.md 与 README.zh-CN.md 索引节各一句开关说明）
 
@@ -52,7 +52,7 @@ B-tree 索引页增加与 hex/detail 同类的 **Show tree / Collapse tree** 面
 |---|---|---|---|
 | P0-1 | 默认折叠：加载 btree 后按钮 Show tree、无 `#btree-tree-panel` | web 测试断言初始 `treeCollapsed` / 无 pane | |
 | P0-2 | 展开后有面板且结构区仍在；再折叠卸载 | 组件/状态测试 | |
-| P0-3 | heap / WAL 无树按钮 | App 条件：仅 `pageView.kind==="btree"` 渲染按钮 | |
+| P0-3 | WAL 无树按钮 | App 条件：`treeChromeVisible` 仅 btree\|heap | |
 | P0-4 | pathFromCache：meta→root→叶（高度 2 fixture） | page-core 测试 | |
 | P0-5 | 打开树 fetch 集合 = meta + 路径，不含全部叶 | web 测试 mock 计数 | |
 | P0-6 | 激活子节点调用 Load、树仍展开 | btreeTree + 面板回调测试 | |

@@ -4,7 +4,7 @@
 >
 > **feature-id**：`btree-tree-view`（未拆分）
 >
-> **确认记录**：路径 `full`；Spec 用户确认 **approved**（2026-09-07）。用户裁决：树视图做成与 **Collapse detail / Collapse hex** 同类的开关面板，不替换主区三联区。其余开放问题按下文「已裁决」固化。
+> **确认记录**：路径 `full`；Spec 用户确认 **approved**（2026-09-07）。用户裁决：树视图做成与 **Collapse detail / Collapse hex** 同类的开关面板，不替换主区三联区。**2026-09-08** 用户扩大范围：同一开关同步到 table 模式。同日更正：table 没有树，面板是堆块号**列表**（不是该表索引森林）。
 >
 > **Design 门禁**：`required`。树模型如何从 raw page 组装、是否新增只读聚合端点、虚拟列表，由 `design.md` 决定。本文件对解析层归属保持中立。
 >
@@ -20,7 +20,7 @@
 
 1. 已加载 B-tree 索引页后，chrome 出现 **Show tree / Collapse tree**，默认折叠；展开后主区多一块树面板，结构图 / hex / 详情仍在。
 2. 树按拓扑展示可达页，高亮当前 blkno；展开节点列出子页（按需取页，禁止全叶预取）。
-3. 激活树节点即加载该 blkno 为当前页（三联区跟着更新）；树面板保持打开。heap / WAL / 既有块导航不回退。
+3. 激活节点即加载该 blkno 为当前页（三联区跟着更新）；面板保持打开。索引模式加载同索引页；表模式加载同表堆页。WAL / 既有块导航不回退。
 
 ## 非目标
 
@@ -30,8 +30,9 @@
 - 树开关状态写入 URL（与 hex/detail 折叠同属瞬态，见 `url-deeplink` 非目标）
 - 打开树时一次性拉取该索引全部叶页或全部块
 - 按键查找 / 树节点上展示解码键值
-- 非 B-tree AM；heap 页树；WAL 变更；写入类操作
-- 修改 `/api/tables/*`、heap `parsePage`；非 8KB 页
+- 非 B-tree AM 的页拓扑；在 heap 上画 B-tree；从表导航切到 index kind
+- 表模式下列出该表索引或跳进索引页
+- 修改 `/api/tables/*`、heap `parsePage`；非 8KB 页；WAL 变更；写入类操作
 
 ## 范围与可见行为
 
@@ -39,13 +40,14 @@
 
 1. **开关（对齐 hex / detail）**
    - 顶栏仍只有 **Page | WAL**。树不是新 mode。
-   - 仅当 `kind=index` 且**已成功加载**一篇 B-tree 页时，chrome-actions 出现树开关，文案与现有开关同形：展开态 **Collapse tree**，折叠态 **Show tree**；`aria-expanded` / `aria-controls` 指向树面板。
-   - 默认**折叠**：不渲染树面板、不占列（与 hex 折叠卸载 pane 相同）。
-   - 展开：在主分栏中挂载树面板；结构图与（未折叠的）hex / detail **继续显示**。
-   - 再点折叠：卸载树面板；不丢索引选择、当前 blkno、已加载页、hex/detail 折叠态。
-   - 开关本身不 Load 当前页。heap 表页、WAL、未加载索引：不出现该按钮。
+   - 已成功加载一篇 **B-tree 索引页或 heap 表页**时，chrome-actions 出现树开关，文案与现有开关同形：展开态 **Collapse tree**，折叠态 **Show tree**；`aria-expanded` / `aria-controls` 指向树面板。
+   - 默认**折叠**：不渲染面板、不占列（与 hex 折叠卸载 pane 相同）。
+   - 展开：在主分栏中挂载面板；结构图与（未折叠的）hex / detail **继续显示**。
+   - 再点折叠：卸载面板；不丢关系选择、当前 blkno、已加载页、hex/detail 折叠态。
+   - 开关本身不 Load 当前页。WAL、未加载页：不出现该按钮。
+   - **表模式（2026-09-08 更正）**：面板是当前表的**扁平块号列表**（`blk 0` … `blk blocks-1`），不是 B-tree，也不列出该表索引。点一行 Load 该堆页，保持 table kind。块数过大时只渲染当前块附近窗口，并提示范围。
 
-2. **树里有什么**
+2. **索引树里有什么**
    - **meta 节点**：blk 0，标 `meta`；子节点为 `btm_root`，若 `btm_fastroot` 不同则两者都列出。
    - **数据页节点**：经 downlink 可达的页。节点至少：blkno、`internal` / `leaf`（root 另标）、`btpo_level`。
    - **当前页**高亮。首次展开树时，从 meta/root 到当前页的路径自动展开（路径规则见已裁决 4）。
@@ -60,11 +62,12 @@
    - 叶节点不再展出索引子页（heap TID 仍走既有 peek）。
    - 仅为展开而取的页进入树缓存，**不得**因此把主区当前页换成被展开的祖先页。
 
-4. **在树中导航**
-   - 激活某 meta/数据页节点：将该 blkno Load 为当前页（已是当前页则不重复请求）。三联区更新。树保持展开。
-   - Load 失败：当前页与高亮保持失败前；既有错误面板；树其余节点仍可操作。
-   - 次带 Load / 块导航成功后，树高亮跟随当前 blkno；若该页已在已展开路径上则滚入可视。
-   - 换索引、切回表、切 WAL：卸载树、折叠开关消失、清除展开态与树缓存（同 `resetPageView`）。
+4. **在面板中导航**
+   - **索引**：激活某 meta/数据页节点：将该 blkno Load 为当前索引页（已是当前页则不重复请求）。三联区更新。面板保持展开。
+   - **表**：激活某块号：将该 blkno Load 为当前堆页。不改 `relationKind`，不切索引。
+   - Load 失败：当前页与高亮保持失败前；既有错误面板；其余节点仍可操作。
+   - 次带 Load / 块导航成功后，高亮跟随当前 blkno；可见则滚入可视。
+   - 换**表**、换索引、表 ↔ 索引切换、改索引侧表过滤器、切 WAL：清除展开态与树缓存（表列表与索引树内容不同）。
 
 5. **明确保留**
    - 结构图 / hex / 详情 / 块导航 / heap peek / Refresh diff
@@ -97,7 +100,7 @@
 |---|---|
 | 展开失败 | 该节点失败 + 可重试；其他分支保持。复用既有页加载错误码。 |
 | 解析部分失败 | 可解析部分仍展示，异常警告，不得崩溃。 |
-| 无按钮 | 未加载 B-tree 页时不出现 Show tree。 |
+| 无按钮 | 未加载 heap 页且未加载 B-tree 页时不出现 Show tree。WAL 永不出现。 |
 | 禁止 | 为渲染树而写入 SQL（`CREATE EXTENSION` 自动安装除外）；全量叶预取；静默丢子节点。 |
 
 ## 验收
@@ -114,8 +117,8 @@
   When 点 Show tree 再点 Collapse tree，  
   Then 先出现树面板且三联区仍在，再卸载树面板；索引、blkno、已加载页不变。
 
-- **P0-3 非索引无按钮**  
-  Given 当前为 heap 表页或 WAL，  
+- **P0-3 WAL 无按钮**  
+  Given 当前为 WAL，  
   When 查看 chrome-actions，  
   Then 无 Show tree / Collapse tree。
 
@@ -134,10 +137,20 @@
   When 用户激活该节点且加载成功，  
   Then 当前 blkno 变为该页，三联区与元信息条更新，树仍展开且高亮跟随。
 
-- **P0-7 换关系退出树**  
+- **P0-7 换表 / WAL 退出树**  
   Given 树已展开，  
-  When 改选另一索引、切回表或切到 WAL，  
-  Then 树卸载、展开态与缓存清除；新上下文无树按钮（除非新索引页再次加载）。
+  When 用户改选另一张表或切到 WAL，  
+  Then 树展开态与缓存清除。
+
+- **P0-9 表模式块列表**  
+  Given 已加载 heap 页，该表 `blocks = N`（N 在软上限内），  
+  When 点 Show tree，  
+  Then 面板列出 `blk 0` … `blk N-1`（扁平，无 expander），当前 blkno 高亮；不出现索引名。
+
+- **P0-10 表列表加载堆页**  
+  Given 表模式列表已展开且可见另一块号，  
+  When 用户激活该行且加载成功，  
+  Then 仍为 table kind，当前页为该堆 blk，面板仍打开且高亮跟随。
 
 - **P0-8 既有路径不回退**  
   Given 表页与索引三联区既有操作（选表加载、块导航、非 B-tree 拦截、hex/detail 开关），  

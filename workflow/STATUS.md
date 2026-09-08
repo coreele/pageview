@@ -8,10 +8,10 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 1 | btree-tree-view |
+| 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 0 | — |
+| 待归档 | 1 | btree-tree-view |
 | 已归档 | 21 | add-ci，auto-install-extensions，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，url-deeplink，wal-viewer |
 
 ## 等待用户
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| btree-tree-view | developing | `workflow/workspace/btree-tree-view/main.md` | Developer 实施 | B-tree chrome 树开关面板；默认折叠 |
+| — | | | | |
 
 ## 待办
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| — | | |
+| btree-tree-view | btree-tree-view → main | 待 FF 合入 |
 
 ## 归档索引
 

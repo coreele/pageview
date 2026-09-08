@@ -4,7 +4,7 @@
 
 ## 背景与约束
 
-在 Page 模式 B-tree 页上增加可折叠树面板。约束来自已确认 Spec：
+在 Page 模式 B-tree 页与 heap 表页上增加可折叠导航面板。约束来自已确认 Spec：
 
 - 复用既有 `GET /api/indexes/:oid/pages/:blkno`；不强制新端点
 - 页类型 / downlink 只来自 raw bytes 解析（与 `index-viewer` 一致）
@@ -79,12 +79,19 @@ apps/web/src/App.tsx            # chrome 开关、pane 挂载、fetch 调度、�
 
 web 缓存条目：`{ status: loading | ready | error, page?, error?, children?: number[] }`。`ready` 时 `children = btreeDownlinks(page)`。未取到的子节点只有 blkno，类型未知，可展开（展开即 fetch）。叶在 fetch 后不可再展。
 
+## 表模式列表（2026-09-08 更正）
+
+heap 没有拓扑。面板数据来自已加载表的 `blocks`，不请求 `/api/indexes`、不写树缓存。
+
+`visibleHeapBlockList(blockCount, currentBlkno)`：`blocks ≤ 2000` 列出全部；更大则窗口对准当前 blk（约 2000 行）并带范围提示。点击走 `loadBlk`，`relationKind` 保持 table。
+
+索引模式仍用按 oid 分片的树缓存与 `visibleTree(state, oid, currentBlkno)`（页拓扑，无索引名根节点）。
+
 ## 影响面
 
-- `App.tsx` chrome-actions 增加按钮；btree 的 `main-split` 增加可选左/上 pane
-- heap `main-split` 不加树列
-- `resetPageView` / 换 kind / 换 WAL 必须清树状态
-- README 索引节补一句开关说明
+- `App.tsx` chrome-actions 增加按钮；heap 与 btree 的 `main-split` 均可挂左/上 pane
+- 换表 / 换索引 / 换 kind / 切 WAL 必须清树状态
+- README 说明：索引=树，表=块列表
 - 不改 URL schema、不改 server 路由
 
 ## 风险
@@ -109,4 +116,4 @@ web 缓存条目：`{ status: loading | ready | error, page?, error?, children?:
 - 不要改 `parseBtreePage` / heap / WAL
 - 树 fetch 失败不要 `setPageView(null)`
 - 换索引必须丢掉 cache，避免串页
-- 按钮只在 `pageView.kind === "btree"` 时渲染
+- 按钮在 `pageView.kind === "btree" | "heap"` 时渲染；表模式禁止列索引或切 kind
