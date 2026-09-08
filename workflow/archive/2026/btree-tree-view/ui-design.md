@@ -1,6 +1,6 @@
 # UI Design: btree-tree-view
 
-> 只记录需要决策的界面与交互事项。依据 Spec `workflow/workspace/btree-tree-view/spec.md`、Design `design.md`。主题：沿用 light/dark，不新增皮肤。
+> 只记录需要决策的界面与交互事项。依据 Spec `workflow/archive/2026/btree-tree-view/spec.md`、Design `design.md`。主题：沿用 light/dark，不新增皮肤。
 
 ## 背景与范围
 

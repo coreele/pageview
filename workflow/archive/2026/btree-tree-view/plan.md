@@ -2,9 +2,9 @@
 
 ## 元信息
 
-- 依据 Spec: `workflow/workspace/btree-tree-view/spec.md`
-- 依据 Design: `workflow/workspace/btree-tree-view/design.md`
-- 依据 UI: `workflow/workspace/btree-tree-view/ui-design.md`
+- 依据 Spec: `workflow/archive/2026/btree-tree-view/spec.md`
+- 依据 Design: `workflow/archive/2026/btree-tree-view/design.md`
+- 依据 UI: `workflow/archive/2026/btree-tree-view/ui-design.md`
 - 路径等级: full
 - Review 门禁: required
 - 最低验证层: unit + build + static

@@ -7,7 +7,7 @@
 文档影响: README.md / README.zh-CN.md 索引浏览节说明树开关。不改 URL。
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/btree-tree-view/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/btree-tree-view/`。
 
 ## 门禁
 
@@ -19,7 +19,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main 后归档 | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -33,3 +33,4 @@
 - 2026-09-08 用户更正：「table 模式本身的导航，它没有 tree 结构就是一个列表了」。回 `developing`。Spec P0-9/P0-10 改为堆块号扁平列表；点行 `loadBlk`，不切 index、不列索引。`3dae723` 的森林实现作废。
 - 2026-09-08 Developer 提交 `d086861`。Review Approve。QA 轮次 4 Pass。再入 `merge-approval`。
 - 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
+- 2026-09-08 FF 合入 `main`（`8f873a8`，实现 `d086861`）并归档至 `workflow/archive/2026/btree-tree-view/`。
