@@ -79,7 +79,7 @@ export function treeKindTokens(
 ): string[] {
   if (row.role === "table") return [];
   if (row.role === "index") {
-    const tokens: string[] = row.expandable ? ["btree"] : [row.accessMethod ?? "index"];
+    const tokens: string[] = row.expandable ? [] : [row.accessMethod ?? "index"];
     if (row.valid === false) tokens.push("invalid");
     return tokens;
   }

@@ -369,7 +369,7 @@ describe("treeKindTokens (V-1)", () => {
     ).toEqual([]);
   });
 
-  it("labels a btree index with btree only", () => {
+  it("does not label a btree index with an access-method pill", () => {
     expect(
       treeKindTokens({
         role: "index",
@@ -382,7 +382,7 @@ describe("treeKindTokens (V-1)", () => {
         accessMethod: "btree",
         valid: true,
       }),
-    ).toEqual(["btree"]);
+    ).toEqual([]);
   });
 
   it("labels a non-btree index with its access method (P0-5)", () => {
