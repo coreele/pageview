@@ -105,6 +105,8 @@ import { chromeToggleClass, themeToggleLabel } from "./chromeToggle";
 import { isCurrentDisplayedPage, pageBrowseMode, pageRowClickAction } from "./pageBrowse";
 import { ThemeGlyph } from "./ThemeGlyph";
 import { applyTheme, readSystemTheme, storeTheme, type Theme } from "./theme";
+import { exportCaption, exportFileName, isExportShortcut } from "./exportStructure";
+import { CLIPBOARD_DENIED_NOTICE, exportStructurePng } from "./exportStructurePng";
 import {
   buildUrlState,
   defaultUrlState,
@@ -262,6 +264,9 @@ export function App() {
   const [heapPeek, setHeapPeek] = useState<HeapPeekSlot>(closeHeapPeekSlot());
   const heapPeekNonceRef = useRef(0);
   const heapPeekTriggerRef = useRef<HTMLElement | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<AppError | null>(null);
 
   const [form, setForm] = useState({
     host: "127.0.0.1",
@@ -875,6 +880,52 @@ export function App() {
   };
 
   const closeHeapPeek = useCallback(() => setHeapPeek(closeHeapPeekSlot()), []);
+
+  const runMainExport = useCallback(async () => {
+    if (exporting || heapPeek || mode !== "page" || !pageView || loadedBlkno == null) return;
+    const meta =
+      pageView.kind === "heap"
+        ? {
+            qualifiedName: selectedTable?.qualifiedName ?? "table",
+            kind: "heap" as const,
+            blkno: loadedBlkno,
+          }
+        : {
+            qualifiedName: pageView.index.qualifiedName,
+            kind: "index" as const,
+            blkno: loadedBlkno,
+          };
+    setExporting(true);
+    setExportError(null);
+    setExportNotice(null);
+    const result = await exportStructurePng({
+      target: "main",
+      caption: exportCaption(meta),
+      fileName: exportFileName(meta),
+    });
+    setExporting(false);
+    if (!result.ok) setExportError(result.error);
+    else if (!result.clipboard) setExportNotice(CLIPBOARD_DENIED_NOTICE);
+  }, [
+    exporting,
+    heapPeek,
+    mode,
+    pageView,
+    loadedBlkno,
+    selectedTable,
+  ]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isExportShortcut(e)) return;
+      if (heapPeek) return;
+      if (mode !== "page" || !pageView || loadedBlkno == null) return;
+      e.preventDefault();
+      void runMainExport();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [heapPeek, mode, pageView, loadedBlkno, runMainExport]);
 
   /**
    * Table and index catalogs are independent: switching kinds clears the page
@@ -1783,6 +1834,17 @@ export function App() {
                 Hex
               </button>
             )}
+            {mode === "page" && pageView && (
+              <button
+                type="button"
+                disabled={Boolean(heapPeek) || exporting}
+                aria-label="Export structure diagram as PNG"
+                title="Export structure diagram as PNG (Ctrl/Cmd+Shift+C)"
+                onClick={() => void runMainExport()}
+              >
+                {exporting && !heapPeek ? "Exporting…" : "Export"}
+              </button>
+            )}
           </div>
         )}
         <button
@@ -1802,6 +1864,19 @@ export function App() {
               <strong>{error.code}</strong>: {error.message}
             </div>
             <div className="next">Next: {error.nextStep}</div>
+          </div>
+        )}
+        {exportError && (
+          <div className="panel error-panel" role="alert">
+            <div>
+              <strong>{exportError.code}</strong>: {exportError.message}
+            </div>
+            <div className="next">Next: {exportError.nextStep}</div>
+          </div>
+        )}
+        {exportNotice && (
+          <div className="panel muted" role="status">
+            {exportNotice}
           </div>
         )}
 
@@ -1938,6 +2013,7 @@ export function App() {
                   highlight={highlight}
                   diffIds={diffIds}
                   detailOpen={!detailCollapsed}
+                  exportAnchor="main"
                   onSelect={onSelectStructure}
                   emptyStateText={
                     heapPage.tuples.length === 0
@@ -2019,6 +2095,7 @@ export function App() {
                     highlight={highlight}
                     diffIds={diffIds}
                     detailOpen={!detailCollapsed}
+                    exportAnchor="main"
                     onSelect={onSelectStructure}
                     emptyStateText={
                       btreePage.pageType === "meta"

@@ -2428,6 +2428,13 @@ html.is-split-dragging * {
   border-bottom: 1px solid var(--border);
 }
 
+.heap-peek-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
 .heap-peek-title {
   font-weight: 650;
   overflow: hidden;
@@ -2466,4 +2473,25 @@ html.is-split-dragging * {
     grid-template-columns: minmax(280px, 0.55fr) minmax(280px, 0.45fr);
     align-items: start;
   }
+}
+
+/* Off-screen PNG capture (export-structure-png): caption + full-height structure clone. */
+.export-structure-capture {
+  background: var(--diagram-bg);
+  color: var(--text);
+  padding: 0.75rem 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  box-sizing: border-box;
+}
+
+.export-structure-caption {
+  font-weight: 650;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+
+.export-structure-capture .structure-diagram {
+  box-shadow: none;
 }

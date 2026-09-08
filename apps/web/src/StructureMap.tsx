@@ -46,6 +46,8 @@ type Props = {
   emptyStateText?: string | null;
   /** Selection-driven detail body (heap / B-tree specific), rendered inside the shared detail panel. */
   renderDetail: (selectedField: StructureField) => ReactNode;
+  /** Marks this diagram as the PNG export source (`main` view vs heap-peek overlay). */
+  exportAnchor?: "main" | "overlay";
 };
 
 type LayoutSegment = {
@@ -789,6 +791,7 @@ export function StructureMap({
   onSelect,
   emptyStateText = null,
   renderDetail,
+  exportAnchor,
 }: Props) {
   const rootRef = useRef<HTMLDivElement>(null);
   const metrics = useStructureCellMetrics(rootRef);
@@ -803,7 +806,11 @@ export function StructureMap({
   );
 
   return (
-    <div className="structure structure-diagram" ref={rootRef}>
+    <div
+      className="structure structure-diagram"
+      ref={rootRef}
+      {...(exportAnchor ? { "data-export-structure": exportAnchor } : {})}
+    >
       <span className="structure-char-probe" aria-hidden="true">
         0000000000
       </span>

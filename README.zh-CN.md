@@ -16,6 +16,7 @@
 - **十六进制转储** — 同样按 32 字节分行，联动选中与滚动定位
 - **元组解码** — 列值、`t_infomask` / `t_infomask2` 位条、HOT/ctid 提示
 - **差异高亮** — Refresh 时按字节标出变更（Tree 亮：再点当前显示的块；Tree 暗：点 **Refresh**）
+- **导出 PNG** — chrome **Export**（或 `Ctrl`/`Cmd`+`Shift`+`C`）把结构图全高导出为 PNG（标题含关系名与块号，跟随当前主题，含选中/diff 着色），同时写入剪贴板并下载。heap peek 浮层打开时导出浮层那张堆页。WAL 模式无此按钮。
 - **翻页** — Tree 暗时工具栏 **Prev** / **Next**：heap 按已显示页 `blkno ± 1`；B-tree 按左右兄弟（`btpo_prev` / `btpo_next`）。首页/末页（或 leftmost/rightmost）禁用按钮，不发越界请求
 
 ### 索引页（B-tree）

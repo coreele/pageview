@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useMemo,
   useReducer,
@@ -21,6 +22,8 @@ import { HexDump } from "./HexDump";
 import { HeapDetail, StructureMap } from "./StructureMap";
 import { findStructureAt } from "./diff";
 import { heapPeekInitial, heapPeekReducer, loadingText, overlayTitle, type HeapPeekRequest } from "./heapPeek";
+import { exportCaption, exportFileName, isExportShortcut } from "./exportStructure";
+import { CLIPBOARD_DENIED_NOTICE, exportStructurePng } from "./exportStructurePng";
 
 type Props = {
   /** Peek target (owning table + block) captured at open time. */
@@ -50,6 +53,9 @@ export function HeapPeekOverlay({ request, triggerRef, onClose }: Props) {
   const [hexLocate, setHexLocate] = useState<{ offset: number; nonce: number } | null>(null);
   const hexLocateNonceRef = useRef(0);
   const hexLocateHandledNonceRef = useRef(0);
+  const [exporting, setExporting] = useState(false);
+  const [exportNotice, setExportNotice] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<AppError | null>(null);
 
   // Annex-4 rule 2: lock body scroll while the overlay is up.
   useEffect(() => {
@@ -145,6 +151,38 @@ export function HeapPeekOverlay({ request, triggerRef, onClose }: Props) {
     setHexLocate({ offset: range.start, nonce: hexLocateNonceRef.current });
   };
 
+  const runOverlayExport = useCallback(async () => {
+    if (state.status !== "open" || exporting) return;
+    const meta = {
+      qualifiedName: request.tableQualifiedName,
+      kind: "heap" as const,
+      blkno: request.blkno,
+    };
+    setExporting(true);
+    setExportError(null);
+    setExportNotice(null);
+    const result = await exportStructurePng({
+      target: "overlay",
+      caption: exportCaption(meta),
+      fileName: exportFileName(meta),
+    });
+    setExporting(false);
+    if (!result.ok) setExportError(result.error);
+    else if (!result.clipboard) setExportNotice(CLIPBOARD_DENIED_NOTICE);
+  }, [state.status, exporting, request.tableQualifiedName, request.blkno]);
+
+  // Overlay owns Ctrl/Cmd+Shift+C while mounted so the index page underneath is not exported.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isExportShortcut(e)) return;
+      e.preventDefault();
+      if (state.status !== "open" || exporting) return;
+      void runOverlayExport();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state.status, exporting, runOverlayExport]);
+
   if (state.status === "closed") return null;
 
   const title = overlayTitle(request);
@@ -162,18 +200,42 @@ export function HeapPeekOverlay({ request, triggerRef, onClose }: Props) {
           <span className="heap-peek-title mono" title={title}>
             {title}
           </span>
-          <button
-            ref={closeBtnRef}
-            type="button"
-            className="heap-peek-close"
-            aria-label="Close"
-            title="Close"
-            onClick={onClose}
-          >
-            ✕ Close
-          </button>
+          <div className="heap-peek-actions">
+            <button
+              type="button"
+              disabled={state.status !== "open" || exporting}
+              aria-label="Export structure diagram as PNG"
+              title="Export structure diagram as PNG"
+              onClick={() => void runOverlayExport()}
+            >
+              {exporting ? "Exporting…" : "Export"}
+            </button>
+            <button
+              ref={closeBtnRef}
+              type="button"
+              className="heap-peek-close"
+              aria-label="Close"
+              title="Close"
+              onClick={onClose}
+            >
+              ✕ Close
+            </button>
+          </div>
         </div>
         <div className="heap-peek-body">
+          {exportError && (
+            <div className="panel error-panel" role="alert">
+              <div>
+                <strong>{exportError.code}</strong>: {exportError.message}
+              </div>
+              <div className="next">Next: {exportError.nextStep}</div>
+            </div>
+          )}
+          {exportNotice && (
+            <div className="panel muted" role="status">
+              {exportNotice}
+            </div>
+          )}
           {state.status === "loading" && (
             <div className="muted heap-peek-status">
               <span className="spinner" /> {loadingText(request.blkno)}
@@ -198,6 +260,7 @@ export function HeapPeekOverlay({ request, triggerRef, onClose }: Props) {
                   highlight={highlight}
                   diffIds={EMPTY_DIFF_IDS}
                   detailOpen
+                  exportAnchor="overlay"
                   onSelect={(id, range) => selectByteRange(id, range, "structure")}
                   emptyStateText={
                     state.page.tuples.length === 0
