@@ -1,6 +1,6 @@
 # UI Design: table-tree-nav
 
-> 依据 Spec `workflow/workspace/table-tree-nav/spec.md`。Index / WAL 布局不改。
+> 依据 Spec `workflow/archive/2026/table-tree-nav/spec.md`。Index / WAL 布局不改。
 
 ## 背景与范围
 
