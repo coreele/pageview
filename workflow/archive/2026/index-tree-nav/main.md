@@ -7,7 +7,7 @@
 文档影响: README 中英树面板 / Index 选索引入口
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/index-tree-nav/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/index-tree-nav/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」（见 `workflow/agents/standards/documentation.md` §B）。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -35,3 +35,4 @@
 - 2026-09-08 用户反馈块图标丑、索引与块轮廓撞车。回修 `ca4f5ee`（索引钥匙、块折角页）。QA 轮次 6 Pass。待合入提交改为 `ca4f5ee`。
 - 2026-09-08 用户修订：取消表/索引过滤。回修 `b933a8c`（INDEX 始终全量；深链不按 table 丢 index）。QA 轮次 7 Pass。待合入提交改为 `b933a8c`。
 - 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
+- 2026-09-08 FF 合入 `main`（`5de1b51`，实现 `b933a8c`）并归档至 `workflow/archive/2026/index-tree-nav/`。

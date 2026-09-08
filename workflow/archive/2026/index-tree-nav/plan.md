@@ -2,9 +2,9 @@
 
 ## 元信息
 
-- 依据 Spec: `workflow/workspace/index-tree-nav/spec.md`
+- 依据 Spec: `workflow/archive/2026/index-tree-nav/spec.md`
 - 依据 Design: N/A
-- 依据 UI: `workflow/workspace/index-tree-nav/ui-design.md`
+- 依据 UI: `workflow/archive/2026/index-tree-nav/ui-design.md`
 - 路径等级: standard
 - Review 门禁: required
 - 最低验证层: unit + static

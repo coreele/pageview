@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | index-tree-nav |
-| 已归档 | 27 | add-ci，auto-install-extensions，btree-tree-view，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 28 | add-ci，auto-install-extensions，btree-tree-view，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| index-tree-nav | index-tree-nav → main | 合入后归档 |
+| — | | |
 
 ## 归档索引
 
@@ -79,3 +79,4 @@
 | tree-nav-ui | archived | `workflow/archive/2026/tree-nav-ui/main.md` |
 | url-deeplink | archived | `workflow/archive/2026/url-deeplink/main.md` |
 | wal-viewer | archived | `workflow/archive/2026/wal-viewer/main.md` |
+| index-tree-nav | archived | `workflow/archive/2026/index-tree-nav/main.md` |
