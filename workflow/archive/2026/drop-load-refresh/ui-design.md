@@ -1,6 +1,6 @@
 # UI Design: drop-load-refresh
 
-> 依据 Spec `workflow/workspace/drop-load-refresh/spec.md`。WAL 布局不改。
+> 依据 Spec `workflow/archive/2026/drop-load-refresh/spec.md`。WAL 布局不改。
 
 ## 背景与范围
 
