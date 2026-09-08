@@ -15,17 +15,17 @@ Built for developers learning or debugging — **not** intended for public deplo
 - **Structure diagram** — 32 bytes/row: page header (with `pd_flags` bit strip), ItemId array, free space, tuples
 - **Hex dump** — same 32B/row layout, linked selection and scroll-to-offset
 - **Tuple decode** — column values, `t_infomask` / `t_infomask2` bit strips, HOT/ctid hints
-- **Diff highlight** — byte-level changes on Refresh (Tree: click the currently displayed block again; Single: **Refresh**)
-- **Page nav** — Single toolbar **Prev** / **Next**: heap uses the displayed `blkno ± 1`; B-tree uses left/right siblings (`btpo_prev` / `btpo_next`). First/last (or leftmost/rightmost) pages disable the button instead of requesting an out-of-range block
+- **Diff highlight** — byte-level changes on Refresh (Tree on: click the currently displayed block again; Tree off: **Refresh**)
+- **Page nav** — with Tree off, toolbar **Prev** / **Next**: heap uses the displayed `blkno ± 1`; B-tree uses left/right siblings (`btpo_prev` / `btpo_next`). First/last (or leftmost/rightmost) pages disable the button instead of requesting an out-of-range block
 
 ### Index pages (B-tree)
 
-- **Index browsing** — pick a relation in the Tree catalog, or use Single’s table | index switch; the index list shows access method, block count, and owning table; non-B-tree indexes are listed but marked unloadable; invalid indexes flagged (still loadable)
+- **Index browsing** — pick a relation in the Tree catalog, or turn Tree off and use the table | index switch; the index list shows access method, block count, and owning table; non-B-tree indexes are listed but marked unloadable; invalid indexes flagged (still loadable)
 - **Page types** — metapage (`btm_*` incl. `allequalimage` on v4+), internal (child downlinks + level), leaf (heap TIDs); special space `btpo_*` with a `btpo_flags` bit strip
 - **Hikey & posting lists** — high-key mark on the first tuple of non-rightmost pages; dedup posting tuples (PG13+) with TID count and full scrollable list
 - **Key value decoding** — index tuple keys decoded per column type (int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domains) with NULL, include/↓/nulls-first badges and click-to-highlight column bytes; unsupported types (e.g. jsonb) or expression indexes degrade gracefully to hex-only
 - **Block navigation** — load siblings (`btpo_prev`/`btpo_next`), root/fastroot, and child pages with one click; leaf heap TIDs jump straight to the owning table's block
-- **Tree | Single** — chrome **Tree | Single** browse modes (after connect, **Tree** is the default; not stored in the URL). **Tree** shows the `TABLE` / `INDEX` catalog (each section collapsible, capped at half the pane) and hides Table/Index, blkno, Load, Refresh, Prev, and Next. Click a table to load heap blk 0, or a B-tree index to load metapage blk 0; nested block rows load that page, and clicking the currently displayed block refreshes it. **Single** hides the catalog and keeps the blkno lookup toolbar for the already selected relation (no table/index dropdown). Names are unqualified (schema on hover). The INDEX section lists every user index; picking a table does not filter it.
+- **Tree panel** — chrome **Tree** toggle (on = catalog visible). After connect it defaults **on**. On: two collapsible sections (`TABLE` / `INDEX`, each capped at half the pane) and no Table/Index, blkno, Load, Refresh, Prev, or Next. Click a table to load heap blk 0, or a B-tree index to load metapage blk 0; nested block rows load that page, and clicking the currently displayed block refreshes it. Off: catalog hidden; the blkno lookup toolbar stays for the already selected relation (no table/index dropdown). Names are unqualified (schema on hover). The INDEX section lists every user index; picking a table does not filter it.
 
 - **Guards** — non-B-tree access methods (hash/gist/spgist/brin/gin) blocked in the UI and by the server (`INDEX_NOT_BTREE`)
 
@@ -65,7 +65,7 @@ pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
 ```
 
-Open the web UI, connect (or rely on `.env`), then use **Page** (**Tree**: pick a table or index in the catalog; **Single**: blkno + Load) or **WAL** (start/end LSN + Load).
+Open the web UI, connect (or rely on `.env`), then use **Page** (**Tree** on: pick a table or index in the catalog; **Tree** off: blkno + Load) or **WAL** (start/end LSN + Load).
 
 ## Environment
 

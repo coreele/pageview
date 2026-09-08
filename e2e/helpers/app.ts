@@ -70,8 +70,11 @@ export async function waitWalLoaded(page: Page): Promise<void> {
 }
 
 export async function selectPageBrowseMode(page: Page, mode: "tree" | "single"): Promise<void> {
-  const label = mode === "tree" ? "Tree" : "Single";
-  await page.getByRole("group", { name: "Page browse mode" }).getByRole("button", { name: label, exact: true }).click();
+  const btn = page.getByRole("button", { name: "Tree", exact: true });
+  const pressed = await btn.getAttribute("aria-pressed");
+  const treeOn = pressed === "true";
+  if (mode === "tree" && !treeOn) await btn.click();
+  if (mode === "single" && treeOn) await btn.click();
 }
 
 export function pageLoadButton(page: Page) {

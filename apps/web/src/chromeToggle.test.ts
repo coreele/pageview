@@ -43,11 +43,12 @@ describe("chrome toggle CSS (V-1)", () => {
 });
 
 describe("README tree toggle (V-docs)", () => {
-  it("describes Tree | Single browse modes without Show/Collapse", () => {
+  it("describes the Tree chrome toggle without Show/Collapse or a Single label", () => {
     const en = readFileSync(join(repoRoot, "README.md"), "utf8");
     const zh = readFileSync(join(repoRoot, "README.zh-CN.md"), "utf8");
-    expect(en).toMatch(/Tree \| Single/);
-    expect(zh).toMatch(/Tree \| Single/);
+    expect(en).toMatch(/Tree/);
+    expect(en).not.toMatch(/Tree \| Single/);
+    expect(zh).not.toMatch(/Tree \| Single/);
     expect(en).not.toMatch(/Show tree \/ Collapse tree/);
     expect(zh).not.toMatch(/Show tree \/ Collapse tree/);
   });

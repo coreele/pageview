@@ -1772,26 +1772,16 @@ export function App() {
               </button>
             )}
             {mode === "page" && showTableTreeToggle && (
-              <div className="mode-switch" role="group" aria-label="Page browse mode">
-                <button
-                  type="button"
-                  className={browseMode === "tree" ? "mode-btn active" : "mode-btn"}
-                  aria-pressed={browseMode === "tree"}
-                  aria-expanded={browseMode === "tree"}
-                  aria-controls="btree-tree-panel"
-                  onClick={() => setBtreeTree((s) => setTreeCollapsed(s, false))}
-                >
-                  Tree
-                </button>
-                <button
-                  type="button"
-                  className={browseMode === "single" ? "mode-btn active" : "mode-btn"}
-                  aria-pressed={browseMode === "single"}
-                  onClick={() => setBtreeTree((s) => setTreeCollapsed(s, true))}
-                >
-                  Single
-                </button>
-              </div>
+              <button
+                className={chromeToggleClass(!btreeTree.collapsed)}
+                type="button"
+                aria-pressed={!btreeTree.collapsed}
+                aria-expanded={!btreeTree.collapsed}
+                aria-controls="btree-tree-panel"
+                onClick={() => setBtreeTree((s) => setTreeCollapsed(s, !s.collapsed))}
+              >
+                Tree
+              </button>
             )}
           </div>
         )}
