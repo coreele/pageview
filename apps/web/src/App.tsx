@@ -49,6 +49,7 @@ import {
   retryNode,
   seedCurrentPage,
   setTreeCollapsed,
+  tableNameClickCollapses,
   toggleExpanded,
   toggleIndexExpanded,
   toggleTableExpanded,
@@ -727,13 +728,17 @@ export function App() {
     const t = tables.find((x) => x.oid === oid);
     if (!t) return;
     const sameTable = selectedOid === oid;
+    if (tableNameClickCollapses(selectedOid, oid, btreeTree.expandedTableOids)) {
+      setBtreeTree((s) => toggleTableExpanded(s, oid));
+      return;
+    }
     if (!sameTable) {
       void onSelectTable(oid);
     } else {
       setBtreeTree((s) => ensureTableExpanded(s, oid));
     }
     if (t.blocks === 0) return;
-    if (sameTable && loadedBlkno === 0 && pageView?.kind === "heap") return;
+    if (sameTable && pageView?.kind === "heap") return;
     setBlkno(0);
     void loadBlk(oid, 0);
   };

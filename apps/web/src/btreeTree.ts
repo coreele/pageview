@@ -144,6 +144,15 @@ export function toggleTableExpanded(state: BtreeTreeState, oid: number): BtreeTr
   };
 }
 
+/** Label click on the already-selected, expanded table collapses the block list. */
+export function tableNameClickCollapses(
+  selectedOid: number | null,
+  clickedOid: number,
+  expandedOids: readonly number[],
+): boolean {
+  return selectedOid === clickedOid && expandedOids.includes(clickedOid);
+}
+
 export function seedCurrentPage(
   state: BtreeTreeState,
   oid: number,

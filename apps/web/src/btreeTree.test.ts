@@ -14,6 +14,7 @@ import {
   retryNode,
   seedCurrentPage,
   setTreeCollapsed,
+  tableNameClickCollapses,
   toggleExpanded,
   toggleIndexExpanded,
   toggleTableExpanded,
@@ -238,6 +239,13 @@ describe("visibleTableCatalog (P0-1 / P0-4 / P0-7)", () => {
     let s = toggleTableExpanded(EMPTY_BTREE_TREE, 16386);
     s = ensureTableExpanded(s, 16384);
     expect(s.expandedTableOids).toEqual([16384]);
+  });
+
+  it("collapses when the label of the selected expanded table is clicked again", () => {
+    expect(tableNameClickCollapses(16384, 16384, [16384])).toBe(true);
+    expect(tableNameClickCollapses(16384, 16384, [])).toBe(false);
+    expect(tableNameClickCollapses(16384, 16386, [16386])).toBe(false);
+    expect(tableNameClickCollapses(null, 16384, [16384])).toBe(false);
   });
 });
 
