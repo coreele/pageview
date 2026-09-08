@@ -231,6 +231,11 @@ input {
   padding: 0.35rem;
 }
 
+[data-theme="dark"] .chrome-theme {
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+}
+
 .chrome-theme__icon {
   display: block;
   width: 1.1rem;

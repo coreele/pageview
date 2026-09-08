@@ -1747,6 +1747,18 @@ export function App() {
           (mode === "wal" && connected) ||
           showTableTreeToggle) && (
           <div className="chrome-actions">
+            {mode === "page" && showTableTreeToggle && (
+              <button
+                className={chromeToggleClass(!btreeTree.collapsed)}
+                type="button"
+                aria-pressed={!btreeTree.collapsed}
+                aria-expanded={!btreeTree.collapsed}
+                aria-controls="btree-tree-panel"
+                onClick={() => setBtreeTree((s) => setTreeCollapsed(s, !s.collapsed))}
+              >
+                Tree
+              </button>
+            )}
             {((mode === "page" && pageView) || (mode === "wal" && connected)) && (
               <button
                 className={chromeToggleClass(!detailCollapsed)}
@@ -1769,18 +1781,6 @@ export function App() {
                 onClick={() => setHexCollapsed((v) => !v)}
               >
                 Hex
-              </button>
-            )}
-            {mode === "page" && showTableTreeToggle && (
-              <button
-                className={chromeToggleClass(!btreeTree.collapsed)}
-                type="button"
-                aria-pressed={!btreeTree.collapsed}
-                aria-expanded={!btreeTree.collapsed}
-                aria-controls="btree-tree-panel"
-                onClick={() => setBtreeTree((s) => setTreeCollapsed(s, !s.collapsed))}
-              >
-                Tree
               </button>
             )}
           </div>

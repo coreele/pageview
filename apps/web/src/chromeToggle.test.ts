@@ -42,6 +42,30 @@ describe("chrome toggle CSS (V-1)", () => {
   });
 });
 
+describe("chrome-actions order (chrome-order V-1)", () => {
+  it("places Tree before Detail and Hex", () => {
+    const app = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    const start = app.indexOf('className="chrome-actions"');
+    const end = app.indexOf("chrome-theme", start);
+    const actions = app.slice(start, end);
+    const tree = actions.indexOf("btree-tree-panel");
+    const detail = actions.indexOf("selection-detail-panel");
+    const hex = actions.indexOf("hex-panel");
+    expect(tree).toBeGreaterThan(-1);
+    expect(detail).toBeGreaterThan(tree);
+    expect(hex).toBeGreaterThan(detail);
+  });
+});
+
+describe("dark theme button fill (chrome-order V-2)", () => {
+  it("uses the same accent mix as chrome-toggle--on", () => {
+    const css = readFileSync(join(srcDir, "styles.css"), "utf8");
+    expect(css).toMatch(
+      /\[data-theme="dark"\] \.chrome-theme\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 18%/,
+    );
+  });
+});
+
 describe("README tree toggle (V-docs)", () => {
   it("describes the Tree chrome toggle without Show/Collapse or a Single label", () => {
     const en = readFileSync(join(repoRoot, "README.md"), "utf8");
