@@ -7,7 +7,7 @@
 文档影响: N/A（用户文档未描述 ○/● 字号）
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/flag-mark-size/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/flag-mark-size/`。
 
 ## 门禁
 
@@ -19,7 +19,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main 后归档 | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -27,3 +27,4 @@
 - 2026-09-08 Planner：`ui-design.md`、`plan.md`。进入 `developing`。
 - 2026-09-08 Developer：`FlagMark` CSS 圆点。提交 `d3cdfd7`。Review skipped。QA Pass。进入 `merge-approval`。
 - 2026-09-08 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
+- 2026-09-08 FF 合入 `main`（`70957c7`，实现 `d3cdfd7`）并归档至 `workflow/archive/2026/flag-mark-size/`。

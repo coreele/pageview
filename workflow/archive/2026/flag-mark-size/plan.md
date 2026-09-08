@@ -4,7 +4,7 @@
 
 - 依据 Spec: N/A
 - 依据 Design: N/A
-- 依据 UI: `workflow/workspace/flag-mark-size/ui-design.md`
+- 依据 UI: `workflow/archive/2026/flag-mark-size/ui-design.md`
 - 路径等级: fast
 - Review 门禁: skipped（fast：CSS 圆点替换 Unicode，对照清单即可）
 - 最低验证层: unit + static
