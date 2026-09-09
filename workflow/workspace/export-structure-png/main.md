@@ -20,9 +20,13 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入 main 并归档 | | | |
 
 ## 进度笔记
 
 - 2026-09-08 Manager 登记。用户确认前序提案（「可以」）：结构图全高 PNG + 标题 + 剪贴板/下载；chrome Export；快捷键；heap peek 开着则导浮层；不含 Tree/Hex/WAL。路径 `standard`。Spec required（新可见行为）。Spec 用户确认 `not-required`：v1 范围已锁定、无剩余业务歧义（WORKFLOW §7）。Design skipped：栅格化现有 DOM，无新分层。Review required。
 - 2026-09-08 Analyst：`spec.md`。Planner：`ui-design.md`、`plan.md`。进入 `developing`。第一阶段文档提交。
+- 2026-09-08 Developer：`74634ac`。web 287 / typecheck 0。Review Approve。QA Pass。进入 `merge-approval`。
+- 2026-09-09 用户在合并授权前要求：Export 放到右上五个按钮的第一个。状态 `merge-approval` → `developing`。Spec/UI：Export → Tree → Detail → Hex → 主题。
+- 2026-09-09 Developer：`7d6e404`。web 287 / typecheck 0。Review Approve。QA 轮次 2 Pass。进入 `merge-approval`。
+- 2026-09-09 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。

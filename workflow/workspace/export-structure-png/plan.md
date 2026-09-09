@@ -21,7 +21,7 @@ Page 模式将当前结构图栅格化为带标题的全高 PNG，写入剪贴�
 
 1. **纯函数**（完成条件：caption、filename sanitize、快捷键匹配、主视图 vs 浮层目标 有单测）
 2. **栅格化**（完成条件：克隆结构图 + 离屏 caption，撑开 `.structure-flow` overflow，`toBlob` 得 PNG；失败走错误路径）
-3. **入口**（完成条件：chrome Export 在 Hex 后；浮层标题栏 Export；Ctrl/Cmd+Shift+C；进行中 Exporting…）
+3. **入口**（完成条件：chrome Export 为 chrome-actions 第一钮（Tree/Detail/Hex 之前）；浮层标题栏 Export；Ctrl/Cmd+Shift+C；进行中 Exporting…）
 4. **文档**（完成条件：README 双语 Features 一句 Export PNG）
 5. **回归**（完成条件：web test + typecheck 绿）
 
@@ -49,18 +49,18 @@ Page 模式将当前结构图栅格化为带标题的全高 PNG，写入剪贴�
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| P0-1 | 有页才有 Export；WAL/无页无按钮 | App 条件渲染 + 源码扫描 | |
-| P0-2 | PNG = 标题 + 全高结构图，无 Tree/Hex/Detail | 合成节点选择器单测；真机目视记缺口 | |
-| P0-3 | 下载文件名 sanitize | `exportFileName` 单测 | |
-| P0-4 | 剪贴板 image/png | 辅助函数在 ClipboardItem 路径被调用（单测 mock） | |
-| P0-5 | 剪贴板失败仍下载 | mock write 拒绝后仍调用 download | |
-| P0-6 | Ctrl/Cmd+Shift+C | `isExportShortcut` 单测 + App 监听 | |
-| P0-7 | 浮层优先 + 浮层按钮 | `exportTargetKind` 单测；overlay JSX 含 Export | |
-| P0-8 | 选中/diff 随 DOM | 栅格化源是屏上结构图节点（不重画） | |
-| P1-1 | 浮层 loading/error 禁用 | overlay disabled 条件 | |
-| P1-2 | 栅格化失败有错误、无下载 | mock toBlob 失败 | |
-| V-reg | web test | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| P0-1 | 有页才有 Export；WAL/无页无按钮；Export 为五钮之首 | App 条件渲染 + 源码扫描 Export 在 Tree 前 | Pass |
+| P0-2 | PNG = 标题 + 全高结构图，无 Tree/Hex/Detail | 合成节点选择器单测；真机目视记缺口 | Pass（像素见缺口） |
+| P0-3 | 下载文件名 sanitize | `exportFileName` 单测 | Pass |
+| P0-4 | 剪贴板 image/png | 辅助函数在 ClipboardItem 路径被调用（单测 mock） | Pass |
+| P0-5 | 剪贴板失败仍下载 | mock write 拒绝后仍调用 download | Pass |
+| P0-6 | Ctrl/Cmd+Shift+C | `isExportShortcut` 单测 + App 监听 | Pass |
+| P0-7 | 浮层优先 + 浮层按钮 | `exportTargetKind` 单测；overlay JSX 含 Export | Pass |
+| P0-8 | 选中/diff 随 DOM | 栅格化源是屏上结构图节点（不重画） | Pass |
+| P1-1 | 浮层 loading/error 禁用 | overlay disabled 条件 | Pass |
+| P1-2 | 栅格化失败有错误、无下载 | mock toBlob 失败 | Pass |
+| V-reg | web test | 退出码 0 | Pass |
+| V-static | typecheck | 退出码 0 | Pass |
 
 ## 验证缺口
 

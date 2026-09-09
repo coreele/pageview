@@ -24,7 +24,7 @@
 
 ### 入口
 
-- Page 模式且**已加载** heap 或 B-tree 页时：chrome `.chrome-actions` 出现 **Export**（Tree / Detail / Hex 之后、主题钮之前）。不是开关，无 `--on` 态。
+- Page 模式且**已加载** heap 或 B-tree 页时：chrome `.chrome-actions` 出现 **Export**，为右上按钮簇的**第一个**（顺序：Export → Tree → Detail → Hex → 主题钮）。不是开关，无 `--on` 态。
 - WAL 模式、未连接、已连接但尚无页：不出现 Export。
 - 快捷键：有可导出页时，`Ctrl+Shift+C`（macOS `Meta+Shift+C`）等同点击 Export。输入框内仍生效（笔记快捷键优先于输入）。`preventDefault`，避免浏览器「复制」。
 - Heap peek 浮层打开且其中堆页已加载：chrome 被遮罩，浮层标题栏在 Close 左侧提供同一 **Export**。快捷键与按钮都导出**浮层**结构图，不导底下的索引页。

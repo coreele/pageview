@@ -23,7 +23,7 @@
 ## 信息架构与关键界面
 
 ```text
-chrome-actions:  [ Tree ] [ Detail ] [ Hex ] [ Export ]    [theme]
+chrome-actions:  [ Export ] [ Tree ] [ Detail ] [ Hex ]    [theme]
 heap-peek-header:  {title}                    [ Export ] [ ✕ Close ]
 ```
 
@@ -50,7 +50,7 @@ WAL / 无页：Export 槽不占位。
 
 ## 布局与视觉方向
 
-- 构图与层级: Export 是动作按钮，视觉对齐普通 `button`（与 Refresh 同类），不要 `chrome-toggle--on`。放在 Hex 右侧，主题钮仍最右。
+- 构图与层级: Export 是动作按钮，视觉对齐普通 `button`（与 Refresh 同类），不要 `chrome-toggle--on`。放在 chrome-actions **最左**（Tree 之前），主题钮仍最右。
 - 色彩 / 字体 / 氛围: 标题用 `--text` / `--text-muted`、`--surface` 底；字号略大于格内 label，等宽关系名可选。合成画布背景 `--diagram-bg`，避免透明棋盘。
 - 明确避开: 新主色；把月亮/太阳换成导出图标。
 
@@ -87,7 +87,7 @@ N/A
 
 ### Plan
 
-- 扫描 App chrome-actions：Export 在 Hex 之后
+- 扫描 App chrome-actions：Export 在 Tree / Detail / Hex 之前
 - 纯函数测标题、文件名、快捷键判定、导出目标（主视图 vs 浮层）
 
 ### Developer

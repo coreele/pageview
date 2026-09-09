@@ -8,10 +8,10 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 1 | export-structure-png |
+| 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 0 | — |
+| 待归档 | 1 | export-structure-png |
 | 已归档 | 31 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，drop-load-refresh，e2e-playwright，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
 
 ## 等待用户
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| export-structure-png | developing | standard | Developer 实施 | 结构图导出 PNG（剪贴板 + 下载） |
+| — | | | | |
 
 ## 待办
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| — | | |
+| export-structure-png | export-structure-png → main | 确认 `7d6e404` 已合入 |
 
 ## 归档索引
 
