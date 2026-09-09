@@ -1,4 +1,4 @@
-# pg-page-viewer
+# PAGEVIEW
 
 [English](./README.md) | 中文
 

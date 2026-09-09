@@ -167,12 +167,21 @@ input {
 .chrome-title {
   grid-area: title;
   font-size: 1rem;
-  font-weight: 650;
+  font-weight: 700;
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.06em;
   min-height: var(--chrome-bar-h);
   display: inline-flex;
   align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.chrome-logo {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.28rem;
+  flex-shrink: 0;
 }
 
 .mode-switch {

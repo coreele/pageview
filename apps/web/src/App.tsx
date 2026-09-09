@@ -1377,7 +1377,17 @@ export function App() {
   return (
     <div className="app">
       <header className="chrome" aria-label="Application chrome">
-        <h1 className="chrome-title">pg-page-viewer</h1>
+        <h1 className="chrome-title">
+          <img
+            className="chrome-logo"
+            src="/favicon.svg"
+            width={20}
+            height={20}
+            alt=""
+            aria-hidden="true"
+          />
+          PAGEVIEW
+        </h1>
         <div className="mode-switch" role="group" aria-label="View mode">
           <button
             type="button"

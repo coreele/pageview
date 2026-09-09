@@ -62,7 +62,7 @@ test("M4: BAD_URL_PARAM frozen copy, default view usable, address bar preserved"
     await expect(alert).toContainText(c.message);
     await expect(alert).toContainText(`Next: ${NEXT}`);
     await expect(page).toHaveURL((url) => new URL(url).search === c.path);
-    await expect(page.getByRole("heading", { name: "pg-page-viewer" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "PAGEVIEW" })).toBeVisible();
     await expect(page.getByRole("group", { name: "View mode" }).getByRole("button", { name: "Page" })).toBeEnabled();
   }
 });

@@ -66,6 +66,39 @@ describe("dark theme button fill (chrome-order V-2)", () => {
   });
 });
 
+describe("chrome wordmark (pageview-wordmark)", () => {
+  it("shows PAGEVIEW with the favicon mark and no pg-page-viewer chrome title (V-1)", () => {
+    const app = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    const title = app.match(/<h1 className="chrome-title">[\s\S]*?<\/h1>/)?.[0] ?? "";
+    expect(title).toContain("PAGEVIEW");
+    expect(title).toContain("/favicon.svg");
+    expect(title).toContain('alt=""');
+    expect(title).toMatch(/aria-hidden/);
+    expect(app).not.toMatch(/pg-page-viewer/);
+  });
+
+  it("sets the document title to PAGEVIEW (V-2)", () => {
+    const html = readFileSync(join(srcDir, "../index.html"), "utf8");
+    expect(html).toMatch(/<title>PAGEVIEW<\/title>/);
+  });
+
+  it("uses PAGEVIEW as the README H1 (V-3)", () => {
+    const en = readFileSync(join(repoRoot, "README.md"), "utf8");
+    const zh = readFileSync(join(repoRoot, "README.zh-CN.md"), "utf8");
+    expect(en.startsWith("# PAGEVIEW\n")).toBe(true);
+    expect(zh.startsWith("# PAGEVIEW\n")).toBe(true);
+  });
+
+  it("updates e2e heading assertions to PAGEVIEW (V-4)", () => {
+    const smoke = readFileSync(join(repoRoot, "e2e/smoke.spec.ts"), "utf8");
+    const m2 = readFileSync(join(repoRoot, "e2e/m2-m4-m5.spec.ts"), "utf8");
+    expect(smoke).toContain('getByRole("heading", { name: "PAGEVIEW" })');
+    expect(m2).toContain('getByRole("heading", { name: "PAGEVIEW" })');
+    expect(smoke).not.toContain("pg-page-viewer");
+    expect(m2).not.toContain("pg-page-viewer");
+  });
+});
+
 describe("README tree toggle (V-docs)", () => {
   it("describes the Tree chrome toggle without Show/Collapse or a Single label", () => {
     const en = readFileSync(join(repoRoot, "README.md"), "utf8");
