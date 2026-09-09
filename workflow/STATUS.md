@@ -8,7 +8,7 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 0 | — |
+| 进行中 | 1 | docs-dev-background |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
 | 待归档 | 0 | — |
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| — | | | | |
+| docs-dev-background | developing | `workflow/workspace/docs-dev-background/main.md` | Developer 实施 | README 增补前后端后台启动与 HTTP_500 排查 |
 
 ## 待办
 
