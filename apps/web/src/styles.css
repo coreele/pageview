@@ -553,17 +553,18 @@ input {
   content: "";
   position: absolute;
   left: 50%;
-  top: 0.45rem;
-  bottom: 0.45rem;
-  width: 2px;
-  transform: translateX(-50%);
-  border-radius: 1px;
-  background: var(--border);
+  top: 50%;
+  width: 3px;
+  height: 2.5rem;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
 }
 
 .split-gutter:hover::after,
 .split-gutter:focus-visible::after {
-  background: var(--accent);
+  height: 3.5rem;
+  background: color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 
 html.is-split-dragging,

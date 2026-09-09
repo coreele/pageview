@@ -1,4 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   DEFAULT_PAGE_SPLIT,
   GUTTER_PX,
@@ -61,5 +64,26 @@ describe("dragTree / dragHex", () => {
 
   it("pins hex to the measured width before the first drag", () => {
     expect(hexDragStart(DEFAULT_PAGE_SPLIT, 640)).toEqual({ treePx: 220, hexPx: 640 });
+  });
+});
+
+const srcDir = dirname(fileURLToPath(import.meta.url));
+
+describe("split gutter grip (gutter-grip V-1 / V-2)", () => {
+  const css = readFileSync(join(srcDir, "styles.css"), "utf8");
+  const after = css.match(/\.split-gutter::after\s*\{[^}]+\}/)?.[0] ?? "";
+  const hover = css.match(/\.split-gutter:hover::after[\s\S]*?\{[^}]+\}/)?.[0] ?? "";
+
+  it("uses a short centered bar instead of a full-height strip (V-1)", () => {
+    expect(after).toMatch(/height:\s*2\.5rem/);
+    expect(after).toMatch(/translate\(-50%,\s*-50%\)/);
+    expect(after).not.toMatch(/bottom:\s*0\.45rem/);
+  });
+
+  it("keeps hover and focus quieter than solid accent (V-2)", () => {
+    expect(hover).toMatch(
+      /background:\s*color-mix\(in srgb, var\(--accent\) 40%, var\(--border\)\)/,
+    );
+    expect(hover).not.toMatch(/background:\s*var\(--accent\)\s*;/);
   });
 });
