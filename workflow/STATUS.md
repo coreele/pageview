@@ -8,7 +8,7 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 0 | — |
+| 进行中 | 1 | fix-wal-smoke-ci |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
 | 待归档 | 0 | — |
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| — | | | | |
+| fix-wal-smoke-ci | developing | `workflow/workspace/fix-wal-smoke-ci/main.md` | Developer 实施 | WAL L3 smoke 把 recent-window `endLsn` 与先前 current-lsn 做成全等，CI 上 WAL 前进导致契约失败 |
 
 ## 待办
 
