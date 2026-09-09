@@ -43,12 +43,12 @@ chrome 左上改为 favicon logo + 字标 `PAGEVIEW`；文档标题与 README �
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | chrome 字标 PAGEVIEW + logo | App.tsx `h1.chrome-title` 含 `PAGEVIEW` 与 `/favicon.svg`；无 `pg-page-viewer` | |
-| V-2 | 标签页标题 | `index.html` `<title>PAGEVIEW</title>` | |
-| V-3 | README H1 | 中英第一行 `# PAGEVIEW` | |
-| V-4 | e2e heading | smoke 与 m2-m4-m5 断言 `PAGEVIEW` | |
-| V-reg | web test | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | chrome 字标 PAGEVIEW + logo | App.tsx `h1.chrome-title` 含 `PAGEVIEW` 与 `/favicon.svg`；无 `pg-page-viewer` | Pass |
+| V-2 | 标签页标题 | `index.html` `<title>PAGEVIEW</title>` | Pass |
+| V-3 | README H1 | 中英第一行 `# PAGEVIEW` | Pass |
+| V-4 | e2e heading | smoke 与 m2-m4-m5 断言 `PAGEVIEW` | Pass |
+| V-reg | web test | 退出码 0 | Pass |
+| V-static | typecheck | 退出码 0 | Pass |
 
 ## 验证缺口
 

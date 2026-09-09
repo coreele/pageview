@@ -8,10 +8,10 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 1 | pageview-wordmark |
+| 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 0 | — |
+| 待归档 | 1 | pageview-wordmark |
 | 已归档 | 34 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，fix-wal-smoke-ci，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
 
 ## 等待用户
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| pageview-wordmark | developing | fast | Developer 实施 | chrome 字标 PAGEVIEW + logo |
+| — | | | | |
 
 ## 待办
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| — | | |
+| pageview-wordmark | pageview-wordmark → main | 确认 `da2b02f` 已合入 |
 
 ## 归档索引
 

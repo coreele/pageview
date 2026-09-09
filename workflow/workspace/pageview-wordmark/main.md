@@ -20,9 +20,11 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入 main 并归档 | | | |
 
 ## 进度笔记
 
 - 2026-09-09 Manager 登记。用户确认字标 `PAGEVIEW`（全大写）+ 现有 favicon 作 chrome logo；范围锁定为 chrome h1、`<title>`、README 中英 H1。路径 `fast`：品牌字标替换，无新状态机/API。Spec/Design/Review skipped。用户已拍板名字，Spec 确认 not-required。
 - 2026-09-09 Planner：`ui-design.md`、`plan.md`。进入 `developing`。第一阶段文档提交。
+- 2026-09-09 Developer：`da2b02f`。web 293 / typecheck 0。Review skipped。QA Pass。进入 `merge-approval`。
+- 2026-09-09 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
