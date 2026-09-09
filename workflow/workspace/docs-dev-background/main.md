@@ -20,9 +20,12 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入 main | | | |
 
 ## 进度笔记
 
 - 2026-09-09 Manager 登记。独立 worktree（本树 `pageview-wordmark` 在 merge-approval）。路径 `fast`：只改 README 启动说明。Spec/Design skipped：无产品行为合同、无选型。Review skipped：fast，对照文档命令与已跑通的后台进程验收。用户要求后台起前端并把前后端后台启动写进 README。
 - 2026-09-09 Planner 完成 `plan.md`。进入 `developing`。
+- 2026-09-09 Developer：双语 README 后台启动 + `HTTP_500` 排查。代码/文档提交 `9e6354b`。Review skipped → QA。
+- 2026-09-09 QA 轮次 1 Pass（`9e6354bcb1772acacf277aeb983c1c9d93b5d602`）。进入 `merge-approval`，待用户授权合并。
+- 2026-09-09 用户授权合并（「ok」）。合入前发现目标 `main` 已至 `7f54bd6`（pageview-wordmark 已归档），源分支无法 FF。stash `workflow/` 后 rebase；无冲突。实现提交变为 `a49f777`。QA 轮次 2 Pass。状态 `done`。第三阶段提交纳入关闭文档。

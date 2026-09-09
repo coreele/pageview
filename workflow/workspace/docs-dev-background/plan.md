@@ -37,11 +37,11 @@ T1 → T2 → T3 → T4
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | README 英文含后台 `dev:server` / `dev:web`、日志路径、预期 URL、停止方式 | Quick start 可复制 | |
-| V-2 | README 中文与英文步骤、端口、日志路径一致 | 对照两文件 | |
-| V-3 | 故障排查含仅 web 时的 `HTTP_500` | 指向先起 `pnpm dev:server` | |
-| V-4 | 文档 A.3：对象/前置/步骤/预期/失败 | Quick start + Troubleshooting 覆盖 | |
-| V-5 | 本机按该方式：8787 与 5173 在听，经 5173 的 `/api/session` 为 200 | `ss` + `curl --noproxy '*'` | |
+| V-1 | README 英文含后台 `dev:server` / `dev:web`、日志路径、预期 URL、停止方式 | Quick start 可复制 | 通过 |
+| V-2 | README 中文与英文步骤、端口、日志路径一致 | 对照两文件 | 通过 |
+| V-3 | 故障排查含仅 web 时的 `HTTP_500` | 指向先起 `pnpm dev:server` | 通过 |
+| V-4 | 文档 A.3：对象/前置/步骤/预期/失败 | Quick start + Troubleshooting 覆盖 | 通过 |
+| V-5 | 本机按该方式：8787 与 5173 在听，经 5173 的 `/api/session` 为 200 | `ss` + `curl --noproxy '*'` | 通过 |
 
 ## 验证缺口
 
