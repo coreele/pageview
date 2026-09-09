@@ -7,7 +7,7 @@
 文档影响: README / README.zh-CN 功能列表补 Export PNG 一句
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/export-structure-png/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/export-structure-png/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」（见 `workflow/agents/standards/documentation.md` §B）。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main 并归档 | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -30,3 +30,4 @@
 - 2026-09-09 用户在合并授权前要求：Export 放到右上五个按钮的第一个。状态 `merge-approval` → `developing`。Spec/UI：Export → Tree → Detail → Hex → 主题。
 - 2026-09-09 Developer：`7d6e404`。web 287 / typecheck 0。Review Approve。QA 轮次 2 Pass。进入 `merge-approval`。
 - 2026-09-09 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入工作流文档。
+- 2026-09-09 FF 合入 `main`（`52e59da`，实现 `7d6e404`）并归档至 `workflow/archive/2026/export-structure-png/`。
