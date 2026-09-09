@@ -7,7 +7,7 @@
 文档影响: N/A（测试契约；用户/运维文档不涉及 Fill 语义变更）
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/fix-wal-smoke-ci/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/fix-wal-smoke-ci/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -29,3 +29,4 @@
 - 2026-09-09 Developer：抽出 `checkRecentWindowContract`（`endLsn` ≥ 观测 tip）；单测覆盖 CI 日志竞态；smoke 改用该函数。代码提交 `0fab8f3`。本地 `origin/main` 仍为基线 `d94ef94`；`git fetch` 因 443 失败未刷新。Review skipped → QA。
 - 2026-09-09 QA 轮次 1 Pass（`0fab8f31d1377065821449e1f9300137923afa46`）。进入 `merge-approval`，待用户授权合并。
 - 2026-09-09 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入 `dev-notes.md` / `qa-report.md`。
+- 2026-09-09 FF 合入 `main`（`d94ef94..73c6abc`，实现 `0fab8f3`）并归档至 `workflow/archive/2026/fix-wal-smoke-ci/`。
