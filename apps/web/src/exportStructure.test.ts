@@ -105,15 +105,19 @@ describe("composeExportRoot (P0-2)", () => {
 });
 
 describe("chrome Export placement (P0-1)", () => {
-  it("places Export after Hex in chrome-actions", () => {
+  it("places Export first in chrome-actions, before Tree, Detail, and Hex", () => {
     const app = readFileSync(join(srcDir, "App.tsx"), "utf8");
     const start = app.indexOf('className="chrome-actions"');
     const end = app.indexOf("chrome-theme", start);
     const actions = app.slice(start, end);
-    const hex = actions.indexOf("hex-panel");
     const exp = actions.indexOf("Export structure diagram as PNG");
-    expect(hex).toBeGreaterThan(-1);
-    expect(exp).toBeGreaterThan(hex);
+    const tree = actions.indexOf("btree-tree-panel");
+    const detail = actions.indexOf("selection-detail-panel");
+    const hex = actions.indexOf("hex-panel");
+    expect(exp).toBeGreaterThan(-1);
+    expect(tree).toBeGreaterThan(exp);
+    expect(detail).toBeGreaterThan(tree);
+    expect(hex).toBeGreaterThan(detail);
   });
 
   it("does not show Export in the WAL-only Detail branch", () => {

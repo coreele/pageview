@@ -1798,6 +1798,17 @@ export function App() {
           (mode === "wal" && connected) ||
           showTableTreeToggle) && (
           <div className="chrome-actions">
+            {mode === "page" && pageView && (
+              <button
+                type="button"
+                disabled={Boolean(heapPeek) || exporting}
+                aria-label="Export structure diagram as PNG"
+                title="Export structure diagram as PNG (Ctrl/Cmd+Shift+C)"
+                onClick={() => void runMainExport()}
+              >
+                {exporting && !heapPeek ? "Exporting…" : "Export"}
+              </button>
+            )}
             {mode === "page" && showTableTreeToggle && (
               <button
                 className={chromeToggleClass(!btreeTree.collapsed)}
@@ -1832,17 +1843,6 @@ export function App() {
                 onClick={() => setHexCollapsed((v) => !v)}
               >
                 Hex
-              </button>
-            )}
-            {mode === "page" && pageView && (
-              <button
-                type="button"
-                disabled={Boolean(heapPeek) || exporting}
-                aria-label="Export structure diagram as PNG"
-                title="Export structure diagram as PNG (Ctrl/Cmd+Shift+C)"
-                onClick={() => void runMainExport()}
-              >
-                {exporting && !heapPeek ? "Exporting…" : "Export"}
               </button>
             )}
           </div>
