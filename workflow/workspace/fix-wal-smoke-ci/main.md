@@ -20,9 +20,12 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入 main | | | |
 
 ## 进度笔记
 
 - 2026-09-09 Manager 登记。路径 `fast`：CI 单点冒烟契约误杀，症状与验收明确。Spec skipped：产品 Fill 语义不变（`endLsn` 仍为请求时 tip）。Design skipped：无模块边界或选型。Review skipped：fast，以单测复现竞态 + 冒烟契约修正验收。用户贴出 Actions 日志即启动。
 - 2026-09-09 Planner 完成 `plan.md`。进入 `developing`。第一阶段文档提交后调度 Developer。
+- 2026-09-09 Developer：抽出 `checkRecentWindowContract`（`endLsn` ≥ 观测 tip）；单测覆盖 CI 日志竞态；smoke 改用该函数。代码提交 `0fab8f3`。本地 `origin/main` 仍为基线 `d94ef94`；`git fetch` 因 443 失败未刷新。Review skipped → QA。
+- 2026-09-09 QA 轮次 1 Pass（`0fab8f31d1377065821449e1f9300137923afa46`）。进入 `merge-approval`，待用户授权合并。
+- 2026-09-09 用户授权合并（「ok」）。状态 `done`。第三阶段提交纳入 `dev-notes.md` / `qa-report.md`。

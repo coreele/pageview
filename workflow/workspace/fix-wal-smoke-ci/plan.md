@@ -40,12 +40,12 @@ T1 → T2 → T3 → T4
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | 契约：窗口 `endLsn` 等于先前观测 tip | `checkRecentWindowContract` 返回 `ok` | |
-| V-2 | 契约：窗口 `endLsn` 严格大于先前观测 tip（CI 日志值） | 返回 `ok`；不得因字符串不等失败 | |
-| V-3 | 契约：窗口 `endLsn` 小于先前观测 tip | 返回 `ok: false`，reason 可辨识 | |
-| V-4 | 契约：body 含 `records` 或 count 越界 | 返回 `ok: false` | |
-| V-5 | `pnpm --filter server test` | 含新契约用例，全部通过 | |
-| V-6 | 有 PG 时 `pnpm test:wal` | `WAL L3 smoke OK`、exit 0；无凭据则 exit 2 并记缺口 | |
+| V-1 | 契约：窗口 `endLsn` 等于先前观测 tip | `checkRecentWindowContract` 返回 `ok` | 通过 |
+| V-2 | 契约：窗口 `endLsn` 严格大于先前观测 tip（CI 日志值） | 返回 `ok`；不得因字符串不等失败 | 通过（`0/2206C50` vs `0/2206CC8`） |
+| V-3 | 契约：窗口 `endLsn` 小于先前观测 tip | 返回 `ok: false`，reason 可辨识 | 通过（`end_before_observed_tip`） |
+| V-4 | 契约：body 含 `records` 或 count 越界 | 返回 `ok: false` | 通过 |
+| V-5 | `pnpm --filter server test` | 含新契约用例，全部通过 | 通过（86 tests） |
+| V-6 | 有 PG 时 `pnpm test:wal` | `WAL L3 smoke OK`、exit 0；无凭据则 exit 2 并记缺口 | 通过（本地 exit 0） |
 
 ## 验证缺口
 
