@@ -7,7 +7,7 @@
 文档影响: N/A（不改 README）
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/gutter-grip/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/gutter-grip/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」（见 `workflow/agents/standards/documentation.md` §B）。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main 并归档 | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -28,3 +28,4 @@
 - 2026-09-09 Planner：`ui-design.md`、`plan.md`。进入 `developing`。第一阶段文档提交。
 - 2026-09-09 Developer：`623383d`。web 289 / typecheck 0。Review skipped。QA Pass。进入 `merge-approval`。
 - 2026-09-09 用户授权合并（「合并」）。状态 `done`。第三阶段提交纳入工作流文档。
+- 2026-09-09 FF 合入 `main`（`27f80cd`，实现 `623383d`）并归档至 `workflow/archive/2026/gutter-grip/`。

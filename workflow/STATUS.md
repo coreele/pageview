@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | gutter-grip |
-| 已归档 | 32 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
+| 待归档 | 0 | — |
+| 已归档 | 33 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| gutter-grip | gutter-grip → main | 确认 `623383d` 已合入 |
+| — | | |
 
 ## 归档索引
 
@@ -84,3 +84,4 @@
 | chrome-order | archived | `workflow/archive/2026/chrome-order/main.md` |
 | tuple-diff-parent | cancelled | `workflow/archive/2026/tuple-diff-parent/main.md` |
 | export-structure-png | archived | `workflow/archive/2026/export-structure-png/main.md` |
+| gutter-grip | archived | `workflow/archive/2026/gutter-grip/main.md` |
