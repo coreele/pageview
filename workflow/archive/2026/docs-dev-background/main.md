@@ -7,7 +7,7 @@
 文档影响: `README.md`、`README.zh-CN.md`
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/docs-dev-background/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/docs-dev-background/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入 main | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -29,3 +29,4 @@
 - 2026-09-09 Developer：双语 README 后台启动 + `HTTP_500` 排查。代码/文档提交 `9e6354b`。Review skipped → QA。
 - 2026-09-09 QA 轮次 1 Pass（`9e6354bcb1772acacf277aeb983c1c9d93b5d602`）。进入 `merge-approval`，待用户授权合并。
 - 2026-09-09 用户授权合并（「ok」）。合入前发现目标 `main` 已至 `7f54bd6`（pageview-wordmark 已归档），源分支无法 FF。stash `workflow/` 后 rebase；无冲突。实现提交变为 `a49f777`。QA 轮次 2 Pass。状态 `done`。第三阶段提交纳入关闭文档。
+- 2026-09-09 FF 合入 `main`（`7f54bd6..6d77d65`，实现 `a49f777`）并归档至 `workflow/archive/2026/docs-dev-background/`。
