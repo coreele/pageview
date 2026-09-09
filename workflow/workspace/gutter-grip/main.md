@@ -20,9 +20,11 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入 main 并归档 | | | |
 
 ## 进度笔记
 
 - 2026-09-09 Manager 登记。用户圈树与结构图之间的竖条：通栏、深色下亮青，压迫。路径 `fast`：只改 `.split-gutter::after` 长度与亮度。拖动命中区与调宽逻辑不改。Spec/Design/Review skipped。
 - 2026-09-09 Planner：`ui-design.md`、`plan.md`。进入 `developing`。第一阶段文档提交。
+- 2026-09-09 Developer：`623383d`。web 289 / typecheck 0。Review skipped。QA Pass。进入 `merge-approval`。
+- 2026-09-09 用户授权合并（「合并」）。状态 `done`。第三阶段提交纳入工作流文档。

@@ -38,10 +38,10 @@
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | 柄短且居中 | CSS `::after` 含 `height` 与 `translate(-50%, -50%)`，无通栏 top/bottom | |
-| V-2 | 悬停不纯亮青 | hover `::after` 背景为 color-mix 含 accent 与 border | |
-| V-reg | web test | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | 柄短且居中 | CSS `::after` 含 `height` 与 `translate(-50%, -50%)`，无通栏 top/bottom | Pass |
+| V-2 | 悬停不纯亮青 | hover `::after` 背景为 color-mix 含 accent 与 border | Pass |
+| V-reg | web test | 退出码 0 | Pass |
+| V-static | typecheck | 退出码 0 | Pass |
 
 ## 验证缺口
 
