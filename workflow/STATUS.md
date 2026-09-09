@@ -12,7 +12,7 @@
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
 | 待归档 | 0 | — |
-| 已归档 | 36 | add-ci，auto-install-extensions，btree-tree-view，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，docs-dev-background，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，fix-wal-smoke-ci，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pageview-wordmark，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
+| 已归档 | 37 | add-ci，auto-install-extensions，btree-tree-view，chrome-content-gap，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，docs-dev-background，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，fix-wal-smoke-ci，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pageview-wordmark，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer |
 
 ## 等待用户
 
@@ -88,3 +88,4 @@
 | fix-wal-smoke-ci | archived | `workflow/archive/2026/fix-wal-smoke-ci/main.md` |
 | pageview-wordmark | archived | `workflow/archive/2026/pageview-wordmark/main.md` |
 | docs-dev-background | archived | `workflow/archive/2026/docs-dev-background/main.md` |
+| chrome-content-gap | cancelled | `workflow/archive/2026/chrome-content-gap/main.md` |
