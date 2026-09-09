@@ -62,11 +62,19 @@ Missing `pageinspect` / `pg_walinspect` are installed automatically when a mode 
 ```bash
 pnpm install
 cp .env.example .env   # optional: auto-connect on server start
+
+# Foreground — two terminals
 pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
+
+# Background — one terminal. Both processes must stay up: the UI on 5173
+# proxies `/api` to 8787. Logs: /tmp/pageview-server.log, /tmp/pageview-web.log
+pnpm dev:server >/tmp/pageview-server.log 2>&1 &
+pnpm dev:web    >/tmp/pageview-web.log 2>&1 &
+# same shell: kill %1 %2
 ```
 
-Open the web UI, connect (or rely on `.env`), then use **Page** (**Tree** on: pick a table or index in the catalog; **Tree** off: blkno + Load) or **WAL** (start/end LSN + Load).
+Open http://127.0.0.1:5173 , connect (or rely on `.env`), then use **Page** (**Tree** on: pick a table or index in the catalog; **Tree** off: blkno + Load) or **WAL** (start/end LSN + Load).
 
 ## Environment
 
@@ -121,7 +129,7 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 | `WALINSPECT_MISSING` | Automatic install failed (e.g. missing privilege or extension files). Run `CREATE EXTENSION pg_walinspect;` as superuser — or install the extension files first — then retry WAL |
 | `PG_VERSION_UNSUPPORTED` | Use PostgreSQL 15+ for WAL mode |
 | `WAL_BATCH_TOO_LARGE` | Narrow the LSN range (≤2000 records / ≤2 MiB JSON / ≤16 MiB span) |
-| Connection refused | Check host/port/credentials; Postgres listening on localhost |
+| `HTTP_500` / “Check the server is running on 127.0.0.1” | The UI on 5173 is up but the API on 8787 is not. Start `pnpm dev:server` (foreground or background) and retry. 5173 only proxies `/api`. |
 | `BLKNO_OUT_OF_RANGE` | Use `blkno` in `0 .. relpages-1` |
 | `BAD_OID` | Use an oid (integer `1..4294967295`) copied from the table/index list when building the URL |
 | `BAD_URL_PARAM` | Fix or remove the invalid URL parameter shown in the message from the address bar, then reload — the app stays usable on the default view |

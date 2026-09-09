@@ -61,11 +61,19 @@ CREATE EXTENSION pg_walinspect;    -- WAL 模式（PG15+）
 ```bash
 pnpm install
 cp .env.example .env   # 可选：服务启动时自动连接
+
+# 前台 — 两个终端
 pnpm dev:server        # http://127.0.0.1:8787
 pnpm dev:web           # http://127.0.0.1:5173
+
+# 后台 — 同一终端。两个进程都要在：5173 上的 UI 把 `/api` 代理到 8787。
+# 日志：/tmp/pageview-server.log、/tmp/pageview-web.log
+pnpm dev:server >/tmp/pageview-server.log 2>&1 &
+pnpm dev:web    >/tmp/pageview-web.log 2>&1 &
+# 同一 shell 里停止：kill %1 %2
 ```
 
-打开 Web UI，连接数据库（或依赖 `.env`），然后使用 **Page**（**Tree** 亮：在目录选表或索引；**Tree** 暗：块号 + Load）或 **WAL**（start/end LSN + Load）。
+打开 http://127.0.0.1:5173 ，连接数据库（或依赖 `.env`），然后使用 **Page**（**Tree** 亮：在目录选表或索引；**Tree** 暗：块号 + Load）或 **WAL**（start/end LSN + Load）。
 
 ## 环境变量
 
@@ -122,7 +130,7 @@ Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 | `WALINSPECT_MISSING` | 自动安装失败（如权限不足或扩展文件缺失）。以超级用户执行 `CREATE EXTENSION pg_walinspect;`，或先补装扩展文件，然后重试 WAL |
 | `PG_VERSION_UNSUPPORTED` | WAL 模式需 PostgreSQL 15+ |
 | `WAL_BATCH_TOO_LARGE` | 缩小 LSN 区间（≤2000 条 / ≤2 MiB JSON / ≤16 MiB 跨度） |
-| Connection refused | 检查 host/port/凭证；确认 Postgres 在本机监听 |
+| `HTTP_500` / “Check the server is running on 127.0.0.1” | 5173 上的 UI 在、8787 上的 API 不在。启动 `pnpm dev:server`（前台或后台）后重试。5173 只代理 `/api`。 |
 | `BLKNO_OUT_OF_RANGE` | 使用 `blkno` 在 `0 .. relpages-1` 范围内 |
 | `BAD_OID` | 构造 URL 时使用从表/索引列表取得的 oid（整数 `1..4294967295`） |
 | `BAD_URL_PARAM` | 按消息提示修正或移除地址栏中非法的 URL 参数后刷新——应用仍可在默认视图正常使用 |
