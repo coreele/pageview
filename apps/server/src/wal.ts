@@ -190,6 +190,57 @@ export function parseRecentWindowLimit(raw: string | undefined): ParseLimitOk | 
   return { ok: true, limit };
 }
 
+export type RecentWindowContractOk = { ok: true };
+export type RecentWindowContractFail = { ok: false; reason: string };
+
+/**
+ * Fill-window JSON contract for L3 smoke.
+ * `endLsn` is the live tip at request time and may be strictly ahead of a
+ * previously observed `/current-lsn` value (WAL can advance between calls).
+ */
+export function checkRecentWindowContract(
+  body: unknown,
+  previouslyObservedLsn: string,
+  maxCount: number,
+): RecentWindowContractOk | RecentWindowContractFail {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, reason: "body_not_object" };
+  }
+  const o = body as Record<string, unknown>;
+  if ("records" in o) {
+    return { ok: false, reason: "records_attached" };
+  }
+  if (typeof o.startLsn !== "string") {
+    return { ok: false, reason: "startLsn_not_string" };
+  }
+  if (typeof o.endLsn !== "string") {
+    return { ok: false, reason: "endLsn_not_string" };
+  }
+  if (typeof o.count !== "number" || !Number.isInteger(o.count)) {
+    return { ok: false, reason: "count_not_integer" };
+  }
+  if (o.count < 0 || o.count > maxCount) {
+    return { ok: false, reason: "count_out_of_range" };
+  }
+  let start: bigint;
+  let end: bigint;
+  let observed: bigint;
+  try {
+    start = parseLsn(o.startLsn);
+    end = parseLsn(o.endLsn);
+    observed = parseLsn(previouslyObservedLsn);
+  } catch {
+    return { ok: false, reason: "invalid_lsn" };
+  }
+  if (start > end) {
+    return { ok: false, reason: "start_after_end" };
+  }
+  if (end < observed) {
+    return { ok: false, reason: "end_before_observed_tip" };
+  }
+  return { ok: true };
+}
+
 /** Apply §4.1 tail/backfill rules; never attach records[]. */
 export function windowFromRecords(
   tip: string,

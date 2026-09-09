@@ -5,6 +5,7 @@ import {
   RECENT_WINDOW_INITIAL_SPAN,
   WAL_BATCH_TOO_LARGE_NEXT,
   WAL_RANGE_UNAVAILABLE_NEXT,
+  checkRecentWindowContract,
   classifyWalinspectError,
   formatLsn,
   isTipEmptyBatch,
@@ -204,5 +205,58 @@ describe("recent-window helpers (P1-2)", () => {
         },
       }),
     ).rejects.toMatchObject({ code: "BAD_LSN" });
+  });
+});
+
+describe("checkRecentWindowContract (live tip vs previously observed LSN)", () => {
+  const observed = "0/2206C50";
+  const window = {
+    startLsn: "0/2206478",
+    endLsn: "0/2206C50",
+    count: 20,
+  };
+
+  it("accepts endLsn equal to the previously observed tip", () => {
+    expect(checkRecentWindowContract(window, observed, 20)).toEqual({ ok: true });
+  });
+
+  it("accepts endLsn strictly ahead of the previously observed tip (CI WAL advance)", () => {
+    // Actions log: current-lsn 0/2206C50 then recent-window endLsn 0/2206CC8
+    expect(
+      checkRecentWindowContract({ ...window, endLsn: "0/2206CC8" }, observed, 20),
+    ).toEqual({ ok: true });
+  });
+
+  it("rejects endLsn behind the previously observed tip", () => {
+    expect(
+      checkRecentWindowContract({ ...window, endLsn: "0/2206C4F" }, observed, 20),
+    ).toEqual({ ok: false, reason: "end_before_observed_tip" });
+  });
+
+  it("rejects records[] attached or count out of range", () => {
+    expect(
+      checkRecentWindowContract({ ...window, records: [] }, observed, 20),
+    ).toEqual({ ok: false, reason: "records_attached" });
+    expect(checkRecentWindowContract({ ...window, count: 21 }, observed, 20)).toEqual({
+      ok: false,
+      reason: "count_out_of_range",
+    });
+    expect(checkRecentWindowContract({ ...window, count: 1.5 }, observed, 20)).toEqual({
+      ok: false,
+      reason: "count_not_integer",
+    });
+  });
+
+  it("rejects start after end or unparseable LSN", () => {
+    expect(
+      checkRecentWindowContract(
+        { ...window, startLsn: "0/3000", endLsn: "0/2000" },
+        observed,
+        20,
+      ),
+    ).toEqual({ ok: false, reason: "start_after_end" });
+    expect(
+      checkRecentWindowContract({ ...window, endLsn: "not-an-lsn" }, observed, 20),
+    ).toEqual({ ok: false, reason: "invalid_lsn" });
   });
 });

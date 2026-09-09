@@ -6,6 +6,7 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 import { emptySession, readEnvCredentials } from "./session.js";
 import { buildApp, connectSession } from "./app.js";
+import { checkRecentWindowContract } from "./wal.js";
 
 config({ path: resolve(process.cwd(), "../../.env") });
 config();
@@ -51,19 +52,17 @@ async function main(): Promise<void> {
 
   let recordsOk = true;
   if (windowRes.statusCode === 200) {
-    const { startLsn, endLsn, count } = windowBody;
-    if (
-      typeof startLsn !== "string" ||
-      typeof endLsn !== "string" ||
-      typeof count !== "number" ||
-      "records" in windowBody ||
-      endLsn !== lsn ||
-      count < 0 ||
-      count > 20
-    ) {
-      console.error("recent-window shape/contract failed");
+    const contract = checkRecentWindowContract(windowBody, lsn, 20);
+    if (!contract.ok) {
+      console.error("recent-window shape/contract failed", contract.reason, {
+        observedLsn: lsn,
+        window: windowBody,
+      });
       recordsOk = false;
     } else {
+      const startLsn = windowBody.startLsn!;
+      const endLsn = windowBody.endLsn!;
+      const count = windowBody.count!;
       const loaded = await app.inject({
         method: "GET",
         url: `/api/wal/records?startLsn=${encodeURIComponent(startLsn)}&endLsn=${encodeURIComponent(endLsn)}`,
