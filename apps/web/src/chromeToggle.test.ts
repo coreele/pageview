@@ -57,12 +57,13 @@ describe("chrome-actions order (chrome-order V-1)", () => {
   });
 });
 
-describe("dark theme button fill (chrome-order V-2)", () => {
-  it("uses the same accent mix as chrome-toggle--on", () => {
+describe("theme button fill (chrome-theme-sun V-1)", () => {
+  it("uses the same accent mix as chrome-toggle--on in both themes", () => {
     const css = readFileSync(join(srcDir, "styles.css"), "utf8");
     expect(css).toMatch(
-      /\[data-theme="dark"\] \.chrome-theme\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 18%/,
+      /\.chrome-theme\s*\{[^}]*background:\s*color-mix\(in srgb, var\(--accent\) 18%/,
     );
+    expect(css).not.toMatch(/\[data-theme="dark"\] \.chrome-theme/);
   });
 });
 

@@ -238,9 +238,6 @@ input {
   justify-content: center;
   width: 2.15rem;
   padding: 0.35rem;
-}
-
-[data-theme="dark"] .chrome-theme {
   background: color-mix(in srgb, var(--accent) 18%, var(--surface));
   color: var(--text);
 }
