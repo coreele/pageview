@@ -4,7 +4,7 @@
 
 - 依据 Spec: N/A
 - 依据 Design: N/A
-- 依据 UI: `workflow/workspace/chrome-theme-sun/ui-design.md`
+- 依据 UI: `workflow/archive/2026/chrome-theme-sun/ui-design.md`
 - 路径等级: fast
 - Review 门禁: skipped（fast：主题钮底色选择器从 dark-only 提到自身）
 - 最低验证层: unit + static
