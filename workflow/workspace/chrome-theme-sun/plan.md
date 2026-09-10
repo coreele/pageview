@@ -37,9 +37,9 @@
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | 两主题同底 | `.chrome-theme {` 含 `color-mix(... --accent) 18%`；无 dark 特例选择器 | |
-| V-reg | web test | 退出码 0 | |
-| V-static | typecheck | 退出码 0 | |
+| V-1 | 两主题同底 | `.chrome-theme {` 含 `color-mix(... --accent) 18%`；无 dark 特例选择器 | Pass |
+| V-reg | web test | 退出码 0 | Pass |
+| V-static | typecheck | 退出码 0 | Pass |
 
 ## 验证缺口
 
