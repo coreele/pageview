@@ -8,7 +8,7 @@
 | 泳道 | 数量 | 工作项 |
 |---|---|---|
 | 等待用户 | 0 | — |
-| 进行中 | 0 | — |
+| 进行中 | 1 | wf-worktree |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
 | 待归档 | 0 | — |
@@ -26,7 +26,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| — | | | | |
+| wf-worktree | developing | `workflow/workspace/wf-worktree/main.md` | Developer 实施 | 附加 worktree 放到 `.worktree/<id>`，合入后拆除 |
 
 ## 待办
 
