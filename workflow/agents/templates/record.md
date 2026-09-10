@@ -17,7 +17,7 @@
 |---|---|---|---|---|
 | fast \| standard \| full | required \| skipped | required \| not-required \| approved \| rejected | required \| skipped | required \| skipped |
 
-> `Review=skipped` 仅限 `fast`。非 Git 仓库的三个 Git 字段填 `N/A`。改动门禁须按 WORKFLOW.md §3.2 在进度笔记留痕。
+> 「Spec 用户确认」取值见 `workflow/WORKFLOW.md` §7；`Review=skipped` 仅限 `fast`。非 Git 仓库的三个 Git 字段填 `N/A`。改动门禁须按 `workflow/WORKFLOW.md` §3.2 在进度笔记留痕。
 > `plan.md`、`dev-notes.md`、`qa-report.md` 无条件必需，不在本表中，也不可跳过。
 
 ## 状态

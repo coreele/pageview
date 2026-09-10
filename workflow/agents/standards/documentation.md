@@ -36,7 +36,7 @@ Docs as Code：文档与相关代码同仓库、同分支、同审阅演进。
 
 Reviewer 或 QA 须核验链接、路径、命令与配置示例可用：实跑、对照仓库结构或确认可访问。错误引用须在合并前修正。
 
-工作流自身的文档按 `workflow/WORKFLOW.md` §1「路径写法」选用链接或反引号路径，两种形式都由 [wf-check.py](../tools/wf-check.py) 校验。
+工作流自身的文档按 `workflow/WORKFLOW.md` §1「路径写法」选用链接或反引号路径。
 
 ---
 

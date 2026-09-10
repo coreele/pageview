@@ -11,9 +11,9 @@
 1. Manager 在内存中分配 `<id>`，确定**目标分支**（默认 `main`）与**源分支**；源分支名默认即 `<id>`，必要时可为 `<id>-<简短描述>`。
 2. 创建前确认：目标分支存在；源分支名未被其他工作项占用；工作树没有无关修改；远程目标需要更新时已 fetch。
 3. Manager 从明确的目标分支提交创建并检出源分支，记录该提交为**基线提交**。不得用含未提交修改的 `git switch -c` 把其他工作带进新分支。当前工作树干净且未推进其他工作项时，在**仓库根**检出源分支；否则按 §1.1 另开附加 worktree。禁止把附加树放到仓库旁的兄弟目录。
-4. 分支就绪后，Manager 才创建 `workspace/<id>/main.md`、更新 STATUS 并调度 Analyst / Planner。登记与后续预开发文档先留在工作树，不单独提交。
+4. 分支就绪后，Manager 才创建 `workflow/workspace/<id>/main.md`、更新 STATUS 并调度 Analyst / Planner。登记与后续预开发文档先留在工作树，不单独提交。
 5. Developer 不创建或改选源分支；开工前只验证当前分支、目标分支、源分支与基线记录一致，不满足就停止并报告 Manager。
-6. 每个工作项独占一个源分支。一个 Git worktree 同时只推进一个工作项；并行工作使用不同 worktree。
+6. 每个工作项独占一个源分支。一个 Git worktree 同时只推进一个**活动工作项**；已关闭的 `done` 目录可暂留，不占活动名额。并行推进活动工作项时使用不同 worktree。
 
 ### 1.1 附加 worktree
 
@@ -34,7 +34,8 @@ git worktree add -b <源分支> .worktree/<id> <基线提交>
 | 内容 | 谁提交 |
 |---|---|
 | 实现代码与测试 | Developer |
-| `main.md`、`STATUS.md`、`spec.md`、`design.md`、`ui-design.md`、`plan.md`、`dev-notes.md`、`review.md`、`qa-report.md` | **Manager** |
+| 主流程中的工作流产物 | **Manager** |
+| 手动归档产生的 `main.md` 状态、目录移动与 `STATUS.md` | 用户点名的 `archive` skill |
 | 审计报告与登记册 | 执行 `code-audit` 的会话 |
 
 产出角色一律把文档留在**当前源分支的工作树**并报告，不执行 `git add` / `commit` / `push`。Manager 只在 §3 规定的窗口提交；提交前确认当前分支与 `main.md` 一致，且该提交不含代码或无关修改。
@@ -43,7 +44,7 @@ git worktree add -b <源分支> .worktree/<id> <基线提交>
 
 ## 3. 提交时机（三阶段）
 
-标准路径在源分支上只有两类提交：Manager 的**两次**工作流文档提交，加上 Developer 的**若干**代码提交。禁止按状态机每走一步就提一次文档。
+三个阶段的提交分两类：Manager 的**两次**工作流文档提交，以及 Developer 的**若干**代码提交。禁止按状态机每走一步就提一次文档。
 
 | 阶段 | 何时 | 谁 | 提交什么 |
 |---|---|---|---|
@@ -55,12 +56,11 @@ git worktree add -b <源分支> .worktree/<id> <基线提交>
 
 第二、三阶段之间：Review、QA、`Fail` / `Request changes` 回环、目标分支同步证据，一律追加到工作树中的同一批文件，不另开文档提交。
 
-合入后的归档（把目录移到 `archive/`、更新 STATUS）在目标分支上另作一次治理提交，不算源分支上的第四次琐碎提交。
-
 **允许额外文档提交的例外（仍须整批、说得清，禁止拆成状态日记）：**
 
 - 必须离开本工作树或把未提交工作流文档交给另一个 worktree；
-- 用户取消：一次提交 `cancelled` 及相关记录后归档；
+- 用户取消：置 `cancelled` 后提交一次相关记录，目录暂留；用户答复后，回滚按 [WORKFLOW.md](../../WORKFLOW.md) §8.1 与本文件 §9 处置，不回滚则删除工作项目录并另作一次治理提交；
+- `archive` skill：一次提交本次移入 `archive/` 的项；
 - 第一阶段文档已入库后发生回退且改动必须让 Developer 看到已入库版本——优先把改动留到第三阶段；只有无法等到关闭时才允许再提一次预开发文档。
 
 禁止：登记单独提交；Spec / Design / Plan 各提一次；每次状态变更提交；`review.md` 与 `qa-report.md` 在授权前单独提交；为 `dev-notes.md` 或同步证据单独提交。
@@ -78,12 +78,12 @@ git worktree add -b <源分支> .worktree/<id> <基线提交>
 - **subject**（必须）：祈使语气、小写开头、无句号、≤72 字符，说清改了什么，不写 `update code` 这类空话。
 - **body**（可选）：解释**为什么**（动机、根因、取舍），不复述 diff。
 
-工作流文档提交只用两次固定句式，不写中间态：
+主流程中的工作流文档提交只用前两条固定句式，不写中间态；取消与手动归档分别使用后两条例外句式：
 
 - 第一阶段：`docs(workflow): <id> ready for developing`
 - 第三阶段：`docs(workflow): <id> -> done (qa pass, merge authorized)`
 - 取消：`docs(workflow): <id> -> cancelled`
-- 归档：`docs(workflow): <id> -> archived`
+- 归档（仅 `archive` skill）：`docs(workflow): archive N done items`
 
 代码提交按变更本身选 type/scope，不要用 `docs(workflow)` 记录实现。
 
@@ -103,14 +103,14 @@ git worktree add -b <源分支> .worktree/<id> <基线提交>
 
 ### 7.1 最终验收前同步
 
-Developer 完成实现后、进入最终 Review 前：
+Developer 完成实现后、进入 Review 或 QA 前：
 
 1. Developer 先把待入库的代码与测试提交完毕并报告“待同步”。`dev-notes.md` 与其他工作流文档留在工作树，Manager **不**为此提交；
 2. rebase 需要干净工作树时，**显式**暂存工作流路径（如 `git stash push -- workflow/`），禁止 autostash，禁止把代码与文档塞进同一个 stash；
 3. fetch（如有）并把源分支 rebase 到最新目标分支；
 4. 发生冲突时按文件所有权处理：Developer 只解决代码、测试及紧耦合资源；`main.md`、STATUS 与其他工作流文档由 Manager 解决。任一方无法确认语义时停止并交用户决策，不得用 `ours` / `theirs` 整体覆盖；
 5. 恢复暂存的工作流文档，重新执行 Plan 要求的验证，在 `dev-notes.md` 追加目标分支提交、同步后源分支 HEAD、冲突处理与验证证据；
-6. 同步证据仍留在工作树，由 Manager 把状态推进到 `reviewing`，文档等到第三阶段再提交。
+6. 同步证据仍留在工作树；Manager 按 WORKFLOW.md §3 和 Review 门禁推进到 `reviewing` 或 `qa`，文档等到第三阶段再提交。
 
 Reviewer 与 QA 必须以同步后的提交为对象，并分别在报告中记录完整或足以唯一识别的提交 SHA。
 
@@ -118,7 +118,9 @@ Reviewer 与 QA 必须以同步后的提交为对象，并分别在报告中记�
 
 - QA Pass 后目标分支虽有新提交，但待合入源分支仍可直接 fast-forward：无需改写源分支，可直接合入。
 - 若必须再次 rebase，且旧 QA 提交与新 HEAD 的文件树完全一致（仅 ancestry / SHA 变化）：重新运行最低必要验证，QA 在报告追加同步轮次并记录新 HEAD 后，才可请求合入。
-- 若 rebase 发生冲突、改变提交内容或文件树：状态回到 `developing`，重新自验、Review、QA 与合并授权。禁止把未验收版本直接合入。
+- 若 rebase 发生冲突、改变提交内容或文件树：禁止把未验收版本直接合入。
+
+对应的状态转换与重新验收范围见 [WORKFLOW.md](../../WORKFLOW.md) §3.1。
 
 ### 7.3 合入策略
 
@@ -136,11 +138,10 @@ Reviewer 与 QA 必须以同步后的提交为对象，并分别在报告中记�
 
 1. **附加 worktree**（若本项使用了 `.worktree/<id>`）：该树有未提交改动，或目录内仍有活进程（dev server、测试等）时停止并报告，禁止 `git worktree remove --force`，禁止 `rm -rf`。否则执行 `git worktree remove .worktree/<id>`。
 2. **源分支**：本地 `git branch -d <源分支>`；远程分支存在时再 `git push origin --delete <源分支>`。
-3. **归档**：按 [WORKFLOW.md](../../WORKFLOW.md) §8 把工作项目录移入 `archive/` 并提交治理变更。
 
-归档发生在目标分支已含实现之后，属于治理文档变更：仓库允许时可提交到目标分支；目标分支受保护时使用独立 docs 分支 / PR。归档前应完成第 1–2 步，避免已合入分支与附加树长期堆积。
+状态与工作项目录按 [WORKFLOW.md](../../WORKFLOW.md) §3 保持不变。
 
-用户取消（`cancelled`）时同样拆除该附加 worktree（门闩相同），再删源分支并归档。
+取消处置见 [WORKFLOW.md](../../WORKFLOW.md) §8.1。
 
 ## 9. 回滚
 

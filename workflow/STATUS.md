@@ -1,22 +1,23 @@
 # 看板
 
 > 由 Manager 唯一维护。本文件是**当前 Git 分支 / 工作树的看板视图**，不是跨分支全局数据库；并行工作项使用独立 `git worktree`。流程与状态定义见 [WORKFLOW.md](WORKFLOW.md)，本文件不重复定义规则。
-> 活跃工作项记录 `workflow/workspace/<id>/main.md`，归档记录 `workflow/archive/<年>/<id>/main.md`。
+> 工作项记录 `workflow/workspace/<id>/main.md`（含 `done`）；手动归档后为 `workflow/archive/<年>/<id>/main.md`。
+> 概览只写泳道与数量，工作项名单只出现在下方细表。
 
 ## 概览
 
-| 泳道 | 数量 | 工作项 |
-|---|---|---|
-| 等待用户 | 0 | — |
-| 进行中 | 0 | — |
-| 待办 | 0 | — |
-| 阻塞 | 0 | — |
-| 待归档 | 0 | — |
-| 已归档 | 40 | add-ci，auto-install-extensions，btree-tree-view，chrome-content-gap，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，docs-dev-background，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，fix-wal-smoke-ci，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pageview-wordmark，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer，chrome-theme-sun，pnpm-12，wf-worktree |
+| 泳道 | 数量 |
+|---|---|
+| 等待用户 | 0 |
+| 进行中 | 0 |
+| 待办 | 0 |
+| 阻塞 | 0 |
+| 已关闭 | 0 |
+| 已归档 | 40 |
 
 ## 等待用户
 
-> 流程已停住，需要你回话才能继续。
+> 流程已停住，需要你回话才能继续（Spec 确认、合并授权、取消后是否回滚）。
 
 | 工作项 | 等待什么 | 停在此处自 | 摘要 |
 |---|---|---|---|
@@ -40,11 +41,11 @@
 |---|---|---|---|
 | — | | | |
 
-## 待归档
+## 已关闭
 
-> `done` 但尚未确认合入。确认后移入归档索引。
+> 状态 `done`，目录仍在 `workspace/`。主流程不管归档；需要时调用 `archive` skill。
 
-| 工作项 | 源分支 → 目标分支 | 待确认事项 |
+| 工作项 | 源分支 → 目标分支 | 备注 |
 |---|---|---|
 | — | | |
 

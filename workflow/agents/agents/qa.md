@@ -43,9 +43,9 @@ model: inherit
 
 执行合并前须同时确认：用户已明确授权本次合并；QA 最新轮次为 `Pass`；适用的 `Approve` 已持久化；源分支、目标分支与基线提交和 `main.md` 一致；待合入 HEAD 与 QA 报告的实现版本一致；工作项已为 `done`；符合仓库的 Code Owner / 分支保护 / 合并策略；满足 `git.md`（rebase + fast-forward）。
 
-目标分支移动后若仍可直接 fast-forward，可继续；若必须 rebase，按 `git.md` §7.2 处理。仅 ancestry / SHA 变化而文件树不变时追加同步验收轮次并记录新 HEAD；发生冲突或文件树变化时停止合并并报告 Manager，状态回到 `developing`，重新自验、Review、QA 与合并授权。不得强推，禁止向受保护分支 force push。非 Git 仓库跳过合并，但不跳过 QA 门禁。
+目标分支移动后的同步、补验与状态回退按 [git.md](../standards/git.md) §7.2 和 WORKFLOW.md §3.1 执行。不得强推，禁止向受保护分支 force push。非 Git 仓库跳过合并，但不跳过 QA 门禁。
 
-合入成功后按 [git.md](../standards/git.md) §8 拆除本项附加 worktree（若有）并删除源分支，再交 Manager 归档。有未提交改动或活进程时停止并报告，禁止 `--force`，禁止拆除主工作树。
+合入成功后按 [git.md](../standards/git.md) §8 清理，再交 Manager。有未提交改动或活进程时停止并报告，禁止 `--force`，禁止拆除主工作树。
 
 ## 禁止
 

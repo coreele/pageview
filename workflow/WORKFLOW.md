@@ -15,17 +15,17 @@ workflow/
     skills/              技能定义
     standards/           工程规范
     templates/           文档模板
-    tools/wf-check.py    一致性校验
-  workspace/<id>/        活跃工作项
-  archive/<年>/<id>/     已归档工作项
+  workspace/<id>/        工作项（含已关闭的 `done`）
+  archive/<年>/<id>/     手动归档后的工作项
   audit/                 代码审计报告与登记册（流程外）
   ops/                   运维与排障文档（流程外）
 ```
 
-| 产出路径 | 谁可写 |
+| 产出路径 | 主责 |
 |---|---|
-| [STATUS.md](STATUS.md)、[archive/](archive/) | Manager |
+| [STATUS.md](STATUS.md) | Manager |
 | `workflow/workspace/<id>/` | 见 §4 角色表 |
+| [archive/](archive/) | `archive` |
 | [audit/](audit/) | `code-audit` |
 | [ops/](ops/) | DevOps |
 
@@ -47,11 +47,11 @@ workflow/workspace/<id>/
   qa-report.md   必需
 ```
 
-产物平铺在该目录：禁止子目录，禁止版本后缀（`plan-v2.md`），禁止另建平级目录。归档就是把整个目录移到 `workflow/archive/<年>/<id>/`。
+产物平铺在该目录：禁止子目录，禁止版本后缀（`plan-v2.md`），禁止另建平级目录。手动归档时才把整个目录移到 `workflow/archive/<年>/<id>/`。
 
 ### 路径写法
 
-按引用位置选形式。两种形式 `wf-check` 都会校验，链接腐烂与路径失效都能被抓到。
+按引用位置选形式，避免链接腐烂与深度随归档变化。
 
 | 引用位置 | 形式 | 示例 |
 |---|---|---|
@@ -73,9 +73,9 @@ Manager 分配 id → [Git] 从目标基线创建并检出源分支
   →                   Planner   → plan.md
   → Manager 第一阶段提交（预开发文档，仅一次）
   →                   Developer → 实施 + 自验 + 同步目标分支 + 代码提交（可多次）+ dev-notes.md
-  →                   Reviewer  → review.md
+  → [Review required] Reviewer  → review.md
   →                   QA        → qa-report.md
-  → 用户授权合并 → Manager 置 done 并第三阶段提交 → 合入 → Manager 归档
+  → 用户授权合并 → Manager 置 done 并第三阶段提交 → 合入 → 结束
 ```
 
 QA `Fail` 闭环：Developer 修复并在同一 `dev-notes.md` 追加回执 → Review 门禁为 `required` 时须重新 `Approve` → QA 在同一 `qa-report.md` 追加回归轮次。循环至 `Pass`、`Blocked` 或用户取消。
@@ -93,14 +93,27 @@ QA `Fail` 闭环：Developer 修复并在同一 `dev-notes.md` 追加回执 → 
 | `reviewing` | Reviewer 审阅 | `Approve` → `qa`；`Request changes` → `developing` |
 | `qa` | QA 验收 | `Pass` → `merge-approval`；`Fail` → `developing`；`Blocked` → `blocked` |
 | `merge-approval` | **等用户授权合并** | 授权 → `done`；暂缓 → 保持；用户取消 → `cancelled` |
-| `done` | 已授权关闭，待合入或已合入 | 合入确认 → `archived`；合入失败 → `blocked` |
+| `done` | 已关闭：QA Pass 且已授权合并 | 合入失败 → `blocked`；用户要求且已满足归档前提 → `archived` |
 | `archived` | 已归档，终态 | — |
 | `blocked` | 阻塞，须记录原因与恢复条件 | → 记录中「恢复后目标」 |
-| `cancelled` | 用户取消，终态（仍须归档记录） | → `archived` |
+| `cancelled` | 用户取消，主流程终止 | 问用户是否回滚后处置 |
 
-两个状态名以 `-approval` 结尾，含义固定为「流程停住，等用户回话」，看板据此单列一栏。
+两个状态名以 `-approval` 结尾，含义固定为「流程停住，等用户回话」，看板据此单列一栏。`cancelled` 等待是否回滚时也停在「等待用户」。
+
+除表中出口外，用户可在任一活动态取消并进入 `cancelled`。
 
 `Comment` 结论若含阻塞项，按 `Request changes` 处理。
+
+状态与目录的对应固定如下，不要混用：
+
+| 状态 | 目录 | 说明 |
+|---|---|---|
+| 活动态（`backlog` … `merge-approval`、`blocked`） | `workflow/workspace/<id>/` | 正在推进或阻塞 |
+| `done` | `workflow/workspace/<id>/` | 已关闭 |
+| `archived` | `workflow/archive/<年>/<id>/` | 已手动归档 |
+| `cancelled` | `workflow/workspace/<id>/`（处置前） | 从不归档；处置后删除该目录 |
+
+合入是 Git 动作，**不改变**状态：授权后即为 `done`，合入成功后仍是 `done`。
 
 ### 3.1 回退
 
@@ -133,14 +146,16 @@ Manager 可在任意活动态调整路径等级与 Spec / Design / Review 门禁
 | QA | `qa-report.md` | 验收结论 | 改代码、状态；默认兼任受控 Merge Executor |
 | DevOps | [ops/](ops/) 下脚本与运维文档 | 按需支持 | 流程内任何门禁与状态 |
 
-- **只有 Manager** 写 `STATUS.md` 与 `main.md`；其他角色报告结果，由 Manager 持久化。
-- **只有 Developer** 提交代码；**工作流文档由 Manager 按 §6 三阶段提交**，状态先写入工作树。
+- 主流程中只有 Manager 写 `STATUS.md` 与 `main.md`；手动归档是唯一例外，见 §8。
+- 只有 Developer 提交代码；工作流文档的提交责任见 §6。
 - 产出角色在独立上下文运行，仅通过工作树文件、Git 与 `workflow/workspace/<id>/` 交接，完成即返回，不得在子会话内阻塞等用户回话。
 - DevOps 不在状态机内：按需调度，不改变工作项状态，不作验收结论。
 
 ### 4.1 看板作用域与并行
 
-`STATUS.md` 是**当前 Git 分支 / 工作树的看板视图**，不是跨分支的全局数据库。一个 Git 工作树同一时间只推进一个工作项；并行工作项必须使用独立 `git worktree`，路径为仓库根 `.worktree/<id>`（见 [agents/standards/git.md](agents/standards/git.md) §1.1）。每个 worktree 检出各自源分支并维护自己的 STATUS 视图。合入成功后拆除该附加树（见 git.md §8）。跨分支全局汇总应交给 Issue / PR 系统，不在本地 Markdown 看板中伪装实现。
+`STATUS.md` 是**当前 Git 分支 / 工作树的看板视图**，不是跨分支的全局数据库。一个 Git 工作树同一时间只**推进**一个活动工作项（`done` 可暂留在同一 `workspace/`）。并行的活动工作项必须使用独立 `git worktree`，路径为仓库根 `.worktree/<id>`（见 [agents/standards/git.md](agents/standards/git.md) §1.1）。每个 worktree 检出各自源分支并维护自己的 STATUS 视图。合入成功后拆除该附加树（见 git.md §8）。跨分支全局汇总应交给 Issue / PR 系统，不在本地 Markdown 看板中伪装实现。
+
+概览表只保留泳道与数量，不在单元格里罗列工作项；细表才写 `<id>`。已关闭的 `done` 列在「已关闭」，不要当作待办。
 
 ## 5. 路径等级与门禁
 
@@ -170,40 +185,45 @@ Manager 可在任意活动态调整路径等级与 Spec / Design / Review 门禁
 
 1. **先分支、后产出**：Manager 分配 `<id>` 并确定目标分支后，须在创建 `main.md`、更新 STATUS 或调度任何产出角色**之前**，从明确的目标基线创建并检出独立源分支；记录目标分支、源分支与基线提交 SHA。禁止把工作项产物暂存在目标分支工作树，等 Developer 再建分支。
 2. **创建责任**：Manager 创建并检出源分支（附加树时按 [git.md](agents/standards/git.md) §1.1 放到 `.worktree/<id>`）；Developer 只验证当前分支与记录一致，不得临时另建或改选基线。源分支名默认即 `<id>`，每个工作项独占一个分支。
-3. **提交责任**：Developer 提交代码与测试（及 Plan「文档影响」中的产品文档）；`workflow/` 下产物一律由 Manager 提交。产出角色把文件留在工作树并报告即可。
-4. **提交时机**：源分支上标准只有三次窗口——预开发文档一次、代码若干次、关闭文档一次。禁止每次状态推进都提交。细则见 [git.md](agents/standards/git.md) §3。
+3. **提交责任**：Developer 提交代码与测试（及 Plan「文档影响」中的产品文档）；主流程的 `workflow/` 产物由 Manager 提交。产出角色把文件留在工作树并报告即可。
+4. **提交时机**：源分支按预开发、实现、关闭三个阶段提交；禁止每次状态推进都提交。细则见 [git.md](agents/standards/git.md) §3。
 5. **验收前同步**：Developer 完成实现后、进入最终 Review / QA 前，须把源分支同步到最新目标分支并重新自验；Reviewer 与 QA 必须记录同步后的提交。
 6. **验收后目标移动**：QA Pass 后若目标分支移动但源分支仍可直接 fast-forward，则直接合入；若必须 rebase，即使文件树不变也须补验证并让 QA 记录新 SHA。发生冲突或文件树变化时回到 `developing`，重新 Review、QA 与合并授权。禁止合入 QA 未记录的提交。
-7. **合入**：默认 rebase + fast-forward，禁止 merge commit（除非用户明确授权）。合入后按 [git.md](agents/standards/git.md) §8 拆除附加 worktree 并删除源分支，再归档。
+7. **合入**：默认 rebase + fast-forward，禁止 merge commit（除非用户明确授权）；合入后按 [git.md](agents/standards/git.md) §8 清理。状态与目录按 §3 处理。
 8. 非 Git 仓库跳过分支、提交与合并，其余门禁一律不跳过。
 
 **合并门禁**须同时满足：QA 最新结论为 `Pass`；用户已明确授权；`main.md` 已记录目标分支、源分支与基线提交；实现位于该源分支；QA 报告记录的提交与待合入提交一致；工作项已为 `done`。合入本身不改状态。
 
-## 7. 需要用户的两处
+## 7. 需要用户的确认
 
 | 事项 | 何时 | 状态 |
 |---|---|---|
 | Spec 确认 | `full`；或 `standard` 且存在业务歧义 | `spec-approval` |
 | 合并授权 | 所有路径 | `merge-approval` |
+| 取消后是否回滚 | 用户取消之后 | `cancelled` |
 
-除此之外，Design、Plan、实施、Review、QA 阶段一律连续推进，不停下来问用户。
+常规路径只有前两处。Design、Plan、实施、Review、QA 阶段一律连续推进，不停下来问用户。第三处只在取消时出现：是否回滚删除内容与分支。
+
+`main.md` 的「Spec 用户确认」按确认进度更新：无需确认（含 Spec 门禁跳过）填 `not-required`；需要确认且尚未通过填 `required`；用户通过后填 `approved`；驳回后填 `rejected`，修订后再次待确认时改回 `required`。
 
 Manager 不直接与用户对话：把待确认事项写进返回结构的「待用户确认」字段，由当前用户会话去问；用户答复后再调度 Manager 持久化。非门禁的澄清（命名、取舍）走同一通道，标为 `question`，不改变状态。
 
-## 8. 关闭与归档
+## 8. 归档与取消
 
-**`done`** = QA `Pass` + 用户已授权合并（或非 Git 下授权完成）。表示流程关闭，**不表示**已在目标分支上；合入以 Git 为准。
+手动归档不属于主流程：仅在用户明确要求时调用 [archive](agents/skills/archive/SKILL.md)，且 Git 仓库须已确认合入；非 Git 仓库以授权完成为准。`cancelled` 永不归档。
 
-**`archived`** = `done` 且已确认合入（非 Git 下为授权完成），或用户取消为 `cancelled`。归档不需要用户再次批准——合并授权已包含关闭意图。无法确认合入时保持 `done` 停在看板「待归档」栏。
+### 8.1 取消
 
-归档步骤（合入后先按 [git.md](agents/standards/git.md) §8 拆除附加 worktree 并删除源分支）：
+用户取消后置 `cancelled`，不得归档。Manager 在返回结构把「待用户确认」标为 `cancel`，由父会话询问：是否回滚删除内容与分支。Git 提交时机见 [git.md](agents/standards/git.md) §3。
 
-1. 把 `workflow/workspace/<id>/` 整个目录移到 `workflow/archive/<年>/<id>/`；
-2. 在 `main.md` 状态表写 `archived`；
-3. 在 `STATUS.md` 中把该项从活跃泳道移到归档索引；
-4. 提交归档变更。
+用户答复后：
 
-完成后 `workflow/workspace/<id>/` 不得残留。
+1. 拆除本项附加 worktree（若有；门闩见 [git.md](agents/standards/git.md) §8）；
+2. **回滚**：丢弃未合入的实现（未推送可用 `reset` / 删分支；已推送按 [git.md](agents/standards/git.md) §9 revert），并删除源分支；**不回滚**：保留已有提交与分支，不删源分支；
+3. 从 `STATUS.md` 去掉该行；
+4. 删除 `workflow/workspace/<id>/`。
+
+取消记录不写入归档索引。
 
 ## 9. Manager 返回格式
 
@@ -213,14 +233,14 @@ Manager 不直接与用户对话：把待确认事项写进返回结构的「待
 本次操作: <action>
 产出文件: <paths | none>
 门禁结果: pass | blocked | awaiting-user
-待用户确认: none | spec | merge | question
+待用户确认: none | spec | merge | cancel | question
 阻塞信息: none | <原因 + 恢复条件>
 后续步骤: <role/action>
 ```
 
 只报告可由文件、Git 结果或验证证据支持的事实。
 
-## 10. 规范与工具索引
+## 10. 规范索引
 
 | 用途 | 文件 |
 |---|---|
@@ -228,9 +248,5 @@ Manager 不直接与用户对话：把待确认事项写进返回结构的「待
 | 验证层级与完成定义 | [agents/standards/quality.md](agents/standards/quality.md) |
 | 敏感信息、依赖、安全审阅触发 | [agents/standards/security.md](agents/standards/security.md) |
 | 文档分类主责与产物整理 | [agents/standards/documentation.md](agents/standards/documentation.md) |
-| 代码审计条款（流程外） | [agents/standards/code-audit.md](agents/standards/code-audit.md) |
-| 一致性校验 | `python3 workflow/agents/tools/wf-check.py` |
-
-`code-audit` 在本工作流之外，不进状态机，产物写入 [audit/](audit/)。
-
-关闭工作项前和两阶段文档提交前应运行 `wf-check`，它校验目录结构、状态枚举、必需产物、分支约束、路径引用与看板一致性。
+| 代码审计（流程外） | [agents/standards/code-audit.md](agents/standards/code-audit.md) |
+| 手动归档（流程外） | [agents/skills/archive/SKILL.md](agents/skills/archive/SKILL.md) |

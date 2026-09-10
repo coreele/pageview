@@ -57,7 +57,7 @@
 1. Developer 实施与自验 →
 2. Reviewer（Review 门禁 required 时）→
 3. QA 验收 →
-4. 用户授权合并 → Manager 第三阶段文档提交（`done`）→ 合入 → 归档
+4. 用户授权合并 → Manager 第三阶段文档提交（`done`）→ 合入 → 结束
 
 ## 修订记录
 
