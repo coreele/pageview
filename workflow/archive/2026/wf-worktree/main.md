@@ -7,7 +7,7 @@
 文档影响: N/A（流程机制；pageview `.gitignore` 排除 `.worktree/`）
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/wf-worktree/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/wf-worktree/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」（见 `workflow/agents/standards/documentation.md` §B）。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入后归档 | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -28,3 +28,4 @@
 - 2026-09-10 Planner：`plan.md`。进入 `developing`。第一阶段文档提交。
 - 2026-09-10 Developer：`3cb3d03`。ggnote 同步提交 `640c19c`（分支 `wf-worktree`）。Review skipped。QA Pass。进入 `merge-approval`。
 - 2026-09-10 用户授权合并（「ok」）。状态 `done`。第三阶段文档提交。
+- 2026-09-10 FF 合入 `main`（`3592809..54b1e66`，实现 `3cb3d03`）并归档至 `workflow/archive/2026/wf-worktree/`。无附加 worktree 可拆。
