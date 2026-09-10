@@ -25,7 +25,7 @@
 1. **T1** 根 `package.json` 的 `packageManager` 改为 `pnpm@12.3.4`。完成条件：在仓库根执行 `pnpm --version` 输出 `12.3.4`。
 2. **T2** `.github/workflows/ci.yml` 两处 `pnpm/action-setup@v4` 的 `version` 改为 `12.3.4`。完成条件：与 `packageManager` 对齐。
 3. **T3** `README.md` / `README.zh-CN.md` 环境要求 `pnpm 9+` 改为 `pnpm 12+`。完成条件：中英一致。
-4. **T4** 用 12.3.4 安装依赖；lockfile 若因版本升级而必须改动则纳入提交。完成条件：`pnpm install --frozen-lockfile` 成功。
+4. **T4** 用 12.3.4 安装依赖；pnpm 12 默认拦截未审核的依赖构建脚本，须在 `pnpm-workspace.yaml` 批准 `esbuild`（`allowBuilds.esbuild: true`）。lockfile 若因版本升级而必须改动则纳入提交。完成条件：`pnpm install --frozen-lockfile` 成功。
 5. **T5** 跑 typecheck、unit test、build。完成条件：全部通过。
 
 ## 依赖与顺序
@@ -34,20 +34,20 @@ T1 → T2 → T3 → T4 → T5
 
 ## 触碰路径
 
-- 修改：`package.json`、`.github/workflows/ci.yml`、`README.md`、`README.zh-CN.md`；必要时 `pnpm-lock.yaml`
+- 修改：`package.json`、`.github/workflows/ci.yml`、`README.md`、`README.zh-CN.md`、`pnpm-workspace.yaml`；必要时 `pnpm-lock.yaml`
 - 禁触：应用源码、测试用例、其它工作流产物
 
 ## 验收与验证
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | 仓库根 `pnpm --version` | `12.3.4` | |
-| V-2 | `package.json` `packageManager` 与 CI 两处 `version` | 均为 `12.3.4` / `pnpm@12.3.4` | |
-| V-3 | 双语 README 要求 | `pnpm 12+` / `pnpm 12+` | |
-| V-4 | `pnpm install --frozen-lockfile` | 退出码 0 | |
-| V-5 | `pnpm -r typecheck` | 0 错误 | |
-| V-6 | `pnpm test` | 全部通过 | |
-| V-7 | `pnpm -r build` | 各包成功 | |
+| V-1 | 仓库根 `pnpm --version` | `12.3.4` | 通过 |
+| V-2 | `package.json` `packageManager` 与 CI 两处 `version` | 均为 `12.3.4` / `pnpm@12.3.4` | 通过 |
+| V-3 | 双语 README 要求 | `pnpm 12+` / `pnpm 12+` | 通过 |
+| V-4 | `pnpm install --frozen-lockfile` | 退出码 0 | 通过 |
+| V-5 | `pnpm -r typecheck` | 0 错误 | 通过 |
+| V-6 | `pnpm test` | 全部通过 | 通过 |
+| V-7 | `pnpm -r build` | 各包成功 | 通过 |
 
 ## 验证缺口
 
@@ -75,3 +75,4 @@ T1 → T2 → T3 → T4 → T5
 | 日期 | 摘要 |
 |---|---|
 | 2026-09-10 | 初稿 |
+| 2026-09-10 | T4 补 `allowBuilds.esbuild`：pnpm 12 默认 `strictDepBuilds` |
