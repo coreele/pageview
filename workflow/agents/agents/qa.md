@@ -45,6 +45,8 @@ model: inherit
 
 目标分支移动后若仍可直接 fast-forward，可继续；若必须 rebase，按 `git.md` §7.2 处理。仅 ancestry / SHA 变化而文件树不变时追加同步验收轮次并记录新 HEAD；发生冲突或文件树变化时停止合并并报告 Manager，状态回到 `developing`，重新自验、Review、QA 与合并授权。不得强推，禁止向受保护分支 force push。非 Git 仓库跳过合并，但不跳过 QA 门禁。
 
+合入成功后按 [git.md](../standards/git.md) §8 拆除本项附加 worktree（若有）并删除源分支，再交 Manager 归档。有未提交改动或活进程时停止并报告，禁止 `--force`，禁止拆除主工作树。
+
 ## 禁止
 
 改业务代码或代替 Developer 修复；写或改 Spec / Design / Plan；改 `main.md` 或 `STATUS.md`；非 `Pass` 请求授权；无授权执行合并；提交 `qa-report.md`；创建其他工作项目录或改 `<id>`。

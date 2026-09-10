@@ -140,7 +140,7 @@ Manager 可在任意活动态调整路径等级与 Spec / Design / Review 门禁
 
 ### 4.1 看板作用域与并行
 
-`STATUS.md` 是**当前 Git 分支 / 工作树的看板视图**，不是跨分支的全局数据库。一个 Git 工作树同一时间只推进一个工作项；并行工作项必须使用独立 `git worktree`，每个 worktree 检出各自源分支并维护自己的 STATUS 视图。跨分支全局汇总应交给 Issue / PR 系统，不在本地 Markdown 看板中伪装实现。
+`STATUS.md` 是**当前 Git 分支 / 工作树的看板视图**，不是跨分支的全局数据库。一个 Git 工作树同一时间只推进一个工作项；并行工作项必须使用独立 `git worktree`，路径为仓库根 `.worktree/<id>`（见 [agents/standards/git.md](agents/standards/git.md) §1.1）。每个 worktree 检出各自源分支并维护自己的 STATUS 视图。合入成功后拆除该附加树（见 git.md §8）。跨分支全局汇总应交给 Issue / PR 系统，不在本地 Markdown 看板中伪装实现。
 
 ## 5. 路径等级与门禁
 
@@ -169,12 +169,12 @@ Manager 可在任意活动态调整路径等级与 Spec / Design / Review 门禁
 细则见 [agents/standards/git.md](agents/standards/git.md)，要点：
 
 1. **先分支、后产出**：Manager 分配 `<id>` 并确定目标分支后，须在创建 `main.md`、更新 STATUS 或调度任何产出角色**之前**，从明确的目标基线创建并检出独立源分支；记录目标分支、源分支与基线提交 SHA。禁止把工作项产物暂存在目标分支工作树，等 Developer 再建分支。
-2. **创建责任**：Manager 创建并检出源分支；Developer 只验证当前分支与记录一致，不得临时另建或改选基线。源分支名默认即 `<id>`，每个工作项独占一个分支。
+2. **创建责任**：Manager 创建并检出源分支（附加树时按 [git.md](agents/standards/git.md) §1.1 放到 `.worktree/<id>`）；Developer 只验证当前分支与记录一致，不得临时另建或改选基线。源分支名默认即 `<id>`，每个工作项独占一个分支。
 3. **提交责任**：Developer 提交代码与测试（及 Plan「文档影响」中的产品文档）；`workflow/` 下产物一律由 Manager 提交。产出角色把文件留在工作树并报告即可。
 4. **提交时机**：源分支上标准只有三次窗口——预开发文档一次、代码若干次、关闭文档一次。禁止每次状态推进都提交。细则见 [git.md](agents/standards/git.md) §3。
 5. **验收前同步**：Developer 完成实现后、进入最终 Review / QA 前，须把源分支同步到最新目标分支并重新自验；Reviewer 与 QA 必须记录同步后的提交。
 6. **验收后目标移动**：QA Pass 后若目标分支移动但源分支仍可直接 fast-forward，则直接合入；若必须 rebase，即使文件树不变也须补验证并让 QA 记录新 SHA。发生冲突或文件树变化时回到 `developing`，重新 Review、QA 与合并授权。禁止合入 QA 未记录的提交。
-7. **合入**：默认 rebase + fast-forward，禁止 merge commit（除非用户明确授权）。
+7. **合入**：默认 rebase + fast-forward，禁止 merge commit（除非用户明确授权）。合入后按 [git.md](agents/standards/git.md) §8 拆除附加 worktree 并删除源分支，再归档。
 8. 非 Git 仓库跳过分支、提交与合并，其余门禁一律不跳过。
 
 **合并门禁**须同时满足：QA 最新结论为 `Pass`；用户已明确授权；`main.md` 已记录目标分支、源分支与基线提交；实现位于该源分支；QA 报告记录的提交与待合入提交一致；工作项已为 `done`。合入本身不改状态。
@@ -196,7 +196,7 @@ Manager 不直接与用户对话：把待确认事项写进返回结构的「待
 
 **`archived`** = `done` 且已确认合入（非 Git 下为授权完成），或用户取消为 `cancelled`。归档不需要用户再次批准——合并授权已包含关闭意图。无法确认合入时保持 `done` 停在看板「待归档」栏。
 
-归档步骤：
+归档步骤（合入后先按 [git.md](agents/standards/git.md) §8 拆除附加 worktree 并删除源分支）：
 
 1. 把 `workflow/workspace/<id>/` 整个目录移到 `workflow/archive/<年>/<id>/`；
 2. 在 `main.md` 状态表写 `archived`；

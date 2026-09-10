@@ -31,3 +31,6 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Git worktrees for parallel workflow items
+.worktree/
