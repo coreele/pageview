@@ -44,7 +44,7 @@
 
 ## 环境要求
 
-- Node.js 20+、pnpm 9+
+- Node.js 20+、pnpm 12+
 - **Page 模式：** 连接角色需可启用 `pageinspect`（需 `CREATE` 权限，通常为超级用户）并可调用 `get_raw_page`；扩展缺失时首次 Page 请求自动安装。索引浏览仅支持 B-tree（建议 PG13+ 以呈现 dedup posting list）
 - **WAL 模式：** PostgreSQL **15+**；连接角色需可启用 `pg_walinspect`（`CREATE` 权限）并可调用 `pg_get_wal_records_info` / `pg_current_wal_lsn`（通常为超级用户）；缺失时自动安装
 

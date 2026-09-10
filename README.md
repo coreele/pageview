@@ -45,7 +45,7 @@ Built for developers learning or debugging — **not** intended for public deplo
 
 ## Requirements
 
-- Node.js 20+, pnpm 9+
+- Node.js 20+, pnpm 12+
 - **Page mode:** a connect role that can enable `pageinspect` (needs `CREATE` privilege — usually superuser) and call `get_raw_page`; a missing extension is installed automatically on first Page request. Index browsing is B-tree only (PG13+ recommended for dedup posting lists)
 - **WAL mode:** PostgreSQL **15+**; a connect role that can enable `pg_walinspect` (`CREATE` privilege) and call `pg_get_wal_records_info` / `pg_current_wal_lsn` (usually superuser); installed automatically when missing
 
