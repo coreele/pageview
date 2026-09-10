@@ -40,11 +40,11 @@ T1 → T2 → T3 → T4 → T5
 
 | ID | 要求或命令 | 预期证据 | 结果（实施后填） |
 |---|---|---|---|
-| V-1 | `git.md` 规定附加树 `.worktree/<id>` 与创建命令 | 条文含路径与 `git worktree add` | |
-| V-2 | `git.md` §8 拆除附加树 + 门闩 + 先拆树再删分支 | 禁止 `--force`、不拆主树 | |
-| V-3 | `WORKFLOW.md` 不复制细则、指向 git.md | §4.1 / §6 / §8 有指针 | |
-| V-4 | pageview `.gitignore` 含 `.worktree/` | 文件中有该行 | |
-| V-5 | ggnote 对应机制文件与 gitignore 同约定 | 对照 grep / diff 要点一致 | |
+| V-1 | `git.md` 规定附加树 `.worktree/<id>` 与创建命令 | 条文含路径与 `git worktree add` | 通过 |
+| V-2 | `git.md` §8 拆除附加树 + 门闩 + 先拆树再删分支 | 禁止 `--force`、不拆主树 | 通过 |
+| V-3 | `WORKFLOW.md` 不复制细则、指向 git.md | §4.1 / §6 / §8 有指针 | 通过 |
+| V-4 | pageview `.gitignore` 含 `.worktree/` | 文件中有该行 | 通过 |
+| V-5 | ggnote 对应机制文件与 gitignore 同约定 | 对照 grep / diff 要点一致 | 通过 |
 
 ## 验证缺口
 

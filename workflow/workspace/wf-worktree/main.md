@@ -20,9 +20,11 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| developing | Developer 实施 | | | |
+| done | 合入后归档 | | | |
 
 ## 进度笔记
 
 - 2026-09-10 Manager 登记。用户确认：合入成功拆除附加 worktree；附加树放到项目根 `.worktree/<id>`；并同步 `/home/jason/space/ggnote/workflow`。路径 `fast`：只改流程机制与 gitignore。Spec/Design skipped：无产品行为合同。Review skipped：fast，对照规范条文与 gitignore。本项主树干净，源分支在仓库根检出，不另开附加树。
 - 2026-09-10 Planner：`plan.md`。进入 `developing`。第一阶段文档提交。
+- 2026-09-10 Developer：`3cb3d03`。ggnote 同步提交 `640c19c`（分支 `wf-worktree`）。Review skipped。QA Pass。进入 `merge-approval`。
+- 2026-09-10 用户授权合并（「ok」）。状态 `done`。第三阶段文档提交。
