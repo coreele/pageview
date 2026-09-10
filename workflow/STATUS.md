@@ -11,8 +11,8 @@
 | 进行中 | 0 | — |
 | 待办 | 0 | — |
 | 阻塞 | 0 | — |
-| 待归档 | 1 | pnpm-12 |
-| 已归档 | 38 | add-ci，auto-install-extensions，btree-tree-view，chrome-content-gap，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，docs-dev-background，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，fix-wal-smoke-ci，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pageview-wordmark，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer，chrome-theme-sun |
+| 待归档 | 0 | — |
+| 已归档 | 39 | add-ci，auto-install-extensions，btree-tree-view，chrome-content-gap，chrome-order，chrome-toggles，ci-drop-e2e，column-align-pad，deleted-tuple-color，detail-panel-polish，docs-dev-background，drop-load-refresh，e2e-playwright，export-structure-png，flag-mark-size，fix-dev-web-page-core，fix-e2e-wal-core-ts，fix-wal-smoke-ci，gutter-grip，hex-collapse，index-key-cell，index-key-decode，index-tree-nav，index-viewer，infomask-detail，layout-chrome-split，next-page-btn，oid-numeric-guard，page-diagram-32b，pageview-wordmark，pd-flags-tuple-view，pg-page-viewer，table-tree-nav，tree-nav-ui，tuple-diff-parent，url-deeplink，wal-viewer，chrome-theme-sun，pnpm-12 |
 
 ## 等待用户
 
@@ -46,7 +46,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 待确认事项 |
 |---|---|---|
-| pnpm-12 | pnpm-12 → main | 合入后归档 |
+| — | | |
 
 ## 归档索引
 
@@ -90,3 +90,4 @@
 | docs-dev-background | archived | `workflow/archive/2026/docs-dev-background/main.md` |
 | chrome-content-gap | cancelled | `workflow/archive/2026/chrome-content-gap/main.md` |
 | chrome-theme-sun | archived | `workflow/archive/2026/chrome-theme-sun/main.md` |
+| pnpm-12 | archived | `workflow/archive/2026/pnpm-12/main.md` |

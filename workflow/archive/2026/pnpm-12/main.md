@@ -7,7 +7,7 @@
 文档影响: `README.md`、`README.zh-CN.md`
 
 > 流程定义见 `workflow/WORKFLOW.md`；看板见 `workflow/STATUS.md`。
-> 本工作项的全部产物平铺在 `workflow/workspace/pnpm-12/`，无子目录、无版本后缀。
+> 本工作项的全部产物平铺在 `workflow/archive/2026/pnpm-12/`，无子目录、无版本后缀。
 > 表内只填枚举、短标签或路径；理由与长说明写进「进度笔记」（见 `workflow/agents/standards/documentation.md` §B）。
 
 ## 门禁
@@ -20,7 +20,7 @@
 
 | 状态 | 下一步 | 阻塞原因 | 恢复条件 | 恢复后目标 |
 |---|---|---|---|---|
-| done | 合入后归档 | | | |
+| archived | | | | |
 
 ## 进度笔记
 
@@ -28,3 +28,4 @@
 - 2026-09-10 Planner：`plan.md`。进入 `developing`。第一阶段文档提交。
 - 2026-09-10 Developer：`8480ca4`。pnpm 12 需 `allowBuilds.esbuild`。typecheck 0 / test 566 / build 过。Review skipped。QA Pass。进入 `merge-approval`。
 - 2026-09-10 用户授权合并（「都允许合并(rebase)」）。先合入 chrome-theme-sun；本项 rebase 到 `main` `dded4ef`，实现提交变为 `6080b18`（文件树与 `8480ca4` 相同）。QA 轮次 2 Pass。状态 `done`。第三阶段文档提交。
+- 2026-09-10 rebase 后 FF 合入 `main`（`dded4ef..31fc171`，实现 `6080b18`）并归档至 `workflow/archive/2026/pnpm-12/`。
