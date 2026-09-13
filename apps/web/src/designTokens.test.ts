@@ -155,3 +155,19 @@ describe("selection detail flattening (V-12 / V-13)", () => {
     expect(css).not.toContain(".selection-detail__title");
   });
 });
+
+describe("selection detail full-bleed rule (V-19)", () => {
+  it("stretches the wrap to the structure pane edges without shifting content", () => {
+    const wrap = blockFor(".selection-detail-wrap");
+    expect(declValue(wrap, "margin-left")).toBe("calc(-1 * var(--space-5))");
+    expect(declValue(wrap, "margin-right")).toBe("calc(-1 * var(--space-5))");
+    expect(declValue(wrap, "padding-left")).toBe("var(--space-5)");
+    expect(declValue(wrap, "padding-right")).toBe("var(--space-5)");
+    expect(declValue(wrap, "max-width")).toBe("none");
+    expect(wrap).toMatch(/margin-top:\s*var\(--space-5\);/);
+    expect(wrap).toMatch(/padding-top:\s*var\(--space-4\);/);
+    expect(wrap).toMatch(/border-top:\s*1px solid var\(--border\);/);
+
+    expect(declValue(blockFor(".selection-detail"), "max-width")).toBe("100%");
+  });
+});

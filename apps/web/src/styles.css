@@ -1008,11 +1008,14 @@ html.is-split-dragging .split-gutter::after {
 
 .selection-detail-wrap {
   margin-top: var(--space-5);
-  margin-left: 0;
+  margin-left: calc(-1 * var(--space-5));
+  margin-right: calc(-1 * var(--space-5));
   width: auto;
-  max-width: 100%;
+  max-width: none;
   min-width: 0;
   padding-top: var(--space-4);
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
   border-top: 1px solid var(--border);
 }
 
