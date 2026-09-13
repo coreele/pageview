@@ -9,7 +9,7 @@
 | 泳道 | 数量 |
 |---|---|
 | 等待用户 | 0 |
-| 进行中 | 0 |
+| 进行中 | 1 |
 | 待办 | 0 |
 | 阻塞 | 0 |
 | 已关闭 | 2 |
@@ -27,7 +27,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| — | | | | |
+| flat-split-dividers | standard | `workflow/workspace/flat-split-dividers/main.md` | Planner 编写 ui-design.md 与 plan.md | 三栏去卡片化，改可拖动竖线分割 |
 
 ## 待办
 
