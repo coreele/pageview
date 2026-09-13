@@ -1012,34 +1012,19 @@ html.is-split-dragging .split-gutter::after {
   width: auto;
   max-width: 100%;
   min-width: 0;
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.selection-detail__title {
-  flex: 0 0 2.85rem;
-  width: 2.85rem;
-  margin: 0;
-  padding-top: var(--space-5);
-  font-size: 0.7rem;
-  font-weight: 600;
-  line-height: 1.25;
-  letter-spacing: 0.03em;
-  text-align: right;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
 }
 
 .selection-detail {
   flex: 1 1 auto;
   width: auto;
-  max-width: calc(100% - 2.85rem - var(--space-3));
+  max-width: 100%;
   min-width: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--surface) 88%, var(--diagram-bg));
-  padding: var(--space-7) var(--space-7) var(--space-7);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;

@@ -838,7 +838,6 @@ export function StructureMap({
 
       {detailOpen && selectedField && (
         <div className="selection-detail-wrap">
-          <div className="selection-detail__title">detail</div>
           <div id="selection-detail-panel" className="panel selection-detail">
             <div className="selection-detail__header">
               <div className="selection-detail__field mono">

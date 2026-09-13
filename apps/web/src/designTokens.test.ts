@@ -121,11 +121,37 @@ describe("paired spacing coupling (R-1/R-2)", () => {
     expect(declValue(blockFor(".chrome-meta"), "margin")).toBe(`0 calc(-1 * ${horizontal})`);
   });
 
-  it("keeps .selection-detail max-width in step with the wrap gap token", () => {
-    const gap = declValue(blockFor(".selection-detail-wrap"), "gap");
-    expect(gap).toBe("var(--space-3)");
-    expect(declValue(blockFor(".selection-detail"), "max-width")).toBe(
-      `calc(100% - 2.85rem - ${gap})`,
-    );
+  it("keeps the flattened selection detail full-width under the diagram", () => {
+    expect(declValue(blockFor(".selection-detail"), "max-width")).toBe("100%");
+  });
+});
+
+describe("selection detail flattening (V-12 / V-13)", () => {
+  const structureMap = readFileSync(join(srcDir, "StructureMap.tsx"), "utf8");
+  const app = readFileSync(join(srcDir, "App.tsx"), "utf8");
+
+  it("drops the detail title but keeps the panel id and classes (V-12)", () => {
+    expect(structureMap).not.toContain("selection-detail__title");
+    expect(structureMap).toContain('id="selection-detail-panel"');
+    expect(structureMap).toContain("panel selection-detail");
+    expect(app).toContain('"selection-detail-panel"');
+  });
+
+  it("embeds the detail below the diagram behind a single rule (V-13)", () => {
+    const wrap = blockFor(".selection-detail-wrap");
+    expect(wrap).toMatch(/border-top:\s*1px solid var\(--border\);/);
+    expect(wrap).toMatch(/padding-top:\s*var\(--space-4\);/);
+    expect(wrap).toMatch(/margin-top:\s*var\(--space-5\);/);
+    expect(wrap).not.toMatch(/gap\s*:/);
+    expect(wrap).not.toMatch(/flex-direction:\s*row/);
+
+    const detail = blockFor(".selection-detail");
+    expect(detail).toMatch(/border:\s*0\s*;/);
+    expect(detail).toMatch(/border-radius:\s*0\s*;/);
+    expect(detail).toMatch(/background:\s*transparent\s*;/);
+    expect(detail).toMatch(/padding:\s*0\s*;/);
+    expect(detail).toMatch(/max-width:\s*100%\s*;/);
+
+    expect(css).not.toContain(".selection-detail__title");
   });
 });
