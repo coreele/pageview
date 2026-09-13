@@ -159,9 +159,13 @@ describe("split gutter grip (gutter-grip V-1 / V-2)", () => {
   });
 
   it("puts wide gutters and panes on one flat surface (V-10)", () => {
+    const wideSplit = wideBlock(".main-paged .main-split");
+    expect(wideSplit).not.toBe("");
+    expect(wideSplit).toMatch(/background:\s*var\(--surface\)/);
+
     const wideGutter = wideBlock(".main-paged .split-gutter");
     expect(wideGutter).not.toBe("");
-    expect(wideGutter).toMatch(/background:\s*var\(--surface\)/);
+    expect(wideGutter).not.toMatch(/background\s*:/);
 
     expect(wideOverride).not.toBe("");
     expect(inWideMedia(wideOverride)).toBe(true);

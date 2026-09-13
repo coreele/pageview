@@ -30,6 +30,24 @@ function declValue(block: string, property: string): string {
   return m ? (m[1] ?? "").trim() : "";
 }
 
+function wideMediaBodies(): string[] {
+  const bodies: string[] = [];
+  const re = /@media \(min-width: 960px\)\s*\{([\s\S]*?)\n\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(css)) !== null) bodies.push(m[1] ?? "");
+  return bodies;
+}
+
+function wideBlock(selector: string): string {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`);
+  for (const body of wideMediaBodies()) {
+    const m = body.match(re);
+    if (m) return m[1] ?? "";
+  }
+  return "";
+}
+
 const radiusDecls = [...css.matchAll(/border-radius:\s*([^;]+);/g)].map((m) => (m[1] ?? "").trim());
 
 describe("design tokens (V-1)", () => {
@@ -169,5 +187,33 @@ describe("selection detail full-bleed rule (V-19)", () => {
     expect(wrap).toMatch(/border-top:\s*1px solid var\(--border\);/);
 
     expect(declValue(blockFor(".selection-detail"), "max-width")).toBe("100%");
+  });
+});
+
+describe("selection detail divider joins the split lines (V-21)", () => {
+  it("paints the detail rule into the wide gutter without changing base or narrow", () => {
+    const split = wideBlock(".main-paged .main-split");
+    expect(split).toMatch(/background:\s*var\(--surface\)/);
+
+    const gutter = wideBlock(".main-paged .split-gutter");
+    expect(gutter).not.toBe("");
+    expect(gutter).not.toMatch(/background\s*:/);
+
+    expect(wideBlock(".main-paged .pane-structure")).toMatch(/overflow:\s*visible\s*;/);
+    expect(wideBlock(".main-paged .pane-structure > .structure-diagram")).toMatch(
+      /overflow:\s*visible\s*;/,
+    );
+
+    const wideWrap = wideBlock(".main-paged .selection-detail-wrap");
+    expect(declValue(wideWrap, "margin-left")).toBe("calc(-1 * (var(--space-5) + 5px))");
+    expect(declValue(wideWrap, "margin-right")).toBe("calc(-1 * (var(--space-5) + 5px))");
+    expect(declValue(wideWrap, "padding-left")).toBe("calc(var(--space-5) + 5px)");
+    expect(declValue(wideWrap, "padding-right")).toBe("calc(var(--space-5) + 5px)");
+    expect(declValue(wideWrap, "max-width")).toBe("none");
+
+    const baseWrap = blockFor(".selection-detail-wrap");
+    expect(declValue(baseWrap, "margin-left")).toBe("calc(-1 * var(--space-5))");
+    expect(declValue(baseWrap, "padding-left")).toBe("var(--space-5)");
+    expect(blockFor(".split-gutter")).toMatch(/background:\s*transparent/);
   });
 });

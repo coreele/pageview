@@ -1840,11 +1840,11 @@ html.is-split-dragging .split-gutter::after {
     flex: 1 1 auto;
     min-height: 0;
     align-items: stretch;
+    background: var(--surface);
   }
 
   .main-paged .split-gutter {
     display: block;
-    background: var(--surface);
   }
 
   /* Collapsed: hex pane unmounted ? single column, structure fills main. */
@@ -1857,12 +1857,13 @@ html.is-split-dragging .split-gutter::after {
   }
 
   .main-paged .pane-structure {
-    overflow: hidden;
+    overflow: visible;
   }
 
   .main-paged .pane-structure > .structure-diagram {
     flex: 1 1 auto;
     min-height: 0;
+    overflow: visible;
   }
 
   .main-paged .pane-structure .structure-flow {
@@ -1873,6 +1874,16 @@ html.is-split-dragging .split-gutter::after {
 
   .main-paged .pane-structure .selection-detail-wrap {
     flex-shrink: 0;
+  }
+
+  /* Extend the detail rule to the gutter center: +5px is half of the 10px
+     GUTTER_PX, so the rule meets the centered split line. */
+  .main-paged .selection-detail-wrap {
+    margin-left: calc(-1 * (var(--space-5) + 5px));
+    margin-right: calc(-1 * (var(--space-5) + 5px));
+    padding-left: calc(var(--space-5) + 5px);
+    padding-right: calc(var(--space-5) + 5px);
+    max-width: none;
   }
 
   .main-paged .pane-hex {
