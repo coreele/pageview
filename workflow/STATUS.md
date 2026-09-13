@@ -9,10 +9,10 @@
 | 泳道 | 数量 |
 |---|---|
 | 等待用户 | 0 |
-| 进行中 | 1 |
+| 进行中 | 0 |
 | 待办 | 0 |
 | 阻塞 | 0 |
-| 已关闭 | 0 |
+| 已关闭 | 1 |
 | 已归档 | 40 |
 
 ## 等待用户
@@ -27,7 +27,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| single-relation-select | standard | `workflow/workspace/single-relation-select/main.md` | Analyst 编写 spec.md | single 模式恢复 table/index 选择 |
+| — | | | | |
 
 ## 待办
 
@@ -47,7 +47,7 @@
 
 | 工作项 | 源分支 → 目标分支 | 备注 |
 |---|---|---|
-| — | | |
+| single-relation-select | single-relation-select → main | single 模式恢复 table/index 选择；QA Pass @ e4186cd |
 
 ## 归档索引
 
