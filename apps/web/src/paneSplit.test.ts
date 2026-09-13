@@ -71,19 +71,56 @@ const srcDir = dirname(fileURLToPath(import.meta.url));
 
 describe("split gutter grip (gutter-grip V-1 / V-2)", () => {
   const css = readFileSync(join(srcDir, "styles.css"), "utf8");
-  const after = css.match(/\.split-gutter::after\s*\{[^}]+\}/)?.[0] ?? "";
-  const hover = css.match(/\.split-gutter:hover::after[\s\S]*?\{[^}]+\}/)?.[0] ?? "";
 
-  it("uses a short centered bar instead of a full-height strip (V-1)", () => {
-    expect(after).toMatch(/height:\s*2\.5rem/);
-    expect(after).toMatch(/translate\(-50%,\s*-50%\)/);
-    expect(after).not.toMatch(/bottom:\s*0\.45rem/);
+  function block(re: RegExp): string {
+    return css.match(re)?.[0] ?? "";
+  }
+
+  function baseBlock(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return css.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  }
+
+  const after = block(/\.split-gutter::after\s*\{[^}]+\}/);
+  const hover = block(/\.split-gutter:hover::after[\s\S]*?\{[^}]+\}/);
+  const focus = block(/\.split-gutter:focus-visible\s*\{[^}]+\}/);
+  const dragging = block(/html\.is-split-dragging\s+\.split-gutter::after\s*\{[^}]+\}/);
+  const wideOverride = block(
+    /\.main-paged \.pane-tree,\s*\.main-paged \.pane-structure > \.structure-diagram,\s*\.main-paged \.pane-hex > \.hex\s*\{[^}]+\}/,
+  );
+
+  it("draws a full-height 1px centered line instead of a pill (V-1)", () => {
+    expect(after).toMatch(/width:\s*1px/);
+    expect(after).toMatch(/top:\s*0\s*;/);
+    expect(after).toMatch(/bottom:\s*0\s*;/);
+    expect(after).toMatch(/left:\s*50%/);
+    expect(after).toMatch(/transform:\s*translateX\(-50%\)/);
+    expect(after).toMatch(/background:\s*var\(--border\)/);
+    expect(after).not.toMatch(/height:/);
+    expect(after).not.toMatch(/border-radius/);
   });
 
-  it("keeps hover and focus quieter than solid accent (V-2)", () => {
+  it("highlights hover and focus with a 2px accent mix, not solid accent (V-2)", () => {
+    expect(hover).toMatch(/width:\s*2px/);
     expect(hover).toMatch(
-      /background:\s*color-mix\(in srgb, var\(--accent\) 40%, var\(--border\)\)/,
+      /background:\s*color-mix\(in srgb, var\(--accent\) 55%, var\(--border\)\)/,
     );
     expect(hover).not.toMatch(/background:\s*var\(--accent\)\s*;/);
+    expect(focus).toMatch(/outline:\s*none/);
+  });
+
+  it("uses solid accent only while dragging", () => {
+    expect(dragging).toMatch(/width:\s*2px/);
+    expect(dragging).toMatch(/background:\s*var\(--accent\)\s*;/);
+  });
+
+  it("strips card chrome only in the wide paged scope (V-3)", () => {
+    expect(wideOverride).not.toBe("");
+    expect(wideOverride).toMatch(/border:\s*0\s*;/);
+    expect(wideOverride).toMatch(/border-radius:\s*0\s*;/);
+    expect(wideOverride).toMatch(/box-shadow:\s*none\s*;/);
+    expect(baseBlock(".pane-tree")).toMatch(/border:\s*1px solid var\(--border\)/);
+    expect(baseBlock(".structure-diagram")).toMatch(/border:\s*1px solid var\(--border\)/);
+    expect(baseBlock(".hex")).toMatch(/border:\s*1px solid var\(--border\)/);
   });
 });

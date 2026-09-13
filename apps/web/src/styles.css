@@ -575,24 +575,32 @@ input {
   content: "";
   position: absolute;
   left: 50%;
-  top: 50%;
-  width: 3px;
-  height: 2.5rem;
-  transform: translate(-50%, -50%);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--text-muted) 40%, transparent);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border);
 }
 
 .split-gutter:hover::after,
 .split-gutter:focus-visible::after {
-  height: 3.5rem;
-  background: color-mix(in srgb, var(--accent) 40%, var(--border));
+  width: 2px;
+  background: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.split-gutter:focus-visible {
+  outline: none;
 }
 
 html.is-split-dragging,
 html.is-split-dragging * {
   cursor: col-resize !important;
   user-select: none !important;
+}
+
+html.is-split-dragging .split-gutter::after {
+  width: 2px;
+  background: var(--accent);
 }
 
 .pane {
@@ -1896,6 +1904,17 @@ html.is-split-dragging * {
     min-width: 0;
     overflow: hidden;
     min-height: 0;
+  }
+}
+
+/* flat-split-dividers: wide paged panes lose card chrome; narrow keeps it. */
+@media (min-width: 960px) {
+  .main-paged .pane-tree,
+  .main-paged .pane-structure > .structure-diagram,
+  .main-paged .pane-hex > .hex {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 }
 
