@@ -25,6 +25,11 @@ function blockFor(selector: string): string {
   return block ? (block[1] ?? "") : "";
 }
 
+function declValue(block: string, property: string): string {
+  const m = block.match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+);`));
+  return m ? (m[1] ?? "").trim() : "";
+}
+
 const radiusDecls = [...css.matchAll(/border-radius:\s*([^;]+);/g)].map((m) => (m[1] ?? "").trim());
 
 describe("design tokens (V-1)", () => {
@@ -105,5 +110,22 @@ describe("module spacing contract (V-3)", () => {
     expect(blockFor(".heap-peek-backdrop")).toMatch(/padding:\s*var\(--space-6\);/);
     expect(css).not.toMatch(/padding:\s*0\.65rem 0\.7rem 0\.75rem;/);
     expect(css).not.toMatch(/padding:\s*0\.45rem 0\.5rem 0\.55rem;/);
+  });
+});
+
+describe("paired spacing coupling (R-1/R-2)", () => {
+  it("keeps .chrome-meta negative margin the inverse of .chrome horizontal padding", () => {
+    const horizontal = declValue(blockFor(".chrome"), "padding").split(/\s+/)[1];
+    expect(horizontal).toMatch(/^var\(--space-\d+\)$/);
+    expect(horizontal).toBe("var(--space-6)");
+    expect(declValue(blockFor(".chrome-meta"), "margin")).toBe(`0 calc(-1 * ${horizontal})`);
+  });
+
+  it("keeps .selection-detail max-width in step with the wrap gap token", () => {
+    const gap = declValue(blockFor(".selection-detail-wrap"), "gap");
+    expect(gap).toBe("var(--space-3)");
+    expect(declValue(blockFor(".selection-detail"), "max-width")).toBe(
+      `calc(100% - 2.85rem - ${gap})`,
+    );
   });
 });

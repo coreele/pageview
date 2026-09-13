@@ -422,7 +422,7 @@ input {
   flex-direction: column;
   justify-content: center;
   gap: var(--space-2);
-  margin: 0 -0.75rem;
+  margin: 0 calc(-1 * var(--space-6));
   padding: var(--space-3) var(--space-6) var(--space-3);
   border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   background: color-mix(in srgb, var(--surface) 82%, var(--bg));
@@ -1027,7 +1027,7 @@ html.is-split-dragging * {
 .selection-detail {
   flex: 1 1 auto;
   width: auto;
-  max-width: calc(100% - 2.85rem - 0.45rem);
+  max-width: calc(100% - 2.85rem - var(--space-3));
   min-width: 0;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface) 88%, var(--diagram-bg));
