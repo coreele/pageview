@@ -81,6 +81,32 @@ describe("split gutter grip (gutter-grip V-1 / V-2)", () => {
     return css.match(new RegExp(`(?:^|\\n)${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
   }
 
+  // Wide-layout media bodies: the closing brace sits at column 0, inner rules are indented,
+  // so a lazy match to the first `\n}` yields exactly one `@media (min-width: 960px)` block.
+  function wideMediaBodies(): string[] {
+    const bodies: string[] = [];
+    const re = /@media \(min-width: 960px\)\s*\{([\s\S]*?)\n\}/g;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(css)) !== null) bodies.push(m[1] ?? "");
+    return bodies;
+  }
+
+  const wideMedia = wideMediaBodies();
+
+  function inWideMedia(snippet: string): boolean {
+    return snippet !== "" && wideMedia.some((body) => body.includes(snippet));
+  }
+
+  function wideBlock(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(`(?:^|\\n)\\s*${escaped}\\s*\\{([^}]*)\\}`);
+    for (const body of wideMedia) {
+      const m = body.match(re);
+      if (m) return m[1] ?? "";
+    }
+    return "";
+  }
+
   const after = block(/\.split-gutter::after\s*\{[^}]+\}/);
   const hover = block(/\.split-gutter:hover::after[\s\S]*?\{[^}]+\}/);
   const focus = block(/\.split-gutter:focus-visible\s*\{[^}]+\}/);
@@ -116,11 +142,19 @@ describe("split gutter grip (gutter-grip V-1 / V-2)", () => {
 
   it("strips card chrome only in the wide paged scope (V-3)", () => {
     expect(wideOverride).not.toBe("");
+    expect(inWideMedia(wideOverride)).toBe(true);
     expect(wideOverride).toMatch(/border:\s*0\s*;/);
     expect(wideOverride).toMatch(/border-radius:\s*0\s*;/);
     expect(wideOverride).toMatch(/box-shadow:\s*none\s*;/);
     expect(baseBlock(".pane-tree")).toMatch(/border:\s*1px solid var\(--border\)/);
     expect(baseBlock(".structure-diagram")).toMatch(/border:\s*1px solid var\(--border\)/);
     expect(baseBlock(".hex")).toMatch(/border:\s*1px solid var\(--border\)/);
+  });
+
+  it("drops the .main outer whitespace only in the wide paged scope (V-8)", () => {
+    const mainPaged = wideBlock(".main-paged");
+    expect(mainPaged).not.toBe("");
+    expect(mainPaged).toMatch(/padding:\s*0\s*;/);
+    expect(baseBlock(".main")).toMatch(/padding:\s*var\(--space-6\)/);
   });
 });

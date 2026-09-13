@@ -1843,6 +1843,7 @@ html.is-split-dragging .split-gutter::after {
   .main-paged {
     overflow: hidden;
     min-height: 0;
+    padding: 0;
   }
 
   .main-paged .main-split {
