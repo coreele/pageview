@@ -9,7 +9,7 @@
 | 泳道 | 数量 |
 |---|---|
 | 等待用户 | 0 |
-| 进行中 | 0 |
+| 进行中 | 1 |
 | 待办 | 0 |
 | 阻塞 | 0 |
 | 已关闭 | 0 |
@@ -27,7 +27,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| — | | | | |
+| single-relation-select | standard | `workflow/workspace/single-relation-select/main.md` | Analyst 编写 spec.md | single 模式恢复 table/index 选择 |
 
 ## 待办
 
