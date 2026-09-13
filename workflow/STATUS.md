@@ -9,10 +9,10 @@
 | 泳道 | 数量 |
 |---|---|
 | 等待用户 | 0 |
-| 进行中 | 1 |
+| 进行中 | 0 |
 | 待办 | 0 |
 | 阻塞 | 0 |
-| 已关闭 | 1 |
+| 已关闭 | 2 |
 | 已归档 | 40 |
 
 ## 等待用户
@@ -27,7 +27,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| unify-module-radius-spacing | standard | `workflow/workspace/unify-module-radius-spacing/main.md` | Planner 编写 ui-design.md 与 plan.md | 统一模块圆角与间距并收小 |
+| — | | | | |
 
 ## 待办
 
@@ -48,6 +48,7 @@
 | 工作项 | 源分支 → 目标分支 | 备注 |
 |---|---|---|
 | single-relation-select | single-relation-select → main | single 模式恢复 table/index 选择；QA Pass @ e4186cd |
+| unify-module-radius-spacing | unify-module-radius-spacing → main | 统一模块圆角与间距；QA Pass @ 1aa7a27 |
 
 ## 归档索引
 
