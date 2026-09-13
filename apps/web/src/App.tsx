@@ -89,12 +89,14 @@ import { WalView, type WalPhase } from "./WalView";
 import { diffByteRanges, findStructureAt, structureAffectedByDiff } from "./diff";
 import {
   canLoadIndex,
+  formatIndexOption,
   indexOptionTitle,
   indexSelectionSurvives,
   levelText,
   nonBtreeHint,
   pageTypeBadge,
 } from "./indexView";
+import { formatTableOption, shouldAutoLoadRelation } from "./relationSelect";
 import {
   btreePageNav,
   heapPageNav,
@@ -653,6 +655,28 @@ export function App() {
     setSchema(null);
     setBlkno(0);
     setBtreeTree((s) => ensureIndexExpanded(s, oid));
+  };
+
+  /**
+   * single-relation-select: toolbar pick handlers. Select (clears the old page
+   * / blkno via the existing selection paths) then auto-load blk 0 only when
+   * the relation is loadable. No Tree "click selected node collapses" behavior.
+   */
+  const pickTableFromSelect = (oid: number) => {
+    if (loadState === "loading-page") return;
+    const t = tables.find((x) => x.oid === oid);
+    if (!t) return;
+    setBlkno(0);
+    void onSelectTable(oid);
+    if (shouldAutoLoadRelation(t.blocks)) void loadBlk(oid, 0);
+  };
+
+  const pickIndexFromSelect = (oid: number) => {
+    if (loadState === "loading-page") return;
+    const idx = indexes.find((x) => x.oid === oid);
+    if (!idx) return;
+    onSelectIndex(oid);
+    if (canLoadIndex(idx) && shouldAutoLoadRelation(idx.blocks)) void loadIndexBlk(oid, 0);
   };
 
   /** P1-1: same-index block navigation (btpo_prev/next, child t_tid, root/fastroot). */
@@ -1576,6 +1600,40 @@ export function App() {
                       </span>
                     )}
                     <label className="control">
+                      <span className="control-label">table</span>
+                      <select
+                        className="table-select"
+                        value={
+                          tables.some((t) => t.oid === selectedOid) ? String(selectedOid) : ""
+                        }
+                        title={selectedTable?.qualifiedName}
+                        disabled={
+                          !tablesFetched ||
+                          loadState === "loading-tables" ||
+                          loadState === "loading-page" ||
+                          tables.length === 0
+                        }
+                        onChange={(e) => pickTableFromSelect(Number(e.target.value))}
+                      >
+                        {!tablesFetched || loadState === "loading-tables" ? (
+                          <option value="">Loading tables…</option>
+                        ) : tables.length === 0 ? (
+                          <option value="">No tables</option>
+                        ) : (
+                          <>
+                            {!tables.some((t) => t.oid === selectedOid) && (
+                              <option value="">select a table…</option>
+                            )}
+                            {tables.map((t) => (
+                              <option key={t.oid} value={t.oid} title={t.qualifiedName}>
+                                {formatTableOption(t)}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </label>
+                    <label className="control">
                       <span className="control-label">blkno</span>
                       <input
                         className="blkno-input"
@@ -1633,6 +1691,42 @@ export function App() {
                         {indexHint}
                       </span>
                     )}
+                    <label className="control">
+                      <span className="control-label">index</span>
+                      <select
+                        className="index-select"
+                        value={
+                          indexes.some((i) => i.oid === selectedIndexOid)
+                            ? String(selectedIndexOid)
+                            : ""
+                        }
+                        title={selectedIndex ? indexOptionTitle(selectedIndex) : undefined}
+                        disabled={
+                          !indexesFetched ||
+                          loadState === "loading-indexes" ||
+                          loadState === "loading-page" ||
+                          indexes.length === 0
+                        }
+                        onChange={(e) => pickIndexFromSelect(Number(e.target.value))}
+                      >
+                        {!indexesFetched || loadState === "loading-indexes" ? (
+                          <option value="">Loading indexes…</option>
+                        ) : indexes.length === 0 ? (
+                          <option value="">No user indexes (system schemas excluded)</option>
+                        ) : (
+                          <>
+                            {!indexes.some((i) => i.oid === selectedIndexOid) && (
+                              <option value="">select an index…</option>
+                            )}
+                            {indexes.map((i) => (
+                              <option key={i.oid} value={i.oid} title={indexOptionTitle(i)}>
+                                {formatIndexOption(i)}
+                              </option>
+                            ))}
+                          </>
+                        )}
+                      </select>
+                    </label>
                     <label className="control">
                       <span className="control-label">blkno</span>
                       <input

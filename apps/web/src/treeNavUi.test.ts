@@ -87,10 +87,33 @@ describe("tree nav hierarchy (table-tree-nav)", () => {
 });
 
 describe("index-tree-nav chrome (P0-3)", () => {
-  it("does not keep table or index dropdowns in App", () => {
+  it("keeps table and index dropdowns only inside the single-mode toolbar (P0-1 / P0-11)", () => {
     const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
-    expect(text).not.toMatch(/className="index-select"/);
-    expect(text).not.toMatch(/className="table-select"/);
+    const singleGuard = text.indexOf('browseMode === "single" && (');
+    const tableSelect = text.indexOf('className="table-select"');
+    const indexSelect = text.indexOf('className="index-select"');
+    expect(singleGuard).toBeGreaterThan(-1);
+    expect(tableSelect).toBeGreaterThan(singleGuard);
+    expect(indexSelect).toBeGreaterThan(singleGuard);
+  });
+
+  it("renders loading, empty and select placeholders and disables during page load (P0-12)", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    expect(text).toMatch(/Loading tables…/);
+    expect(text).toMatch(/No tables/);
+    expect(text).toMatch(/select a table…/);
+    expect(text).toMatch(/Loading indexes…/);
+    expect(text).toMatch(/No user indexes \(system schemas excluded\)/);
+    expect(text).toMatch(/select an index…/);
+    expect(text).toMatch(/loadState === "loading-page"/);
+  });
+
+  it("auto-loads blk 0 for loadable picks only (P0-2 / P0-5 / P0-6 / P0-13)", () => {
+    const text = readFileSync(join(srcDir, "App.tsx"), "utf8");
+    expect(text).toMatch(/loadBlk\(oid, 0\)/);
+    expect(text).toMatch(/loadIndexBlk\(oid, 0\)/);
+    expect(text).toMatch(/shouldAutoLoadRelation\(t\.blocks\)/);
+    expect(text).toMatch(/canLoadIndex\(idx\) && shouldAutoLoadRelation\(idx\.blocks\)/);
   });
 });
 

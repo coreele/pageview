@@ -21,12 +21,12 @@ Built for developers learning or debugging — **not** intended for public deplo
 
 ### Index pages (B-tree)
 
-- **Index browsing** — pick a relation in the Tree catalog, or turn Tree off and use the table | index switch; the index list shows access method, block count, and owning table; non-B-tree indexes are listed but marked unloadable; invalid indexes flagged (still loadable)
+- **Index browsing** — pick a relation in the Tree catalog, or turn Tree off and choose a table or index from the toolbar; the index list shows access method, block count, and owning table; non-B-tree indexes are listed but marked unloadable; invalid indexes flagged (still loadable)
 - **Page types** — metapage (`btm_*` incl. `allequalimage` on v4+), internal (child downlinks + level), leaf (heap TIDs); special space `btpo_*` with a `btpo_flags` bit strip
 - **Hikey & posting lists** — high-key mark on the first tuple of non-rightmost pages; dedup posting tuples (PG13+) with TID count and full scrollable list
 - **Key value decoding** — index tuple keys decoded per column type (int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domains) with NULL, include/↓/nulls-first badges and click-to-highlight column bytes; unsupported types (e.g. jsonb) or expression indexes degrade gracefully to hex-only
 - **Block navigation** — load siblings (`btpo_prev`/`btpo_next`), root/fastroot, and child pages with one click; leaf heap TIDs jump straight to the owning table's block
-- **Tree panel** — chrome **Tree** toggle (on = catalog visible). After connect it defaults **on**. On: two collapsible sections (`TABLE` / `INDEX`, each capped at half the pane) and no Table/Index, blkno, Load, Refresh, Prev, or Next. Click a table to load heap blk 0, or a B-tree index to load metapage blk 0; nested block rows load that page, and clicking the currently displayed block refreshes it. Off: catalog hidden; the blkno lookup toolbar stays for the already selected relation (no table/index dropdown). Names are unqualified (schema on hover). The INDEX section lists every user index; picking a table does not filter it.
+- **Tree panel** — chrome **Tree** toggle (on = catalog visible). After connect it defaults **on**. On: two collapsible sections (`TABLE` / `INDEX`, each capped at half the pane) and no Table/Index, blkno, Load, Refresh, Prev, or Next. Click a table to load heap blk 0, or a B-tree index to load metapage blk 0; nested block rows load that page, and clicking the currently displayed block refreshes it. Off: catalog hidden; the toolbar lets you pick a table or index (the index list is all user indexes, non-B-tree marked unloadable) and auto-loads blk 0, then blkno + Load. Names are unqualified (schema on hover). The INDEX section lists every user index; picking a table does not filter it.
 
 - **Guards** — non-B-tree access methods (hash/gist/spgist/brin/gin) blocked in the UI and by the server (`INDEX_NOT_BTREE`)
 
@@ -74,7 +74,7 @@ pnpm dev:web    >/tmp/pageview-web.log 2>&1 &
 # same shell: kill %1 %2
 ```
 
-Open http://127.0.0.1:5173 , connect (or rely on `.env`), then use **Page** (**Tree** on: pick a table or index in the catalog; **Tree** off: blkno + Load) or **WAL** (start/end LSN + Load).
+Open http://127.0.0.1:5173 , connect (or rely on `.env`), then use **Page** (**Tree** on: pick a table or index in the catalog; **Tree** off: pick a table or index from the toolbar, then blkno + Load) or **WAL** (start/end LSN + Load).
 
 ## Environment
 

@@ -21,12 +21,12 @@
 
 ### 索引页（B-tree）
 
-- **索引浏览** — 在 Tree 目录选关系，或关掉 Tree 用表 | 索引切换；索引列表展示访问方法、块数与所属表；非 B-tree 索引列出但标记不可加载；无效索引带标记（仍可加载）
+- **索引浏览** — 在 Tree 目录选关系，或关掉 Tree 从工具栏选表或索引；索引列表展示访问方法、块数与所属表；非 B-tree 索引列出但标记不可加载；无效索引带标记（仍可加载）
 - **页面类型** — metapage（`btm_*`，v4+ 含 `allequalimage`）、internal（子页指针 + level）、leaf（heap TID）；special space `btpo_*` 与 `btpo_flags` 位条
 - **高键与 posting list** — 非最右页首元组标记 hikey；dedup posting 元组（PG13+）显示 TID 数与完整可滚动列表
 - **键值解码** — index tuple 键按列类型解码（int/bool/text/date/timestamp/timestamptz/uuid/numeric/float4/float8/bytea/domain），含 NULL、include/↓/nulls-first 徽标与点击列高亮对应字节；不支持类型（如 jsonb）或表达式索引优雅降级为仅 hex
 - **块导航** — 一键加载左右页（`btpo_prev`/`btpo_next`）、root/fastroot 与子页；叶页 heap TID 可直接跳到所属表对应块
-- **树面板** — chrome **Tree** 开关（亮=目录）。连库后默认**亮**。亮时显示 `TABLE` / `INDEX` 两段（可整段折叠，每段最高一半面板），并隐藏 Table/Index、blkno、Load、Refresh、Prev、Next。点表名加载堆 blk 0；点 B-tree 索引加载 metapage blk 0；点子行加载该页；再点当前显示的块即 Refresh。暗时无目录，用现次带按 blkno 查找已选关系的某一页（不加回表/索引下拉）。树里只显示关系名（schema 在 title）。INDEX 段列出全部用户索引，选表不会过滤。
+- **树面板** — chrome **Tree** 开关（亮=目录）。连库后默认**亮**。亮时显示 `TABLE` / `INDEX` 两段（可整段折叠，每段最高一半面板），并隐藏 Table/Index、blkno、Load、Refresh、Prev、Next。点表名加载堆 blk 0；点 B-tree 索引加载 metapage blk 0；点子行加载该页；再点当前显示的块即 Refresh。暗时无目录，可在次带选择表或索引（索引列出全部用户索引，非 B-tree 标记不可加载）并自动加载 blk 0，再用 blkno + Load。树里只显示关系名（schema 在 title）。INDEX 段列出全部用户索引，选表不会过滤。
 - **拦截** — 非 B-tree 访问方法（hash/gist/spgist/brin/gin）在 UI 与服务端双重拦截（`INDEX_NOT_BTREE`）
 
 ### WAL 模式
@@ -73,7 +73,7 @@ pnpm dev:web    >/tmp/pageview-web.log 2>&1 &
 # 同一 shell 里停止：kill %1 %2
 ```
 
-打开 http://127.0.0.1:5173 ，连接数据库（或依赖 `.env`），然后使用 **Page**（**Tree** 亮：在目录选表或索引；**Tree** 暗：块号 + Load）或 **WAL**（start/end LSN + Load）。
+打开 http://127.0.0.1:5173 ，连接数据库（或依赖 `.env`），然后使用 **Page**（**Tree** 亮：在目录选表或索引；**Tree** 暗：从工具栏选表或索引，再块号 + Load）或 **WAL**（start/end LSN + Load）。
 
 ## 环境变量
 
