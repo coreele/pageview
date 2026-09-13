@@ -1856,6 +1856,7 @@ html.is-split-dragging .split-gutter::after {
 
   .main-paged .split-gutter {
     display: block;
+    background: var(--surface);
   }
 
   /* Collapsed: hex pane unmounted ? single column, structure fills main. */
@@ -1916,6 +1917,7 @@ html.is-split-dragging .split-gutter::after {
     border: 0;
     border-radius: 0;
     box-shadow: none;
+    background: var(--surface);
   }
 }
 
