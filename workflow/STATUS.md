@@ -9,7 +9,7 @@
 | 泳道 | 数量 |
 |---|---|
 | 等待用户 | 0 |
-| 进行中 | 0 |
+| 进行中 | 1 |
 | 待办 | 0 |
 | 阻塞 | 0 |
 | 已关闭 | 3 |
@@ -27,7 +27,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| — | | | | |
+| visibility-map-info | developing | workflow/workspace/visibility-map-info/ | Developer 实施与自验 | heap block 展示 visibility map（pg_visibility 自动安装 + 失败 Install 按钮） |
 
 ## 待办
 
