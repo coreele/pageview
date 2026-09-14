@@ -108,6 +108,10 @@ export const PAGEINSPECT_NEXT =
 export const WALINSPECT_NEXT =
   "Automatic install failed. Enable pg_walinspect manually as a superuser: CREATE EXTENSION pg_walinspect; then retry.";
 
+/** Manual next step when automatic installation of pg_visibility failed. */
+export const VISIBILITY_NEXT =
+  "Automatic install failed. Enable pg_visibility manually as a superuser: CREATE EXTENSION pg_visibility; then retry.";
+
 export const PG_VERSION_WAL_MIN = 15;
 
 export function parsePgMajorVersion(versionText: string): number | null {
@@ -136,14 +140,17 @@ async function extensionPresent(client: PoolClient, ext: string): Promise<boolea
 
 type ExtensionGate = {
   /** Extension name used in catalog checks and CREATE EXTENSION. */
-  ext: "pageinspect" | "pg_walinspect";
-  /** Existing gate error code — the error-code set is unchanged (spec contract). */
-  code: "PAGEINSPECT_MISSING" | "WALINSPECT_MISSING";
+  ext: "pageinspect" | "pg_walinspect" | "pg_visibility";
+  /** Gate error code surfaced in place of the raw PG install error. */
+  code: "PAGEINSPECT_MISSING" | "WALINSPECT_MISSING" | "VISIBILITY_MISSING";
   /** Callability probe (executed, result ignored — same as pre-auto-install). */
   callableSql: string;
   /** Manual guidance shown only when automatic installation failed. */
   nextStep: string;
 };
+
+/** Whitelist of extensions the server may install (POST /api/extensions/install). */
+export type ExtensionName = ExtensionGate["ext"];
 
 const PAGEINSPECT_GATE: ExtensionGate = {
   ext: "pageinspect",
@@ -157,6 +164,19 @@ const WALINSPECT_GATE: ExtensionGate = {
   code: "WALINSPECT_MISSING",
   callableSql: `SELECT to_regprocedure('pg_walinspect.pg_get_wal_records_info(pg_lsn, pg_lsn)') IS NOT NULL AS ok`,
   nextStep: WALINSPECT_NEXT,
+};
+
+const VISIBILITY_GATE: ExtensionGate = {
+  ext: "pg_visibility",
+  code: "VISIBILITY_MISSING",
+  callableSql: `SELECT to_regprocedure('pg_visibility.pg_visibility(regclass, bigint)') IS NOT NULL AS ok`,
+  nextStep: VISIBILITY_NEXT,
+};
+
+const GATES: Record<ExtensionName, ExtensionGate> = {
+  pageinspect: PAGEINSPECT_GATE,
+  pg_walinspect: WALINSPECT_GATE,
+  pg_visibility: VISIBILITY_GATE,
 };
 
 /**
@@ -207,11 +227,39 @@ export async function verifyWalinspect(client: PoolClient): Promise<void> {
   await ensureExtension(client, WALINSPECT_GATE);
 }
 
+export async function verifyPgVisibility(client: PoolClient): Promise<void> {
+  await ensureExtension(client, VISIBILITY_GATE);
+}
+
+/**
+ * Explicit install of a whitelisted extension (POST /api/extensions/install).
+ * Reuses the same guard flow as the mode routes; a failed install surfaces
+ * the extension's own `*_MISSING` gate error (never PERMISSION/INTERNAL).
+ */
+export async function installExtension(pool: Pool, ext: ExtensionName): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await ensureExtension(client, GATES[ext]);
+  } finally {
+    client.release();
+  }
+}
+
 /** Require connected + pageinspect (auto-installed when missing) for Page-mode routes. */
 export async function requirePageinspect(pool: Pool): Promise<void> {
   const client = await pool.connect();
   try {
     await verifyPageinspect(client);
+  } finally {
+    client.release();
+  }
+}
+
+/** Require connected + pg_visibility (auto-installed when missing) for the VM endpoint. */
+export async function requirePgVisibility(pool: Pool): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await verifyPgVisibility(client);
   } finally {
     client.release();
   }

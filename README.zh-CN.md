@@ -47,14 +47,16 @@
 - Node.js 20+、pnpm 12+
 - **Page 模式：** 连接角色需可启用 `pageinspect`（需 `CREATE` 权限，通常为超级用户）并可调用 `get_raw_page`；扩展缺失时首次 Page 请求自动安装。索引浏览仅支持 B-tree（建议 PG13+ 以呈现 dedup posting list）
 - **WAL 模式：** PostgreSQL **15+**；连接角色需可启用 `pg_walinspect`（`CREATE` 权限）并可调用 `pg_get_wal_records_info` / `pg_current_wal_lsn`（通常为超级用户）；缺失时自动安装
+- **可见性映射（visibility map）：** heap 块的可见性映射状态（`all_visible` / `all_frozen` / 页头 `pd_all_visible`）通过 `pg_visibility` 以只读方式展示；扩展缺失时首次 Page 请求自动安装（需 `CREATE` 权限，通常为超级用户）
 
 ```sql
 -- 自动安装失败时（权限不足 / 扩展文件缺失）的人工回退步骤
 CREATE EXTENSION pageinspect;      -- Page 模式
 CREATE EXTENSION pg_walinspect;    -- WAL 模式（PG15+）
+CREATE EXTENSION pg_visibility;    -- visibility map 信息
 ```
 
-`pageinspect` / `pg_walinspect` 缺失时会在对应模式首次需要时自动安装——连接角色需具备 `CREATE` 权限（通常为超级用户）。连接成功不强制两扩展皆有；自动安装失败（如权限不足、扩展文件缺失）时，该模式报错并附服务端原因与上方人工步骤。
+`pageinspect` / `pg_walinspect` / `pg_visibility` 缺失时会在对应模式首次需要时自动安装——连接角色需具备 `CREATE` 权限（通常为超级用户）。连接成功不强制这些扩展皆备；自动安装失败（如权限不足、扩展文件缺失）时，该模式报错并附服务端原因与上方人工步骤。
 
 ## 快速开始
 
@@ -119,7 +121,7 @@ Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 - Page 模式仅限用户 heap 表（`relkind = r`）与 B-tree 索引
 - 标准 8 KB 页面
 - 显示 TOAST 指针；不拉取外部 toast 页
-- 不含非 B-tree 索引、FSM/VM 或系统目录
+- 不含非 B-tree 索引、FSM 或系统目录；heap 块的 visibility map 通过 `pg_visibility` 以只读方式展示
 - WAL v1：仅结构化记录；无原始 WAL hex；不含 PG17+ block-info API
 
 ## 故障排查
@@ -128,6 +130,7 @@ Fixture 采集：见 `packages/page-core/fixtures/README.md`。
 |---|---|
 | `PAGEINSPECT_MISSING` | 自动安装失败（如权限不足或扩展文件缺失）。以超级用户执行 `CREATE EXTENSION pageinspect;`，或先补装扩展文件，然后重试 Page |
 | `WALINSPECT_MISSING` | 自动安装失败（如权限不足或扩展文件缺失）。以超级用户执行 `CREATE EXTENSION pg_walinspect;`，或先补装扩展文件，然后重试 WAL |
+| `VISIBILITY_MISSING` | 自动安装失败（如权限不足或扩展文件缺失）。以超级用户执行 `CREATE EXTENSION pg_visibility;`，或先补装扩展文件，然后重试 Page（也可使用页工具栏的 Install 按钮） |
 | `PG_VERSION_UNSUPPORTED` | WAL 模式需 PostgreSQL 15+ |
 | `WAL_BATCH_TOO_LARGE` | 缩小 LSN 区间（≤2000 条 / ≤2 MiB JSON / ≤16 MiB 跨度） |
 | `HTTP_500` / “Check the server is running on 127.0.0.1” | 5173 上的 UI 在、8787 上的 API 不在。启动 `pnpm dev:server`（前台或后台）后重试。5173 只代理 `/api`。 |

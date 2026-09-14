@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchIndexColumns, fetchIndexPage, listIndexes } from "./api";
+import {
+  fetchIndexColumns,
+  fetchIndexPage,
+  fetchVisibility,
+  installExtension,
+  listIndexes,
+} from "./api";
 
 const realFetch = globalThis.fetch;
 
@@ -206,5 +212,79 @@ describe("fetchIndexColumns (index-key-decode T5)", () => {
       },
     }));
     await expect(fetchIndexColumns(Number("abc"))).rejects.toMatchObject({ code: "BAD_OID" });
+  });
+});
+
+describe("fetchVisibility (visibility-map-info)", () => {
+  it("GETs /api/tables/:oid/pages/:blkno/visibility and returns VM booleans", async () => {
+    const fn = stubFetch(() => ({
+      status: 200,
+      body: {
+        oid: 16384,
+        blkno: 0,
+        qualifiedName: "public.orders",
+        allVisible: true,
+        allFrozen: false,
+        pdAllVisible: true,
+      },
+    }));
+    const res = await fetchVisibility(16384, 0);
+    expect(fn.mock.calls[0]![0]).toBe("/api/tables/16384/pages/0/visibility");
+    expect(res).toEqual({
+      oid: 16384,
+      blkno: 0,
+      qualifiedName: "public.orders",
+      allVisible: true,
+      allFrozen: false,
+      pdAllVisible: true,
+    });
+  });
+
+  it("propagates VISIBILITY_MISSING guard errors untouched", async () => {
+    stubFetch(() => ({
+      status: 400,
+      body: {
+        code: "VISIBILITY_MISSING",
+        message:
+          'pg_visibility extension is missing and automatic installation failed: permission denied to create extension "pg_visibility"',
+        nextStep:
+          "Automatic install failed. Enable pg_visibility manually as a superuser: CREATE EXTENSION pg_visibility; then retry.",
+      },
+    }));
+    await expect(fetchVisibility(16384, 0)).rejects.toMatchObject({
+      code: "VISIBILITY_MISSING",
+      nextStep: expect.stringContaining("CREATE EXTENSION pg_visibility"),
+    });
+  });
+});
+
+describe("installExtension (visibility-map-info)", () => {
+  it("POSTs /api/extensions/install with the extension name and returns installed", async () => {
+    const fn = stubFetch(() => ({
+      status: 200,
+      body: { installed: true, ext: "pg_visibility" },
+    }));
+    const res = await installExtension("pg_visibility");
+    expect(fn.mock.calls[0]![0]).toBe("/api/extensions/install");
+    expect(res).toEqual({ installed: true, ext: "pg_visibility" });
+    const init = (fn.mock.calls[0] as unknown[])?.[1] as
+      | { method?: string; body?: string }
+      | undefined;
+    expect(init?.method).toBe("POST");
+    expect(JSON.parse(init?.body ?? "{}")).toEqual({ ext: "pg_visibility" });
+  });
+
+  it("propagates install failure gate errors", async () => {
+    stubFetch(() => ({
+      status: 400,
+      body: {
+        code: "VISIBILITY_MISSING",
+        message: "install failed",
+        nextStep: "CREATE EXTENSION pg_visibility;",
+      },
+    }));
+    await expect(installExtension("pg_visibility")).rejects.toMatchObject({
+      code: "VISIBILITY_MISSING",
+    });
   });
 });

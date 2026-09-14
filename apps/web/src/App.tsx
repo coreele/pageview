@@ -21,8 +21,10 @@ import {
   fetchPage,
   fetchRecentWalWindow,
   fetchSchema,
+  fetchVisibility,
   fetchWalRecords,
   getSession,
+  installExtension,
   listIndexes,
   listTables,
   type AppError,
@@ -30,6 +32,7 @@ import {
   type PublicSession,
   type SchemaResponse,
   type TableRow,
+  type VisibilityInfo,
   type WalRecordDto,
 } from "./api";
 import { HexDump } from "./HexDump";
@@ -202,6 +205,11 @@ export function App() {
   const [diffIds, setDiffIds] = useState<Set<string>>(new Set());
   const [hexCollapsed, setHexCollapsed] = useState(false);
   const [detailCollapsed, setDetailCollapsed] = useState(false);
+  // visibility-map-info: heap block visibility map status — non-fatal to page load.
+  const [vm, setVm] = useState<VisibilityInfo | null>(null);
+  const [vmError, setVmError] = useState<AppError | null>(null);
+  const [vmInstalling, setVmInstalling] = useState(false);
+  const vmReqRef = useRef(0);
   const [btreeTree, setBtreeTree] = useState<BtreeTreeState>(EMPTY_BTREE_TREE);
   const treeInflightRef = useRef(new Set<string>());
   const loadedBlknoRef = useRef<number | null>(null);
@@ -348,6 +356,11 @@ export function App() {
     setPrevRaw(null);
     setDiffIds(new Set());
     setHexLocate(null);
+    // visibility-map-info: stale VM / in-flight fetch must not survive a view reset.
+    vmReqRef.current += 1;
+    setVm(null);
+    setVmError(null);
+    setVmInstalling(false);
     // url-deeplink: invalidating the page view drops blkno from the URL
     // (selection/switch sync) — never called from a Load-failure path, so a
     // failed Load keeps the previous view's URL (P0-13).
@@ -358,6 +371,51 @@ export function App() {
     treeInflightRef.current.clear();
     setBtreeTree(resetBtreeTree());
   }, []);
+
+  /**
+   * visibility-map-info: fire-and-forget VM fetch, independent of the page
+   * fetch. Failures only set vmError (never the global error), so the page
+   * still renders and the VM slot degrades to the Install button. The nonce
+   * drops stale responses from superseded loads.
+   */
+  const fetchVm = useCallback((oid: number, block: number) => {
+    const req = ++vmReqRef.current;
+    setVm(null);
+    setVmError(null);
+    setVmInstalling(false);
+    void fetchVisibility(oid, block)
+      .then((info) => {
+        if (vmReqRef.current === req) setVm(info);
+      })
+      .catch((e: unknown) => {
+        if (vmReqRef.current === req) {
+          setVm(null);
+          setVmError(e as AppError);
+        }
+      });
+  }, []);
+
+  /** visibility-map-info: Install button action — install then re-fetch VM. */
+  const installVm = useCallback(async () => {
+    if (selectedOid == null || loadedBlkno == null) return;
+    const req = ++vmReqRef.current;
+    setVmInstalling(true);
+    try {
+      await installExtension("pg_visibility");
+      const info = await fetchVisibility(selectedOid, loadedBlkno);
+      if (vmReqRef.current === req) {
+        setVm(info);
+        setVmError(null);
+      }
+    } catch (e) {
+      if (vmReqRef.current === req) {
+        setVm(null);
+        setVmError(e as AppError);
+      }
+    } finally {
+      if (vmReqRef.current === req) setVmInstalling(false);
+    }
+  }, [selectedOid, loadedBlkno]);
 
   const refreshTables = useCallback(async () => {
     setLoadState("loading-tables");
@@ -501,6 +559,8 @@ export function App() {
   const loadBlk = async (oid: number, block: number, opts?: { refresh?: boolean }) => {
     setLoadState("loading-page");
     setError(null);
+    // visibility-map-info: parallel, non-fatal VM fetch (page load never awaits it).
+    fetchVm(oid, block);
     try {
       const [sch, rawPage] = await Promise.all([fetchSchema(oid), fetchPage(oid, block)]);
       setSchema(sch);
@@ -636,6 +696,10 @@ export function App() {
     setPageView(null);
     setLoadedBlkno(null);
     setDiffIds(new Set());
+    vmReqRef.current += 1;
+    setVm(null);
+    setVmError(null);
+    setVmInstalling(false);
     setBtreeTree((s) => ensureTableExpanded(s, oid));
     // url-deeplink: new selection invalidates the loaded block's URL param.
     setUrlLoaded((u) => ({ ...u, blkno: null }));
@@ -1828,6 +1892,32 @@ export function App() {
                     <span className="label">#tup</span>
                     <span className="value">{heapPage.stats.tupleCount}</span>
                   </span>
+                  <span className="meta-item">
+                    <span className="label">visibility map</span>
+                    <span className="value">
+                      {vm ? (
+                        <>
+                          all-visible {vm.allVisible ? "✓" : "✗"} · all-frozen{" "}
+                          {vm.allFrozen ? "✓" : "✗"} · pd_all_visible {vm.pdAllVisible ? "✓" : "✗"}
+                        </>
+                      ) : vmError?.code === "VISIBILITY_MISSING" ? (
+                        <span className="vm-install">
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={vmInstalling}
+                            title={vmError.message}
+                            onClick={() => void installVm()}
+                          >
+                            {vmInstalling ? "Installing…" : "Install pg_visibility"}
+                          </button>
+                          <span className="muted">{vmError.message}</span>
+                        </span>
+                      ) : (
+                        <span className="muted">loading…</span>
+                      )}
+                    </span>
+                  </span>
                 </div>
               )}
 
@@ -2047,8 +2137,8 @@ export function App() {
             <p className="muted">
               Or set env credentials so the server auto-connects on start. Password is never
               stored in the browser. Missing <code>pageinspect</code> /{" "}
-              <code>pg_walinspect</code> are installed automatically when needed; failures are
-              reported with the reason.
+              <code>pg_walinspect</code> / <code>pg_visibility</code> are installed automatically
+              when needed; failures are reported with the reason.
             </p>
           </div>
         )}

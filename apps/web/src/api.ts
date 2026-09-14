@@ -38,6 +38,16 @@ export type IndexPageResponse = {
   pageBase64: string;
 };
 
+/** visibility-map-info: single heap block's visibility map status. */
+export type VisibilityInfo = {
+  oid: number;
+  blkno: number;
+  qualifiedName: string;
+  allVisible: boolean;
+  allFrozen: boolean;
+  pdAllVisible: boolean;
+};
+
 /** index-key-decode: one index column (index's own pg_attribute + pg_index bits). */
 export type IndexColumnRow = {
   attnum: number;
@@ -143,6 +153,24 @@ export async function fetchPage(
   blkno: number,
 ): Promise<{ pageBase64: string; byteLength: number; qualifiedName: string; blkno: number }> {
   const res = await fetch(`/api/tables/${oid}/pages/${blkno}`);
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+export async function fetchVisibility(oid: number, blkno: number): Promise<VisibilityInfo> {
+  const res = await fetch(`/api/tables/${oid}/pages/${blkno}/visibility`);
+  if (!res.ok) throw await parseError(res);
+  return res.json();
+}
+
+export async function installExtension(
+  ext: "pageinspect" | "pg_walinspect" | "pg_visibility",
+): Promise<{ installed: boolean; ext: string }> {
+  const res = await fetch("/api/extensions/install", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ext }),
+  });
   if (!res.ok) throw await parseError(res);
   return res.json();
 }

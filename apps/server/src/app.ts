@@ -14,12 +14,16 @@ import {
 } from "./catalog.js";
 import {
   emptySession,
+  installExtension,
   PAGEINSPECT_NEXT,
   readEnvCredentials,
   requirePageinspect,
+  requirePgVisibility,
   toPublicSession,
+  VISIBILITY_NEXT,
   type AppErrorBody,
   type ConnectBody,
+  type ExtensionName,
   type SessionState,
 } from "./session.js";
 import {
@@ -77,6 +81,14 @@ function mapPgError(e: unknown): { statusCode: number; body: AppErrorBody } {
       "PAGEINSPECT_MISSING",
       err.message ?? "pageinspect missing",
       err.nextStep ?? PAGEINSPECT_NEXT,
+    );
+  }
+  if (err.code === "VISIBILITY_MISSING") {
+    return appError(
+      400,
+      "VISIBILITY_MISSING",
+      err.message ?? "pg_visibility missing",
+      err.nextStep ?? VISIBILITY_NEXT,
     );
   }
   if (
@@ -427,6 +439,118 @@ export async function buildApp(session: SessionState = emptySession()) {
       }
     },
   );
+
+  app.get<{ Params: { oid: string; blkno: string } }>(
+    "/api/tables/:oid/pages/:blkno/visibility",
+    async (req, reply) => {
+      if (!session.connected || !session.pool) {
+        return notConnectedReply(reply);
+      }
+      try {
+        const parsed = parseOidParam(
+          req.params.oid,
+          "Pick a heap table from the table list, then retry.",
+        );
+        if (!parsed.ok) return reply.code(parsed.reply.statusCode).send(parsed.reply.body);
+        const oid = parsed.oid;
+        const blkno = Number(req.params.blkno);
+        if (!Number.isInteger(blkno) || blkno < 0) {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "BAD_BLKNO",
+                "Invalid block number",
+                "Enter a non-negative integer blkno within the relation block count.",
+              ).body,
+            );
+        }
+
+        // ① relation must exist and be a heap table (404 NOT_HEAP_TABLE)
+        const cls = await session.pool.query(PAGE_RELATION_SQL, [oid]);
+        if (cls.rowCount === 0 || cls.rows[0].relkind !== "r") {
+          return reply
+            .code(404)
+            .send(
+              appError(
+                404,
+                "NOT_HEAP_TABLE",
+                "Relation is not a user heap table",
+                "Pick a heap user table from the list.",
+              ).body,
+            );
+        }
+        const blocks = Number(cls.rows[0].blocks);
+        if (blkno >= blocks) {
+          return reply
+            .code(400)
+            .send(
+              appError(
+                400,
+                "BLKNO_OUT_OF_RANGE",
+                `Block ${blkno} is out of range (relation has ${blocks} block(s))`,
+                `Choose blkno in 0..${Math.max(0, blocks - 1)} or pick another table.`,
+              ).body,
+            );
+        }
+
+        // ② VM guard AFTER relation/blkno guards: bad input must not trigger
+        // extension installation (P1-4). Auto-installs pg_visibility when missing.
+        await requirePgVisibility(session.pool);
+
+        const qualified = `${cls.rows[0].nspname}.${cls.rows[0].relname}`;
+        const visRes = await session.pool.query(
+          `SELECT all_visible AS "allVisible", all_frozen AS "allFrozen", pd_all_visible AS "pdAllVisible"
+           FROM pg_visibility($1, $2::bigint)`,
+          [qualified, blkno],
+        );
+        const row = visRes.rows[0] ?? {
+          allVisible: false,
+          allFrozen: false,
+          pdAllVisible: false,
+        };
+        return {
+          oid,
+          blkno,
+          qualifiedName: qualified,
+          allVisible: Boolean(row.allVisible),
+          allFrozen: Boolean(row.allFrozen),
+          pdAllVisible: Boolean(row.pdAllVisible),
+        };
+      } catch (e) {
+        const mapped = mapPgError(e);
+        return reply.code(mapped.statusCode).send(mapped.body);
+      }
+    },
+  );
+
+  app.post<{ Body: { ext?: string } }>("/api/extensions/install", async (req, reply) => {
+    if (!session.connected || !session.pool) {
+      return notConnectedReply(reply);
+    }
+    const ext = req.body?.ext;
+    const allowed: ExtensionName[] = ["pageinspect", "pg_walinspect", "pg_visibility"];
+    if (typeof ext !== "string" || !allowed.includes(ext as ExtensionName)) {
+      return reply
+        .code(400)
+        .send(
+          appError(
+            400,
+            "BAD_REQUEST",
+            `Invalid ext "${String(ext)}"`,
+            "Submit ext as one of: pageinspect, pg_walinspect, pg_visibility.",
+          ).body,
+        );
+    }
+    try {
+      await installExtension(session.pool, ext as ExtensionName);
+      return { installed: true, ext };
+    } catch (e) {
+      const mapped = mapPgError(e);
+      return reply.code(mapped.statusCode).send(mapped.body);
+    }
+  });
 
   app.get("/api/indexes", async (_req, reply) => {
     if (!session.connected || !session.pool) {

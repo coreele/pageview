@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Pool } from "pg";
 import { buildApp } from "../src/app.js";
-import { emptySession, requirePageinspect, type SessionState } from "../src/session.js";
+import {
+  emptySession,
+  requirePageinspect,
+  requirePgVisibility,
+  type SessionState,
+} from "../src/session.js";
 
 /**
  * Guard auto-install contract (spec): check → missing ⇒ one bare
@@ -19,9 +24,21 @@ type StubPlan = {
   exists?: (callIndex: number) => boolean;
   /** Behavior when the guard issues CREATE EXTENSION (throw to simulate PG errors). */
   onInstall?: (sql: string) => void;
+  /** PAGE_RELATION_SQL / LIST_TABLES_SQL row (default: heap TABLE_ROW). */
+  relationRow?: Record<string, unknown>;
+  /** pg_visibility result: undefined → happy row; null → zero rows; object → that row. */
+  visibilityRow?: Record<string, unknown> | null;
 };
 
-const TABLE_ROW = { oid: "16384", schema: "public", name: "orders", blocks: "3" };
+const TABLE_ROW = {
+  oid: "16384",
+  schema: "public",
+  name: "orders",
+  blocks: "3",
+  relkind: "r",
+  nspname: "public",
+  relname: "orders",
+};
 
 function pgErr(code: string, message: string): Error & { code: string } {
   const err = new Error(message) as Error & { code: string };
@@ -48,7 +65,16 @@ function recordingPool(plan: StubPlan): {
     if (s.includes("to_regprocedure")) return { rows: [{ ok: true }], rowCount: 1 };
     if (s.includes("pg_current_wal_lsn")) return { rows: [{ lsn: "0/16B3748" }], rowCount: 1 };
     if (s.includes("pg_relation_size") && s.includes("pg_class")) {
-      return { rows: [TABLE_ROW], rowCount: 1 };
+      return { rows: [plan.relationRow ?? TABLE_ROW], rowCount: 1 };
+    }
+    if (s.includes("from pg_visibility(")) {
+      if (plan.visibilityRow === null) return { rows: [], rowCount: 0 };
+      const row = plan.visibilityRow ?? {
+        allVisible: true,
+        allFrozen: false,
+        pdAllVisible: true,
+      };
+      return { rows: [row], rowCount: 1 };
     }
     return { rows: [], rowCount: 0 };
   };
@@ -253,5 +279,188 @@ describe("guard auto-install: retry and concurrency semantics (P1-1/P1-2/P1-3)",
     // Sequence stopped after the failed recheck: check → CREATE → recheck, no callability probe.
     expect(rec.sqlLog).toHaveLength(3);
     expect(rec.sqlLog[2]).toMatch(/pg_extension/i);
+  });
+});
+
+describe("pg_visibility guard: auto-install + error conversion (P0-2/P0-3/P0-6/P1-1/P1-2/P1-3)", () => {
+  it("P0-2 pg_visibility missing → bare install → recheck → visibility endpoint 200", async () => {
+    const rec = recordingPool({ exists: (i) => i > 1 });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      oid: 16384,
+      blkno: 0,
+      qualifiedName: "public.orders",
+      allVisible: true,
+      allFrozen: false,
+      pdAllVisible: true,
+    });
+    expect(createStatements(rec.sqlLog)).toEqual(["CREATE EXTENSION IF NOT EXISTS pg_visibility"]);
+    expect(rec.sqlLog.filter((s) => /pg_extension.*pg_visibility/i.test(s))).toHaveLength(2);
+    expect(rec.sqlLog.some((s) => /to_regprocedure.*pg_visibility/i.test(s))).toBe(true);
+  });
+
+  it("P0-3 install denied (42501) → 400 VISIBILITY_MISSING with PG reason — not 403 PERMISSION", async () => {
+    const rec = recordingPool({
+      exists: () => false,
+      onInstall: () => {
+        throw pgErr("42501", 'permission denied to create extension "pg_visibility"');
+      },
+    });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.code).toBe("VISIBILITY_MISSING");
+    expect(body.message).toContain("permission denied to create extension");
+    expect(body.nextStep).toMatch(/CREATE EXTENSION pg_visibility/i);
+    expect(body.nextStep).toMatch(/superuser/i);
+    expect(Object.keys(body).sort()).toEqual(["code", "message", "nextStep"]);
+  });
+
+  it("P0-6 pg_visibility installed → zero DDL on the visibility endpoint", async () => {
+    const rec = recordingPool({ exists: () => true });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(200);
+    expect(createStatements(rec.sqlLog)).toEqual([]);
+    expect(rec.sqlLog.filter((s) => /pg_extension.*pg_visibility/i.test(s))).toHaveLength(1);
+  });
+
+  it("P1-1 install fails once, next request in the same session succeeds (no negative caching)", async () => {
+    let attempts = 0;
+    const rec = recordingPool({
+      exists: (i) => i > 2,
+      onInstall: () => {
+        attempts += 1;
+        if (attempts === 1) throw pgErr("42501", "permission denied to create extension");
+      },
+    });
+    const { app } = await appWith(rec.pool);
+    const first = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(first.statusCode).toBe(400);
+    expect(first.json().code).toBe("VISIBILITY_MISSING");
+    const second = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(second.statusCode).toBe(200);
+  });
+
+  it("P1-2 concurrent guards: one CREATE succeeds, the other throws 42710 → both pass", async () => {
+    let installs = 0;
+    const rec = recordingPool({
+      exists: (i) => i > 2,
+      onInstall: () => {
+        installs += 1;
+        if (installs === 2) throw pgErr("42710", 'extension "pg_visibility" already exists');
+      },
+    });
+    await Promise.all([requirePgVisibility(rec.pool), requirePgVisibility(rec.pool)]);
+    expect(createStatements(rec.sqlLog)).toHaveLength(2);
+  });
+
+  it("P1-3 install statement succeeds but recheck still missing → 400 VISIBILITY_MISSING", async () => {
+    const rec = recordingPool({ exists: () => false });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.code).toBe("VISIBILITY_MISSING");
+    expect(body.message).toMatch(/missing|not (take effect|installed)/i);
+    expect(body.nextStep).toMatch(/CREATE EXTENSION pg_visibility/i);
+  });
+});
+
+describe("visibility endpoint guards: input validation precedes extension use (P1-4/P1-5/P1-6)", () => {
+  it("P1-4 blkno out of range → 400 BLKNO_OUT_OF_RANGE without touching pg_visibility", async () => {
+    const rec = recordingPool({ exists: () => true });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/3/visibility" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("BLKNO_OUT_OF_RANGE");
+    expect(rec.sqlLog.some((s) => /pg_visibility|pg_extension|create extension/i.test(s))).toBe(false);
+  });
+
+  it("P1-4 non-heap relation → 404 NOT_HEAP_TABLE without touching pg_visibility", async () => {
+    const rec = recordingPool({
+      exists: () => true,
+      relationRow: { oid: "16384", relkind: "i", nspname: "public", relname: "orders", blocks: "3" },
+    });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().code).toBe("NOT_HEAP_TABLE");
+    expect(rec.sqlLog.some((s) => /pg_visibility|pg_extension|create extension/i.test(s))).toBe(false);
+  });
+
+  it("P1-5 zero-row pg_visibility result → 200 with all-false booleans", async () => {
+    const rec = recordingPool({ exists: () => true, visibilityRow: null });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      allVisible: false,
+      allFrozen: false,
+      pdAllVisible: false,
+    });
+  });
+
+  it("P1-6 no VM fork (all-false row) → 200 with false allVisible/allFrozen", async () => {
+    const rec = recordingPool({
+      exists: () => true,
+      visibilityRow: { allVisible: false, allFrozen: false, pdAllVisible: true },
+    });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({ method: "GET", url: "/api/tables/16384/pages/0/visibility" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({
+      allVisible: false,
+      allFrozen: false,
+      pdAllVisible: true,
+    });
+  });
+});
+
+describe("POST /api/extensions/install (P0-7)", () => {
+  it("installs a missing whitelisted extension and returns { installed: true }", async () => {
+    const rec = recordingPool({ exists: (i) => i > 1 });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/extensions/install",
+      payload: { ext: "pg_visibility" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ installed: true, ext: "pg_visibility" });
+    expect(createStatements(rec.sqlLog)).toEqual(["CREATE EXTENSION IF NOT EXISTS pg_visibility"]);
+  });
+
+  it("unknown ext → 400 BAD_REQUEST with no SQL issued", async () => {
+    const rec = recordingPool({});
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/extensions/install",
+      payload: { ext: "pg_stat_statements" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("BAD_REQUEST");
+    expect(rec.sqlLog).toEqual([]);
+  });
+
+  it("install failure surfaces the extension gate error (400, not 403)", async () => {
+    const rec = recordingPool({
+      exists: () => false,
+      onInstall: () => {
+        throw pgErr("42501", "permission denied to create extension");
+      },
+    });
+    const { app } = await appWith(rec.pool);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/extensions/install",
+      payload: { ext: "pg_visibility" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().code).toBe("VISIBILITY_MISSING");
   });
 });

@@ -48,14 +48,16 @@ Built for developers learning or debugging — **not** intended for public deplo
 - Node.js 20+, pnpm 12+
 - **Page mode:** a connect role that can enable `pageinspect` (needs `CREATE` privilege — usually superuser) and call `get_raw_page`; a missing extension is installed automatically on first Page request. Index browsing is B-tree only (PG13+ recommended for dedup posting lists)
 - **WAL mode:** PostgreSQL **15+**; a connect role that can enable `pg_walinspect` (`CREATE` privilege) and call `pg_get_wal_records_info` / `pg_current_wal_lsn` (usually superuser); installed automatically when missing
+- **Visibility map:** the heap block's visibility map status (`all_visible` / `all_frozen` / page-header `pd_all_visible`) is shown read-only via `pg_visibility`; a missing extension is installed automatically on first Page request (needs `CREATE` privilege — usually superuser)
 
 ```sql
 -- Manual fallback when automatic install fails (missing privilege / extension files)
 CREATE EXTENSION pageinspect;      -- Page mode
 CREATE EXTENSION pg_walinspect;    -- WAL mode (PG15+)
+CREATE EXTENSION pg_visibility;    -- visibility map info
 ```
 
-Missing `pageinspect` / `pg_walinspect` are installed automatically when a mode first needs them — the connect role needs `CREATE` privilege (usually superuser). Connect succeeds without either extension; when automatic installation fails (insufficient privilege, missing extension files, …), the mode fails with the server's reason plus the manual steps above.
+Missing `pageinspect` / `pg_walinspect` / `pg_visibility` are installed automatically when a mode first needs them — the connect role needs `CREATE` privilege (usually superuser). Connect succeeds without these extensions; when automatic installation fails (insufficient privilege, missing extension files, …), the mode fails with the server's reason plus the manual steps above.
 
 ## Quick start
 
@@ -118,7 +120,7 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 - Page mode: heap user tables (`relkind = r`) and B-tree indexes only
 - Standard 8 KB pages
 - TOAST pointers shown; external toast pages not fetched
-- No non-B-tree indexes, FSM/VM, or system catalogs
+- No non-B-tree indexes, FSM, or system catalogs; the visibility map is shown read-only for heap blocks (via `pg_visibility`)
 - WAL v1: structured records only; no raw WAL hex; no PG17+ block-info APIs
 
 ## Troubleshooting
@@ -127,6 +129,7 @@ Fixture capture: see `packages/page-core/fixtures/README.md`.
 |---|---|
 | `PAGEINSPECT_MISSING` | Automatic install failed (e.g. missing privilege or extension files). Run `CREATE EXTENSION pageinspect;` as superuser — or install the extension files first — then retry Page |
 | `WALINSPECT_MISSING` | Automatic install failed (e.g. missing privilege or extension files). Run `CREATE EXTENSION pg_walinspect;` as superuser — or install the extension files first — then retry WAL |
+| `VISIBILITY_MISSING` | Automatic install failed (e.g. missing privilege or extension files). Run `CREATE EXTENSION pg_visibility;` as superuser — or install the extension files first — then retry Page (or use the Install button in the page toolbar) |
 | `PG_VERSION_UNSUPPORTED` | Use PostgreSQL 15+ for WAL mode |
 | `WAL_BATCH_TOO_LARGE` | Narrow the LSN range (≤2000 records / ≤2 MiB JSON / ≤16 MiB span) |
 | `HTTP_500` / “Check the server is running on 127.0.0.1” | The UI on 5173 is up but the API on 8787 is not. Start `pnpm dev:server` (foreground or background) and retry. 5173 only proxies `/api`. |

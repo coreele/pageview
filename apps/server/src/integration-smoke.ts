@@ -627,7 +627,7 @@ function aiCheck(cond: unknown, msg: string): asserts cond {
   if (!cond) throw new Error(`Auto-install smoke failed: ${msg}`);
 }
 
-async function autoInstallSmoke(app: InjectApp, session: SessionState): Promise<void> {
+async function autoInstallSmoke(app: InjectApp, session: SessionState, targetOid: number): Promise<void> {
   const q = (text: string) => session.pool!.query(text);
   const extPresent = async (ext: string): Promise<boolean> => {
     const res = await q(`SELECT 1 FROM pg_extension WHERE extname = '${ext}'`);
@@ -662,9 +662,34 @@ async function autoInstallSmoke(app: InjectApp, session: SessionState): Promise<
     );
     aiCheck(await extPresent("pageinspect"), "pageinspect not re-installed by the Page guard");
     console.log("auto-install (Page) OK: DROP pageinspect -> /api/tables 200 -> re-installed");
+
+    // Visibility guard: drop pg_visibility -> visibility endpoint auto-installs -> confirmed back.
+    await q(`DROP EXTENSION IF EXISTS pg_visibility`);
+    aiCheck(!(await extPresent("pg_visibility")), "pg_visibility still present after DROP");
+    const visRes = await app.inject({
+      method: "GET",
+      url: `/api/tables/${targetOid}/pages/0/visibility`,
+    });
+    aiCheck(
+      visRes.statusCode === 200,
+      `GET visibility after DROP -> ${visRes.statusCode} ${visRes.body}`,
+    );
+    const vis = visRes.json() as {
+      allVisible: boolean;
+      allFrozen: boolean;
+      pdAllVisible: boolean;
+    };
+    aiCheck(
+      typeof vis.allVisible === "boolean" &&
+        typeof vis.allFrozen === "boolean" &&
+        typeof vis.pdAllVisible === "boolean",
+      "visibility response malformed after auto-install",
+    );
+    aiCheck(await extPresent("pg_visibility"), "pg_visibility not re-installed by the VM guard");
+    console.log("auto-install (VM) OK: DROP pg_visibility -> visibility 200 -> re-installed");
   } finally {
     // Fallback rebuild: a failed segment must not leave the DB without extensions.
-    for (const ext of ["pg_walinspect", "pageinspect"]) {
+    for (const ext of ["pg_walinspect", "pageinspect", "pg_visibility"]) {
       try {
         await q(`CREATE EXTENSION IF NOT EXISTS ${ext}`);
       } catch (e) {
@@ -771,13 +796,13 @@ async function main(): Promise<void> {
 
   await btreeIndexSmoke(app, session);
   await indexKeyDecodeSmoke(app, session);
-  await autoInstallSmoke(app, session);
+  await autoInstallSmoke(app, session, target.oid);
 
   console.log(`L3 smoke OK: ${target.qualifiedName} blk 0 length=${buf.length}`);
   console.log(`serverVersion=${session.serverVersion}`);
   console.log(`R1 schema placeholders OK (${cols.filter((c) => c.attisdropped).length} dropped)`);
   console.log("B-tree segment OK: list/metapage/internal/leaf/posting oracle + hash guard");
-  console.log("Auto-install segment OK: guards re-install dropped extensions (WAL + Page)");
+  console.log("Auto-install segment OK: guards re-install dropped extensions (WAL + Page + VM)");
   await app.close();
   if (session.pool) await session.pool.end();
 }
