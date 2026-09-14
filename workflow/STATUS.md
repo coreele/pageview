@@ -9,10 +9,10 @@
 | 泳道 | 数量 |
 |---|---|
 | 等待用户 | 0 |
-| 进行中 | 1 |
+| 进行中 | 0 |
 | 待办 | 0 |
 | 阻塞 | 0 |
-| 已关闭 | 3 |
+| 已关闭 | 4 |
 | 已归档 | 40 |
 
 ## 等待用户
@@ -27,7 +27,7 @@
 
 | 工作项 | 状态 | 路径 | 下一步 | 摘要 |
 |---|---|---|---|---|
-| visibility-map-info | developing | workflow/workspace/visibility-map-info/ | Developer 实施与自验 | heap block 展示 visibility map（pg_visibility 自动安装 + 失败 Install 按钮） |
+| — | | | | |
 
 ## 待办
 
@@ -50,6 +50,7 @@
 | single-relation-select | single-relation-select → main | single 模式恢复 table/index 选择；QA Pass @ e4186cd |
 | unify-module-radius-spacing | unify-module-radius-spacing → main | 统一模块圆角与间距；QA Pass @ 1aa7a27 |
 | flat-split-dividers | flat-split-dividers → main | 三栏去卡片化 + 全出血 + 竖线无阴影 + detail 平铺；QA Pass @ fba35d2 |
+| visibility-map-info | visibility-map-info → main | heap block 展示 VM（pg_visibility 自动安装 + 失败 Install 按钮）；QA Pass @ bb1a4c8 |
 
 ## 归档索引
 
