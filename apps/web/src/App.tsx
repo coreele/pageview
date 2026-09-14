@@ -1893,7 +1893,7 @@ export function App() {
                     <span className="value">{heapPage.stats.tupleCount}</span>
                   </span>
                   <span className="meta-item">
-                    <span className="label">visibility map</span>
+                    <span className="label">VM</span>
                     <span className="value">
                       {vm ? (
                         <>
