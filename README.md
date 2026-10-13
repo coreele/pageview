@@ -6,7 +6,7 @@ Browse PostgreSQL heap pages, B-tree index pages, and WAL records in the browser
 
 Built for developers learning or debugging — **not** intended for public deployment.
 
-![UI overview: structure diagram, hex dump, and tuple detail](./docs/assets/ui-overview.png)
+![UI overview: structure diagram, hex dump, and tuple detail](./docs/assets/ui-overview-new.png)
 
 ## Features
 

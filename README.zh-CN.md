@@ -6,7 +6,7 @@
 
 面向学习或调试的开发者 — **不适合**公开部署到公网。
 
-![界面示意：结构图、十六进制转储与元组详情](./docs/assets/ui-overview.png)
+![界面示意：结构图、十六进制转储与元组详情](./docs/assets/ui-overview-new.png)
 
 ## 功能
 
